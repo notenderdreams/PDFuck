@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, RotateCcw, Check, Moon, Sun, BookOpen, Monitor } from 'lucide-react';
+import { X, RotateCcw, Check, Moon, Sun, BookOpen } from 'lucide-react';
 import type { ReadingTheme, ThemeSettings } from '../utils/types';
 
 interface ColorThemeModalProps {
@@ -21,42 +21,42 @@ const THEMES: {
   {
     id: 'default',
     name: 'Original Paper',
-    desc: 'Standard clean high-resolution document view',
+    desc: 'Clean standard document view',
     bgPreview: 'bg-white',
     textPreview: 'text-zinc-900',
   },
   {
     id: 'invert',
     name: 'Smart Invert (Dark)',
-    desc: 'Ergonomic dark theme with balanced color chrominance',
+    desc: 'Balanced chrominance dark mode',
     bgPreview: 'bg-[#18181b]',
     textPreview: 'text-zinc-200',
   },
   {
     id: 'oled',
     name: 'OLED Pitch Black',
-    desc: 'Pure #000000 black background for maximum contrast & battery saving',
+    desc: 'Pure #000000 true black background',
     bgPreview: 'bg-[#000000]',
     textPreview: 'text-white',
   },
   {
     id: 'sepia',
     name: 'Warm Eye-Care Sepia',
-    desc: 'Cozy 5200K tone for reading without eye fatigue',
+    desc: '5200K tone for prolonged reading',
     bgPreview: 'bg-[#f6eee3]',
     textPreview: 'text-[#433422]',
   },
   {
     id: 'nord',
     name: 'Nord Slate Night',
-    desc: 'Cool icy slate theme inspired by Nordic design',
+    desc: 'Cool Arctic dark theme',
     bgPreview: 'bg-[#2e3440]',
     textPreview: 'text-[#eceff4]',
   },
   {
     id: 'matrix',
     name: 'Cyberpunk Matrix',
-    desc: 'Phosphor green terminal contrast for code & schematics',
+    desc: 'High-contrast phosphor green',
     bgPreview: 'bg-[#0d1a0d]',
     textPreview: 'text-[#39ff14]',
   },
@@ -73,50 +73,50 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="w-full max-w-md double-bezel bg-[#121216]/95 border border-white/15 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 animate-slide-down">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
+      <div className="w-full max-w-md bg-[#25252c] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <h3 className="text-base font-bold text-white tracking-tight">
+            <h3 className="text-sm font-bold text-white tracking-tight">
               Reading Themes & Color Invert
             </h3>
-            <p className="text-xs text-zinc-400">
-              Customize eye comfort, contrast, and dark mode luminance
+            <p className="text-[11px] text-zinc-400">
+              Select ergonomic palette & adjust raster filters
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+            className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] transition-all"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Theme Grid */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2">
           {THEMES.map((t) => {
             const isSelected = settings.theme === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => onSelectTheme(t.id)}
-                className={`p-3 rounded-2xl border text-left flex flex-col gap-1.5 transition-all relative ${
+                className={`p-2.5 rounded-lg border text-left flex flex-col gap-1 transition-all ${
                   isSelected
-                    ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.3)] ring-1 ring-blue-500'
-                    : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20'
+                    ? 'border-[#0080f0] bg-[#0080f0]/15 shadow-sm ring-1 ring-[#0080f0]'
+                    : 'border-[#363644] bg-[#1e1e24] hover:bg-[#2a2a34] hover:border-[#424254]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className={`w-4 h-4 rounded-full border border-white/20 shadow-inner ${t.bgPreview}`}
+                      className={`w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs ${t.bgPreview}`}
                     />
-                    <span className="text-xs font-semibold text-zinc-200">
+                    <span className="font-semibold text-zinc-200 text-xs">
                       {t.name}
                     </span>
                   </div>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-[#38bdf8]" />}
                 </div>
                 <p className="text-[10px] text-zinc-400 leading-tight">
                   {t.desc}
@@ -127,8 +127,8 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
         </div>
 
         {/* Brightness & Contrast Sliders */}
-        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs">
+        <div className="p-3 rounded-lg bg-[#1e1e24] border border-[#32323e] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
             <span className="font-medium text-zinc-300">Document Brightness</span>
             <span className="font-mono text-zinc-400">{settings.brightness}%</span>
           </div>
@@ -138,10 +138,10 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
             max="140"
             value={settings.brightness}
             onChange={(e) => onUpdateSetting('brightness', parseInt(e.target.value, 10))}
-            className="w-full accent-blue-500 cursor-pointer"
+            className="w-full accent-[#0080f0] cursor-pointer h-1"
           />
 
-          <div className="flex items-center justify-between text-xs mt-1">
+          <div className="flex items-center justify-between mt-1">
             <span className="font-medium text-zinc-300">Document Contrast</span>
             <span className="font-mono text-zinc-400">{settings.contrast}%</span>
           </div>
@@ -151,7 +151,7 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
             max="150"
             value={settings.contrast}
             onChange={(e) => onUpdateSetting('contrast', parseInt(e.target.value, 10))}
-            className="w-full accent-blue-500 cursor-pointer"
+            className="w-full accent-[#0080f0] cursor-pointer h-1"
           />
         </div>
 
@@ -159,15 +159,15 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
         <div className="flex items-center justify-between pt-1">
           <button
             onClick={onResetFilters}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] transition-all"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Defaults</span>
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset</span>
           </button>
 
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md transition-all active:scale-95"
+            className="px-4 py-1.5 rounded-md bg-[#0080f0] hover:bg-[#0070dc] text-white font-semibold shadow-sm transition-all active:scale-98"
           >
             Apply & Close
           </button>

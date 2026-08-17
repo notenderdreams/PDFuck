@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, FileText, Code2, Image as ImageIcon, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { X, Download, FileText, Code2, Image as ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { Annotation } from '../utils/types';
 import { exportAnnotatedPDF, savePdfFile, saveAnnotationsJson } from '../utils/pdfExporter';
@@ -29,10 +29,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const triggerConfetti = () => {
     try {
       confetti({
-        particleCount: 80,
-        spread: 60,
+        particleCount: 70,
+        spread: 55,
         origin: { y: 0.7 },
-        colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'],
+        colors: ['#0088ff', '#00e599', '#ff9f1c', '#8b5cf6'],
       });
     } catch {}
   };
@@ -50,11 +50,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const result = await savePdfFile(outputBytes, exportName);
       if (result.success) {
         triggerConfetti();
-        setSuccessMessage(`Successfully saved ${exportName}!`);
+        setSuccessMessage(`Saved ${exportName}!`);
         setTimeout(() => {
           onClose();
           setSuccessMessage(null);
-        }, 1800);
+        }, 1600);
       }
     } catch (err: unknown) {
       console.error('Export PDF error:', err);
@@ -74,11 +74,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const result = await saveAnnotationsJson(annotations, exportName);
       if (result.success) {
         triggerConfetti();
-        setSuccessMessage(`Saved annotations session to ${exportName}!`);
+        setSuccessMessage(`Saved session to ${exportName}!`);
         setTimeout(() => {
           onClose();
           setSuccessMessage(null);
-        }, 1800);
+        }, 1600);
       }
     } catch (err: unknown) {
       console.error('Export JSON error:', err);
@@ -105,34 +105,34 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       document.body.removeChild(a);
 
       triggerConfetti();
-      setSuccessMessage(`Exported Page ${currentPage} as PNG image!`);
+      setSuccessMessage(`Exported Page ${currentPage} as PNG!`);
       setTimeout(() => {
         onClose();
         setSuccessMessage(null);
-      }, 1800);
+      }, 1600);
     } catch (e) {
       console.error('Failed to export PNG:', e);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="w-full max-w-md double-bezel bg-[#121216]/95 border border-white/15 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 animate-slide-down">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
+      <div className="w-full max-w-md bg-[#25252c] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <Download className="w-4 h-4 text-blue-400" />
+            <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+              <Download className="w-4 h-4 text-[#0088ff]" />
               <span>Save & Export Document</span>
             </h3>
-            <p className="text-xs text-zinc-400">
-              Save your highlights, attached images, and drawings
+            <p className="text-[11px] text-zinc-400">
+              Synthesize modified PDF with baked vector annotations
             </p>
           </div>
           <button
             onClick={onClose}
             disabled={isExporting}
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+            className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] transition-all"
           >
             <X className="w-4 h-4" />
           </button>
@@ -140,37 +140,37 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* Success Alert */}
         {successMessage && (
-          <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5 animate-slide-down">
+          <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-2 animate-slide-down">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
             <span className="font-medium">{successMessage}</span>
           </div>
         )}
 
         {/* Export Options */}
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {/* Option 1: Flattened PDF */}
           <button
             onClick={handleExportBakedPdf}
             disabled={isExporting || !rawPdfBytes}
-            className="p-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-left flex items-center justify-between group transition-all disabled:opacity-50"
+            className="p-3.5 rounded-lg border border-[#0080f0]/40 bg-[#0080f0]/10 hover:bg-[#0080f0]/20 text-left flex items-center justify-between group transition-all disabled:opacity-50"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
-                <FileText className="w-5 h-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded bg-[#0080f0]/20 border border-[#0080f0]/40 flex items-center justify-center text-[#38bdf8]">
+                <FileText className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-white group-hover:text-blue-300">
+                <span className="font-bold text-white group-hover:text-[#38bdf8] text-xs">
                   Save Modified PDF Document
                 </span>
                 <span className="text-[10px] text-zinc-400 leading-tight">
-                  Bakes all {annotations.length} highlights, images & drawings into a permanent PDF file
+                  Bakes {annotations.length} highlights, images & drawings permanently
                 </span>
               </div>
             </div>
             {isExporting ? (
-              <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+              <Loader2 className="w-4 h-4 text-[#38bdf8] animate-spin" />
             ) : (
-              <Download className="w-4 h-4 text-blue-400 group-hover:translate-y-0.5 transition-transform" />
+              <Download className="w-4 h-4 text-[#38bdf8] group-hover:translate-y-0.5 transition-transform" />
             )}
           </button>
 
@@ -178,18 +178,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <button
             onClick={handleExportJson}
             disabled={isExporting}
-            className="p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 text-left flex items-center justify-between group transition-all"
+            className="p-3 rounded-lg border border-[#343440] bg-[#1e1e24] hover:bg-[#282832] text-left flex items-center justify-between group transition-all"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                <Code2 className="w-5 h-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                <Code2 className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-white group-hover:text-purple-300">
+                <span className="font-bold text-white group-hover:text-purple-300 text-xs">
                   Save Annotations Session (.json)
                 </span>
                 <span className="text-[10px] text-zinc-400 leading-tight">
-                  Lightweight file to backup and restore your editable annotations anytime
+                  Editable manifest backup to reload later
                 </span>
               </div>
             </div>
@@ -200,18 +200,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <button
             onClick={handleExportPagePng}
             disabled={isExporting}
-            className="p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 text-left flex items-center justify-between group transition-all"
+            className="p-3 rounded-lg border border-[#343440] bg-[#1e1e24] hover:bg-[#282832] text-left flex items-center justify-between group transition-all"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <ImageIcon className="w-5 h-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <ImageIcon className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-white group-hover:text-emerald-300">
+                <span className="font-bold text-white group-hover:text-emerald-300 text-xs">
                   Export Page {currentPage} as PNG Image
                 </span>
                 <span className="text-[10px] text-zinc-400 leading-tight">
-                  High-resolution rendered snapshot of the current page
+                  High-res raster snapshot of active page
                 </span>
               </div>
             </div>

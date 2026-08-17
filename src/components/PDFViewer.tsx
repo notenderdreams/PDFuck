@@ -131,45 +131,41 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="flex-1 flex flex-col items-center justify-center p-6 bg-[#09090b] relative overflow-hidden"
+        className="flex-1 flex flex-col items-center justify-center p-6 bg-[#18181f] relative overflow-hidden"
       >
-        {/* Subtle Background Glow */}
-        <div className="absolute w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none -top-48 -left-48" />
-        <div className="absolute w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-3xl pointer-events-none -bottom-48 -right-48" />
-
-        <div className="max-w-md w-full double-bezel p-8 rounded-3xl text-center flex flex-col items-center gap-6 relative z-10 animate-slide-up">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/15 flex items-center justify-center shadow-lg">
-            <UploadCloud className="w-8 h-8 text-blue-400" />
+        <div className="max-w-md w-full p-8 rounded-xl bg-[#23232a] border border-[#363644] text-center flex flex-col items-center gap-5 relative z-10 shadow-2xl animate-slide-up">
+          <div className="w-14 h-14 rounded-xl bg-[#2c2c38] border border-[#3e3e4e] flex items-center justify-center shadow-md">
+            <UploadCloud className="w-7 h-7 text-[#0088ff]" />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-bold text-white tracking-tight">
+          <div className="flex flex-col gap-1.5">
+            <h2 className="text-lg font-bold text-white tracking-tight">
               Open or Drop a PDF Document
             </h2>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Experience silky 120Hz smooth reading, OLED dark invert, translucent highlights, image attachments & native PDF export.
+              Professional document studio with 120Hz smooth scrolling, dark inverting, image attachments & native vector PDF export.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full">
             <button
               onClick={onOpenPdfClick}
-              className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/25 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+              className="w-full py-2 px-3.5 rounded-md bg-[#0080f0] hover:bg-[#0070dc] text-white text-xs font-semibold shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
             >
               <UploadCloud className="w-4 h-4" />
               <span>Browse PDF File</span>
             </button>
             <button
               onClick={onLoadSampleClick}
-              className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full py-2 px-3.5 rounded-md bg-[#2b2b34] hover:bg-[#343440] border border-[#3b3b48] text-zinc-200 hover:text-white text-xs font-medium transition-all flex items-center justify-center gap-2"
             >
-              <Sparkles className="w-4 h-4 text-purple-400" />
+              <Sparkles className="w-4 h-4 text-amber-400" />
               <span>Load Sample Doc</span>
             </button>
           </div>
 
-          <div className="text-[11px] text-zinc-500 font-mono">
-            Drag & drop any .pdf file anywhere into the window
+          <div className="text-[10px] text-zinc-500 font-mono">
+            Drag & drop any .pdf file directly into the viewport
           </div>
         </div>
       </main>
@@ -183,7 +179,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="flex-1 overflow-y-auto overflow-x-auto bg-[#09090b] relative flex flex-col items-center p-4 scroll-smooth"
+      className="flex-1 overflow-y-auto overflow-x-auto bg-[#18181f] relative flex flex-col items-center p-4 scroll-smooth"
     >
       {/* Dragging file overlay cue */}
       {isViewerDraggingFile && (

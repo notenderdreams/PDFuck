@@ -4,7 +4,6 @@ import {
   Download,
   Moon,
   Sun,
-  Palette,
   Search,
   Maximize2,
   Minimize2,
@@ -13,11 +12,10 @@ import {
   Layers,
   HelpCircle,
   Sparkles,
-  BookOpen,
-  Eye,
   Rows,
   Square,
-  Columns2
+  Columns2,
+  ChevronDown,
 } from 'lucide-react';
 import type { DocumentInfo, ReadingTheme, ViewMode } from '../utils/types';
 
@@ -70,10 +68,10 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   if (isZenMode) {
     return (
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 opacity-30 hover:opacity-100 transition-opacity duration-300">
+      <div className="fixed top-3 right-3 z-50 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity duration-200">
         <button
           onClick={onToggleZen}
-          className="p-2.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-black/90 shadow-xl"
+          className="p-2 rounded-lg bg-[#23232a] border border-[#3c3c4a] text-zinc-300 hover:text-white shadow-xl"
           title="Exit Zen Mode (F)"
         >
           <Minimize2 className="w-4 h-4" />
@@ -85,60 +83,60 @@ export const Header: React.FC<HeaderProps> = ({
   const isInverted = theme !== 'default';
 
   return (
-    <header className="h-14 bg-[#0e0e12]/90 border-b border-white/[0.08] backdrop-blur-xl flex items-center justify-between px-4 z-30 select-none app-drag-region">
-      {/* Left: macOS Window Spacing & Sidebar / File Actions */}
-      <div className="flex items-center gap-2.5 app-no-drag">
-        {/* Leave space for native macOS traffic lights if on Mac */}
+    <header className="h-12 bg-[#25252c] border-b border-[#363642] flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
+      {/* Left Studio Section: Traffic space, Sidebar rail toggle, Open file */}
+      <div className="flex items-center gap-1.5 app-no-drag">
+        {/* macOS Traffic lights spacer */}
         <div className="w-16 hidden sm:block" />
 
-        {/* Sidebar Toggle */}
+        {/* Sidebar Toggle Button */}
         <button
           onClick={onToggleSidebar}
-          className={`p-2 rounded-xl border transition-all duration-200 ${
+          className={`p-1.5 rounded-md border transition-all ${
             isSidebarOpen
-              ? 'bg-white/15 border-white/20 text-white shadow-inner'
-              : 'bg-white/5 border-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+              ? 'bg-[#353542] border-[#48485a] text-white shadow-xs'
+              : 'bg-[#202026] border-[#2e2e38] text-zinc-400 hover:text-zinc-200 hover:bg-[#2c2c36]'
           }`}
-          title="Toggle Navigation Sidebar"
+          title="Studio Navigator (Thumbnails, Outline, Annotations)"
         >
-          <Layers className="w-4 h-4" />
+          <Layers className="w-3.5 h-3.5" />
         </button>
 
-        {/* Open PDF button */}
+        {/* Open PDF */}
         <button
           onClick={onOpenPdf}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-zinc-200 hover:text-white transition-all duration-200 shadow-sm active:scale-95"
-          title="Open PDF Document (Cmd+O)"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#2b2b34] hover:bg-[#343440] border border-[#3b3b48] text-zinc-200 hover:text-white transition-all font-medium active:scale-98"
+          title="Open Document (Cmd+O)"
         >
-          <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
-          <span>Open PDF</span>
+          <FolderOpen className="w-3.5 h-3.5 text-[#0099ff]" />
+          <span>Open</span>
         </button>
 
-        {/* Load Demo / Sample Document */}
+        {/* Sample Doc */}
         <button
           onClick={onLoadSample}
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-blue-500/20 text-xs font-medium text-blue-300 hover:text-blue-200 transition-all duration-200 shadow-sm"
-          title="Load Interactive Sample PDF"
+          className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#23232a] hover:bg-[#2e2e38] border border-[#363644] text-zinc-300 hover:text-white transition-all"
+          title="Load Sample Document"
         >
-          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-          <span>Sample PDF</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>Sample</span>
         </button>
       </div>
 
-      {/* Center: Document Title & Page Switcher */}
-      <div className="flex items-center gap-3 app-no-drag max-w-[40%]">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] backdrop-blur-md">
+      {/* Center Studio Section: Document Breadcrumb & Page Stepper */}
+      <div className="flex items-center gap-2 app-no-drag max-w-[42%]">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d24] border border-[#2e2e3a] text-zinc-300">
           <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span
-            className="text-xs font-medium text-zinc-300 truncate max-w-[180px] sm:max-w-[240px]"
+            className="font-medium truncate max-w-[160px] sm:max-w-[220px]"
             title={docInfo?.fileName || 'No Document'}
           >
-            {docInfo?.fileName || 'PDFuck — No Document Loaded'}
+            {docInfo?.fileName || 'No Document'}
           </span>
         </div>
 
         {numPages > 0 && (
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-white/[0.03] px-2.5 py-1 rounded-lg border border-white/[0.05]">
+          <div className="flex items-center gap-1 bg-[#1d1d24] px-2 py-0.5 rounded-md border border-[#2e2e3a]">
             <input
               type="number"
               min={1}
@@ -148,72 +146,72 @@ export const Header: React.FC<HeaderProps> = ({
                 const val = parseInt(e.target.value, 10);
                 if (!isNaN(val)) onPageChange(val);
               }}
-              className="w-9 text-center bg-white/10 rounded px-1 py-0.5 text-zinc-200 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-8 text-center bg-[#292934] rounded px-1 py-0.5 text-zinc-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-[#0088ff]"
             />
-            <span className="text-zinc-500 font-mono">/</span>
-            <span className="font-mono text-zinc-400">{numPages}</span>
+            <span className="text-zinc-500 font-mono text-[11px]">/</span>
+            <span className="font-mono text-zinc-400 text-[11px] pr-0.5">{numPages}</span>
           </div>
         )}
       </div>
 
-      {/* Right: Color Inversion, Reading Mode, View Modes, Zoom, Export */}
-      <div className="flex items-center gap-2 app-no-drag">
-        {/* Search button */}
+      {/* Right Studio Section: Invert Mode, View Modes, Zoom, Search, Save */}
+      <div className="flex items-center gap-1.5 app-no-drag">
+        {/* Search */}
         <button
           onClick={onToggleSearch}
-          className={`p-2 rounded-xl border transition-all duration-200 ${
+          className={`p-1.5 rounded-md border transition-all ${
             isSearchOpen
-              ? 'bg-blue-500/20 border-blue-500/30 text-blue-300'
-              : 'bg-white/5 border-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+              ? 'bg-[#0088ff]/20 border-[#0088ff]/50 text-[#38bdf8]'
+              : 'bg-[#202026] border-[#2e2e38] text-zinc-400 hover:text-zinc-200 hover:bg-[#2c2c36]'
           }`}
-          title="Search Text (Cmd+F)"
+          title="Search in PDF (Cmd+F)"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-3.5 h-3.5" />
         </button>
 
-        {/* Quick Color Invert Button */}
+        {/* Invert / Dark Mode Pill */}
         <button
           onClick={onToggleInvert}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all duration-200 ${
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
             isInverted
-              ? 'bg-purple-500/20 border-purple-500/30 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.2)]'
-              : 'bg-white/5 border-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+              ? 'bg-[#8b5cf6]/20 border-[#8b5cf6]/50 text-purple-300'
+              : 'bg-[#202026] border-[#2e2e38] text-zinc-400 hover:text-zinc-200 hover:bg-[#2c2c36]'
           }`}
-          title="Quick Invert Colors (Cmd+I)"
+          title="Invert Colors / Dark Mode (Cmd+I)"
         >
           {isInverted ? <Sun className="w-3.5 h-3.5 text-purple-400" /> : <Moon className="w-3.5 h-3.5" />}
-          <span className="text-xs font-medium hidden lg:inline">
+          <span className="font-medium hidden lg:inline">
             {isInverted ? 'Inverted' : 'Invert'}
           </span>
         </button>
 
-        {/* Reading Themes & Filter Settings */}
+        {/* Theme Settings Modal */}
         <button
           onClick={onOpenThemeModal}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-400 hover:text-zinc-200 transition-all duration-200"
-          title="Reading Themes & Invert Settings"
+          className="p-1.5 rounded-md bg-[#202026] hover:bg-[#2c2c36] border border-[#2e2e38] text-zinc-400 hover:text-zinc-200 transition-all"
+          title="Display Themes & Filters"
         >
-          <SlidersHorizontal className="w-4 h-4" />
+          <SlidersHorizontal className="w-3.5 h-3.5" />
         </button>
 
-        {/* View Mode Switcher (Continuous / Single / Spread) */}
-        <div className="hidden lg:flex items-center bg-white/[0.04] p-0.5 rounded-xl border border-white/[0.06]">
+        {/* View Mode Segmented Control (Unity / Affinity style) */}
+        <div className="hidden lg:flex items-center bg-[#1d1d24] p-0.5 rounded-md border border-[#2e2e3a]">
           <button
             onClick={() => onChangeViewMode('continuous')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 rounded transition-all ${
               viewMode === 'continuous'
-                ? 'bg-white/20 text-white shadow-sm'
+                ? 'bg-[#353544] text-white shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Continuous Scroll"
+            title="Continuous Vertical Layout"
           >
             <Rows className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onChangeViewMode('single')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 rounded transition-all ${
               viewMode === 'single'
-                ? 'bg-white/20 text-white shadow-sm'
+                ? 'bg-[#353544] text-white shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Single Page Slide"
@@ -222,9 +220,9 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onChangeViewMode('spread')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 rounded transition-all ${
               viewMode === 'spread'
-                ? 'bg-white/20 text-white shadow-sm'
+                ? 'bg-[#353544] text-white shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Two-Page Spread (Book Mode)"
@@ -233,48 +231,48 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Zoom Selector */}
-        <div className="hidden xl:flex items-center gap-1 bg-white/[0.04] px-2 py-1 rounded-xl border border-white/[0.06] text-xs font-mono text-zinc-300">
+        {/* Zoom Stepper */}
+        <div className="hidden xl:flex items-center bg-[#1d1d24] px-1.5 py-0.5 rounded-md border border-[#2e2e3a] font-mono text-[11px] text-zinc-300">
           <button
             onClick={() => onChangeZoom(Math.max(0.4, zoom - 0.15))}
-            className="hover:text-white px-1"
+            className="hover:text-white px-1 text-zinc-400"
             title="Zoom Out (Cmd -)"
           >
             -
           </button>
-          <span className="w-10 text-center">{Math.round(zoom * 100)}%</span>
+          <span className="w-9 text-center">{Math.round(zoom * 100)}%</span>
           <button
             onClick={() => onChangeZoom(Math.min(3.0, zoom + 0.15))}
-            className="hover:text-white px-1"
+            className="hover:text-white px-1 text-zinc-400"
             title="Zoom In (Cmd +)"
           >
             +
           </button>
         </div>
 
-        {/* Zen Mode Button */}
+        {/* Zen Mode */}
         <button
           onClick={onToggleZen}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-400 hover:text-zinc-200 transition-all duration-200"
-          title="Fullscreen Focus / Zen Mode (F)"
+          className="p-1.5 rounded-md bg-[#202026] hover:bg-[#2c2c36] border border-[#2e2e38] text-zinc-400 hover:text-zinc-200 transition-all"
+          title="Fullscreen Focus (F)"
         >
-          <Maximize2 className="w-4 h-4" />
+          <Maximize2 className="w-3.5 h-3.5" />
         </button>
 
-        {/* Shortcuts Help */}
+        {/* Shortcuts */}
         <button
           onClick={onToggleShortcuts}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-400 hover:text-zinc-200 transition-all duration-200"
-          title="Keyboard Shortcuts (?)"
+          className="p-1.5 rounded-md bg-[#202026] hover:bg-[#2c2c36] border border-[#2e2e38] text-zinc-400 hover:text-zinc-200 transition-all"
+          title="Shortcuts (?)"
         >
-          <HelpCircle className="w-4 h-4" />
+          <HelpCircle className="w-3.5 h-3.5" />
         </button>
 
-        {/* Primary Save & Export Button */}
+        {/* Primary Save / Export Button (Affinity Studio Blue) */}
         <button
           onClick={onExportClick}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-[0_2px_12px_rgba(59,130,246,0.3)] transition-all duration-200 active:scale-95 ml-1"
-          title="Export / Save Modified PDF (Cmd+S)"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0080f0] hover:bg-[#0070dc] text-white font-semibold shadow-sm transition-all active:scale-98 ml-0.5"
+          title="Export Modified PDF (Cmd+S)"
         >
           <Download className="w-3.5 h-3.5" />
           <span>Save PDF</span>

@@ -172,12 +172,12 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
       }}
-      className={`relative mx-auto my-6 bg-white shadow-[0_10px_35px_rgba(0,0,0,0.5)] rounded-sm transition-all duration-200 group ${
-        isDragOver ? 'ring-4 ring-blue-500 scale-[1.01]' : ''
+      className={`relative mx-auto my-6 bg-white shadow-[0_6px_28px_rgba(0,0,0,0.6),0_1px_3px_rgba(0,0,0,0.3)] rounded-xs transition-all duration-150 group ${
+        isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
       {/* Visual Page Number Badge in Margin */}
-      <div className="absolute -top-6 left-2 text-[10px] font-mono text-zinc-500 font-medium select-none">
+      <div className="absolute -top-5 left-1 text-[10px] font-mono text-zinc-500 font-medium select-none tracking-wider">
         PAGE {pageNumber}
       </div>
 
