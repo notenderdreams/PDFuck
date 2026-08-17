@@ -19,6 +19,8 @@ interface SidebarProps {
   currentPage: number;
   numPages: number;
   annotations: Annotation[];
+  filterClass: string;
+  customFilterStyle: React.CSSProperties;
   onClose: () => void;
   onPageSelect: (pageNumber: number) => void;
   onDeleteAnnotation: (id: string) => void;
@@ -34,6 +36,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentPage,
   numPages,
   annotations,
+  filterClass,
+  customFilterStyle,
   onClose,
   onPageSelect,
   onDeleteAnnotation,
@@ -104,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Studio Tab Content Area */}
       <div className="flex-1 overflow-y-auto p-2.5">
-        {/* TAB 1: THUMBNAILS */}
+        {/* TAB 1: THUMBNAILS (Theme-Aware Inversion) */}
         {activeTab === 'thumbnails' && (
           <div className="grid grid-cols-2 gap-2">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
@@ -113,6 +117,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 pdfDoc={pdfDoc}
                 pageNumber={pageNum}
                 isActive={currentPage === pageNum}
+                filterClass={filterClass}
+                customFilterStyle={customFilterStyle}
                 onClick={() => onPageSelect(pageNum)}
               />
             ))}
@@ -237,13 +243,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-// Thumbnail Renderer subcomponent
+// Thumbnail Renderer subcomponent with Color Inversion
 const ThumbnailItem: React.FC<{
   pdfDoc: PDFDocumentProxy | null;
   pageNumber: number;
   isActive: boolean;
+  filterClass: string;
+  customFilterStyle: React.CSSProperties;
   onClick: () => void;
-}> = ({ pdfDoc, pageNumber, isActive, onClick }) => {
+}> = ({ pdfDoc, pageNumber, isActive, filterClass, customFilterStyle, onClick }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -255,7 +263,7 @@ const ThumbnailItem: React.FC<{
         const page = await pdfDoc.getPage(pageNumber);
         if (isCancelled) return;
 
-        const viewport = page.getViewport({ scale: 0.22 });
+        const viewport = page.getViewport({ scale: 0.25 });
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -280,14 +288,23 @@ const ThumbnailItem: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 p-1 rounded cursor-pointer transition-all ${
+      className={`flex flex-col items-center gap-1.5 p-1.5 rounded-lg cursor-pointer transition-all ${
         isActive
           ? 'bg-[#0080f0]/20 border border-[#0080f0] shadow-sm'
-          : 'bg-[#1e1e24] hover:bg-[#282832] border border-[#2c2c36]'
+          : 'bg-[#1a1a20] hover:bg-[#262630] border border-[#2d2d38]'
       }`}
     >
-      <div className="w-full aspect-[1/1.4] bg-white rounded-xs overflow-hidden flex items-center justify-center">
-        <canvas ref={canvasRef} className="block w-full h-full object-contain" />
+      {/* Thumbnail Paper Container with matching Theme Background & Filter */}
+      <div
+        className={`w-full aspect-[1/1.4] rounded-xs overflow-hidden flex items-center justify-center transition-all duration-200 shadow-xs border border-white/10 ${filterClass}`}
+        style={{
+          ...customFilterStyle,
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          className="block w-full h-full object-contain"
+        />
       </div>
       <span
         className={`text-[10px] font-mono font-medium ${

@@ -116,10 +116,36 @@
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Text Selection */
+/* Precision Selectable & Copiable PDF Text Layer */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 10;
+}
+
+.textLayer :is(span, br) {
+  color: transparent !important;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
 .textLayer ::selection {
-  background: rgba(0, 136, 255, 0.35) !important;
-  color: inherit;
+  background: rgba(0, 128, 240, 0.38) !important;
+  color: transparent !important;
+}
+
+.textLayer ::-moz-selection {
+  background: rgba(0, 128, 240, 0.38) !important;
+  color: transparent !important;
 }
 
 @keyframes slideDown {

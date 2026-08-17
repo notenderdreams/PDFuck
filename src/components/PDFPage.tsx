@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { TextLayer } from 'pdfjs-dist';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { ImageOverlay } from './ImageOverlay';
 import type { Annotation, AttachedImageAnnotation, ReadingTheme, ToolType } from '../utils/types';
@@ -46,6 +47,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onCursorMove,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const textLayerRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({
@@ -97,6 +99,23 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         renderTaskRef.current = renderTask;
 
         await renderTask.promise;
+        if (isCancelled) return;
+
+        // Render Selectable & Copiable Text Layer
+        if (textLayerRef.current) {
+          textLayerRef.current.innerHTML = '';
+          textLayerRef.current.style.setProperty('--scale-factor', `${scale}`);
+
+          const textContentSource = page.streamTextContent();
+          const textLayer = new TextLayer({
+            textContentSource,
+            container: textLayerRef.current,
+            viewport: baseViewport,
+          });
+
+          await textLayer.render();
+        }
+
         if (!isCancelled) {
           setIsRendered(true);
         }
@@ -186,7 +205,22 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         className={`w-full h-full relative overflow-hidden ${filterClass}`}
         style={customFilterStyle}
       >
+        {/* Rendered PDF Raster Canvas */}
         <canvas ref={canvasRef} className="block" />
+
+        {/* Selectable & Copiable Text Layer */}
+        <div
+          ref={textLayerRef}
+          className={`textLayer absolute inset-0 overflow-hidden leading-none z-10 ${
+            activeTool === 'select'
+              ? 'select-text pointer-events-auto cursor-text'
+              : 'select-none pointer-events-none'
+          }`}
+          style={{
+            width: `${pageDimensions.width}px`,
+            height: `${pageDimensions.height}px`,
+          }}
+        />
       </div>
 
       {/* Annotation Canvas (SVG / Freehand / Highlights) */}
@@ -221,9 +255,9 @@ export const PDFPage: React.FC<PDFPageProps> = ({
 
       {/* Drop Image Overlay Visual Cue */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-xs border-2 border-dashed border-blue-400 flex flex-col items-center justify-center text-blue-200 z-50 rounded animate-fade-in pointer-events-none">
-          <span className="text-base font-semibold">Drop Image to Attach</span>
-          <span className="text-xs text-blue-300">Will be placed on Page {pageNumber}</span>
+        <div className="absolute inset-0 bg-[#0080f0]/20 backdrop-blur-xs border-2 border-dashed border-[#0080f0] flex flex-col items-center justify-center text-blue-200 z-50 rounded animate-fade-in pointer-events-none">
+          <span className="text-sm font-semibold text-white">Drop Image to Attach</span>
+          <span className="text-xs text-blue-200">Will be placed on Page {pageNumber}</span>
         </div>
       )}
     </div>

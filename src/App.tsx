@@ -318,6 +318,8 @@ export function App() {
           currentPage={currentPage}
           numPages={pdfDoc?.numPages || 0}
           annotations={annotations}
+          filterClass={getPageFilterClass()}
+          customFilterStyle={getCustomFilterStyle()}
           onClose={() => setIsSidebarOpen(false)}
           onPageSelect={(p) => changePage(p)}
           onDeleteAnnotation={(id) => deleteAnnotation(id)}
