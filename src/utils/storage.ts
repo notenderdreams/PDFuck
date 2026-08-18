@@ -11,6 +11,61 @@ const STORAGE_KEYS = {
   LAST_PAGE_PREFIX: 'pdfuck_last_page_',
 };
 
+// --- IndexedDB Engine for Large Annotation Payloads (Images, Stickers, Ink) ---
+const IDB_NAME = 'pdfuck_database';
+const IDB_VERSION = 1;
+const IDB_STORE_ANNOTATIONS = 'annotations_store';
+
+function openIDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      return reject(new Error('IndexedDB not supported'));
+    }
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(IDB_STORE_ANNOTATIONS)) {
+        db.createObjectStore(IDB_STORE_ANNOTATIONS, { keyPath: 'docKey' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function idbSaveAnnotations(docKey: string, annotations: Annotation[]): Promise<void> {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE_ANNOTATIONS, 'readwrite');
+    const store = tx.objectStore(IDB_STORE_ANNOTATIONS);
+    store.put({ docKey, annotations, updatedAt: Date.now() });
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    // console.warn('IDB Save Error:', err);
+  }
+}
+
+export async function idbLoadAnnotations(docKey: string): Promise<Annotation[] | null> {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE_ANNOTATIONS, 'readonly');
+    const store = tx.objectStore(IDB_STORE_ANNOTATIONS);
+    const req = store.get(docKey);
+    return await new Promise<Annotation[] | null>((resolve) => {
+      req.onsuccess = () => {
+        resolve(req.result ? req.result.annotations : null);
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// --- Theme Settings Storage ---
 export function saveThemeSettings(settings: ThemeSettings): void {
   try {
     localStorage.setItem(STORAGE_KEYS.THEME_SETTINGS, JSON.stringify(settings));
@@ -46,32 +101,113 @@ export function loadViewMode(): ViewMode {
   return 'continuous';
 }
 
-export function saveAnnotationsForDoc(docKey: string, annotations: Annotation[]): void {
+// --- Unified Annotations Auto-Save Engine ---
+
+export function saveAnnotationsForDoc(
+  docKey: string,
+  annotations: Annotation[],
+  fallbackKeys: string[] = []
+): void {
+  // 1. LocalStorage for fast instant access
   try {
-    localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`, JSON.stringify(annotations));
+    const json = JSON.stringify(annotations);
+    localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`, json);
+    for (const key of fallbackKeys) {
+      if (key) {
+        localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`, json);
+      }
+    }
   } catch (e) {
-    console.warn('Failed to save annotations to localStorage', e);
+    // QuotaExceededError is handled gracefully via IndexedDB below
   }
-}
 
-export function loadAnnotationsForDoc(docKey: string): Annotation[] {
-  try {
-    const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+  // 2. Persistent IndexedDB for full-size payloads & image attachments
+  idbSaveAnnotations(docKey, annotations);
+  for (const key of fallbackKeys) {
+    if (key) {
+      idbSaveAnnotations(key, annotations);
+    }
   }
-}
 
-export function saveLastPageForDoc(docKey: string, pageNumber: number): void {
+  // 3. Update annotation count in recent docs
   try {
-    localStorage.setItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${docKey}`, String(pageNumber));
+    const recents = loadRecentDocs();
+    const updated = recents.map((doc) => {
+      if (doc.filePath === docKey || doc.fileName === docKey || fallbackKeys.includes(doc.filePath || '')) {
+        return { ...doc, annotationCount: annotations.length };
+      }
+      return doc;
+    });
+    localStorage.setItem(STORAGE_KEYS.RECENT_DOCS, JSON.stringify(updated));
   } catch {}
 }
 
-export function loadLastPageForDoc(docKey: string): number {
+export function loadAnnotationsForDocSync(docKey: string, fallbackKeys: string[] = []): Annotation[] {
+  // Try main docKey
   try {
-    const raw = localStorage.getItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${docKey}`);
+    const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+
+  // Try fallback keys (e.g. filePath, fileName, fingerprint)
+  for (const key of fallbackKeys) {
+    if (!key) continue;
+    try {
+      const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+  }
+
+  return [];
+}
+
+export async function loadAnnotationsForDocAsync(
+  docKey: string,
+  fallbackKeys: string[] = []
+): Promise<Annotation[] | null> {
+  const fromIdb = await idbLoadAnnotations(docKey);
+  if (fromIdb && fromIdb.length > 0) return fromIdb;
+
+  for (const key of fallbackKeys) {
+    if (!key) continue;
+    const fb = await idbLoadAnnotations(key);
+    if (fb && fb.length > 0) return fb;
+  }
+
+  return null;
+}
+
+export function loadAnnotationsForDoc(docKey: string): Annotation[] {
+  return loadAnnotationsForDocSync(docKey);
+}
+
+// --- Last Read Page Position ---
+
+export function saveLastPageForDoc(
+  docKey: string,
+  pageNumber: number,
+  fileName?: string,
+  filePath?: string
+): void {
+  try {
+    localStorage.setItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${docKey}`, String(pageNumber));
+    if (fileName) {
+      localStorage.setItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${fileName}`, String(pageNumber));
+      updateRecentDocLastPage(fileName, pageNumber);
+    }
+    if (filePath) {
+      localStorage.setItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${filePath}`, String(pageNumber));
+      updateRecentDocLastPage(filePath, pageNumber);
+    }
+  } catch {}
+}
+
+export function loadLastPageForDoc(docKey: string, fallbackKey?: string): number {
+  try {
+    let raw = localStorage.getItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${docKey}`);
+    if (!raw && fallbackKey) {
+      raw = localStorage.getItem(`${STORAGE_KEYS.LAST_PAGE_PREFIX}${fallbackKey}`);
+    }
     return raw ? parseInt(raw, 10) : 1;
   } catch {
     return 1;
@@ -124,6 +260,19 @@ export function recordRecentDoc(doc: Omit<DashboardPdfItem, 'id'> & { id?: strin
   } catch (e) {
     console.warn('Failed to record recent doc in localStorage', e);
   }
+}
+
+export function updateRecentDocLastPage(identifier: string, pageNumber: number): void {
+  try {
+    const current = loadRecentDocs();
+    const updated = current.map((doc) => {
+      if (doc.filePath === identifier || doc.fileName === identifier || doc.id === identifier) {
+        return { ...doc, lastReadPage: pageNumber };
+      }
+      return doc;
+    });
+    localStorage.setItem(STORAGE_KEYS.RECENT_DOCS, JSON.stringify(updated));
+  } catch {}
 }
 
 export function loadFavorites(): string[] {

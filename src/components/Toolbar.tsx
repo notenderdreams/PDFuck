@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   MousePointer,
   Highlighter,
+  PenLine,
   Square,
   PenTool,
   Image as ImageIcon,
@@ -56,7 +57,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const tools: { id: ToolType; icon: React.FC<{ className?: string }>; label: string; shortcut: string }[] = [
     { id: 'select', icon: MousePointer, label: 'Pointer Tool (V)', shortcut: 'V' },
-    { id: 'highlight-pen', icon: Highlighter, label: 'Highlighter (H)', shortcut: 'H' },
+    { id: 'highlight-line', icon: PenLine, label: 'Straight Line Highlighter (L)', shortcut: 'L' },
+    { id: 'highlight-pen', icon: Highlighter, label: 'Freehand Highlighter (H)', shortcut: 'H' },
     { id: 'highlight-rect', icon: Square, label: 'Area Box (R)', shortcut: 'R' },
     { id: 'pen', icon: PenTool, label: 'Pen Tool (P)', shortcut: 'P' },
     { id: 'image', icon: ImageIcon, label: 'Attach Image (I)', shortcut: 'I' },

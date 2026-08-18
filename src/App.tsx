@@ -85,6 +85,7 @@ export function App() {
 
   const {
     annotations,
+    saveStatus,
     addAnnotation,
     addAttachedImage,
     updateAnnotation,
@@ -94,7 +95,7 @@ export function App() {
     redo,
     canUndo,
     canRedo,
-  } = useAnnotations(docKey);
+  } = useAnnotations(docKey, docInfo);
 
   const {
     settings: themeSettings,
@@ -106,7 +107,14 @@ export function App() {
     getCustomFilterStyle,
   } = useColorTheme();
 
-  const isDarkTheme = themeSettings.theme !== 'default';
+  const isDarkTheme = ['invert', 'oled', 'nord', 'matrix'].includes(themeSettings.theme);
+
+  useEffect(() => {
+    document.documentElement.dataset.uiTheme = isDarkTheme ? 'dark' : 'light';
+    return () => {
+      delete document.documentElement.dataset.uiTheme;
+    };
+  }, [isDarkTheme]);
 
   // Load a demo PDF on initial startup if none is loaded
   useEffect(() => {
@@ -339,7 +347,10 @@ export function App() {
   });
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
+    <div
+      data-ui-theme={isDarkTheme ? 'dark' : 'light'}
+      className="h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none transition-colors duration-200"
+    >
       {/* Hidden File Inputs for Browser Fallback */}
       <input
         ref={pdfInputRef}
@@ -373,9 +384,11 @@ export function App() {
         <Dashboard
           hasActiveDoc={!!pdfDoc}
           activeDocName={docInfo?.fileName}
+          isDarkTheme={isDarkTheme}
+          onToggleTheme={toggleInvert}
           onSwitchToReader={() => setCurrentScreen('reader')}
-          onOpenPdf={(data, fileName, filePath) => {
-            loadPdf(data, fileName, filePath);
+          onOpenPdf={(data, fileName, filePath, initialPage) => {
+            loadPdf(data, fileName, filePath, initialPage);
             setCurrentScreen('reader');
           }}
         />
@@ -393,6 +406,8 @@ export function App() {
             isZenMode={isZenMode}
             isSidebarOpen={isSidebarOpen}
             isSearchOpen={isSearchOpen}
+            annotationCount={annotations.length}
+            saveStatus={saveStatus}
             onOpenDashboard={() => setCurrentScreen('dashboard')}
             onOpenPdf={handleOpenPdf}
             onExportClick={() => setIsExportModalOpen(true)}

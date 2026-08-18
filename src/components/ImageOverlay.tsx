@@ -180,7 +180,7 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
         <>
           {/* Quick Floating Action Bar on top */}
           <div
-            className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
+            className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-lg bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Opacity slider */}

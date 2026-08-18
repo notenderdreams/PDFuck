@@ -288,15 +288,13 @@ const ThumbnailItem: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 p-1.5 rounded-lg cursor-pointer transition-all ${
-        isActive
-          ? 'bg-[#30303c] border border-zinc-400 shadow-xs'
-          : 'bg-[#25252e] hover:bg-[#2c2c38] border border-[#343440]'
-      }`}
+      className="flex flex-col items-center gap-1.5 p-1.5 cursor-pointer transition-transform hover:scale-[1.01]"
     >
       {/* Thumbnail Paper Container with matching Theme Background & Filter */}
       <div
-        className={`w-full aspect-[1/1.4] rounded-xs overflow-hidden flex items-center justify-center transition-all duration-200 shadow-xs border border-white/10 ${filterClass}`}
+        className={`w-full aspect-[1/1.4] rounded-xs overflow-hidden flex items-center justify-center transition-all duration-200 shadow-xs border border-white/10 ${
+          isActive ? 'ring-2 ring-[var(--primary)]' : ''
+        } ${filterClass}`}
         style={{
           ...customFilterStyle,
         }}
@@ -306,11 +304,7 @@ const ThumbnailItem: React.FC<{
           className="block w-full h-full object-contain"
         />
       </div>
-      <span
-        className={`text-[10px] font-mono font-medium ${
-          isActive ? 'text-zinc-100' : 'text-zinc-400'
-        }`}
-      >
+      <span className="text-[10px] font-mono font-medium text-zinc-400">
         {pageNumber}
       </span>
     </div>

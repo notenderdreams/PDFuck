@@ -1,5 +1,13 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
-import type { Annotation, AttachedImageAnnotation, DrawingAnnotation, RectHighlightAnnotation, TextHighlightAnnotation, TextNoteAnnotation } from './types';
+import type {
+  Annotation,
+  AttachedImageAnnotation,
+  DrawingAnnotation,
+  LineHighlightAnnotation,
+  RectHighlightAnnotation,
+  TextHighlightAnnotation,
+  TextNoteAnnotation,
+} from './types';
 import { isTauri, tauriSavePdf, tauriSaveJson } from './tauriBridge';
 
 // Helper to convert hex color string (#rrggbb or #rrggbbaa) to RGB (0..1)
@@ -161,6 +169,21 @@ export async function exportAnnotatedPDF(
             });
           }
         }
+      } else if (ann.type === 'highlight-line') {
+        const lineAnn = ann as LineHighlightAnnotation;
+        const color = hexToRgb(lineAnn.color || '#ffe600');
+        const startX = lineAnn.startX * pageWidth;
+        const startY = pageHeight - lineAnn.startY * pageHeight;
+        const endX = lineAnn.endX * pageWidth;
+        const endY = pageHeight - lineAnn.endY * pageHeight;
+
+        page.drawLine({
+          start: { x: startX, y: startY },
+          end: { x: endX, y: endY },
+          thickness: (lineAnn.strokeWidth || 4) * 2.2,
+          color: rgb(color.r, color.g, color.b),
+          opacity: lineAnn.opacity || 0.45,
+        });
       } else if (ann.type === 'text-note') {
         const textAnn = ann as TextNoteAnnotation;
         const fontSize = textAnn.fontSize || 11;

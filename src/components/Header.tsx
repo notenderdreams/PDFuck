@@ -30,6 +30,8 @@ interface HeaderProps {
   isZenMode: boolean;
   isSidebarOpen: boolean;
   isSearchOpen: boolean;
+  annotationCount?: number;
+  saveStatus?: 'saved' | 'saving';
   onOpenDashboard?: () => void;
   onOpenPdf: () => void;
   onExportClick: () => void;
@@ -56,6 +58,8 @@ export const Header: React.FC<HeaderProps> = ({
   isZenMode,
   isSidebarOpen,
   isSearchOpen,
+  annotationCount,
+  saveStatus,
   onOpenDashboard,
   onOpenPdf,
   onExportClick,
@@ -71,6 +75,21 @@ export const Header: React.FC<HeaderProps> = ({
   onCopyPageText,
   onCopyPageJpg,
 }) => {
+  const [pageInputText, setPageInputText] = React.useState<string>(String(currentPage));
+
+  React.useEffect(() => {
+    setPageInputText(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageInputCommit = () => {
+    const val = parseInt(pageInputText, 10);
+    if (!isNaN(val) && val >= 1 && val <= numPages) {
+      onPageChange(val);
+    } else {
+      setPageInputText(String(currentPage));
+    }
+  };
+
   if (isZenMode) {
     return (
       <div className="fixed top-3 right-3 z-50 flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
@@ -86,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
     );
   }
 
-  const isInverted = theme !== 'default';
+  const isInverted = ['invert', 'oled', 'nord', 'matrix'].includes(theme);
 
   return (
     <header className="h-11 bg-[#24242b] border-b border-[#363642] flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
@@ -136,25 +155,47 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d23] border border-[#343440] text-zinc-300">
           <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span
-            className="font-medium truncate max-w-[130px] sm:max-w-[180px]"
+            className="font-medium truncate max-w-[120px] sm:max-w-[170px]"
             title={docInfo?.fileName || 'No Document'}
           >
             {docInfo?.fileName || 'No Document'}
           </span>
+          {annotationCount !== undefined && annotationCount > 0 && (
+            <span
+              className="text-[9.5px] px-1.5 py-0.5 rounded bg-[#282832] text-zinc-400 font-mono tracking-tight shrink-0 flex items-center gap-1"
+              title={`${annotationCount} active annotations saved`}
+            >
+              {saveStatus === 'saving' ? (
+                <span className="text-amber-400">Saving…</span>
+              ) : (
+                <>
+                  <span className="text-emerald-400">✓</span>
+                  <span>{annotationCount}</span>
+                </>
+              )}
+            </span>
+          )}
         </div>
 
         {numPages > 0 && (
-          <div className="flex items-center gap-1 bg-[#1d1d23] px-2 py-0.5 rounded-md border border-[#343440]">
+          <div className="control-field flex items-center gap-1 bg-[#1d1d23] px-2 py-0.5 rounded-md border border-[#343440]">
             <input
-              type="number"
-              min={1}
-              max={numPages}
-              value={currentPage}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) onPageChange(val);
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={pageInputText}
+              onChange={(e) => setPageInputText(e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePageInputCommit();
+                  (e.target as HTMLInputElement).blur();
+                }
               }}
-              className="w-7 text-center bg-[#2a2a33] rounded px-1 py-0.5 text-zinc-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              onBlur={handlePageInputCommit}
+              style={{
+                width: `${Math.max(28, String(pageInputText || numPages).length * 8 + 14)}px`,
+              }}
+              className="text-center bg-[#2a2a33] rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px] font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-zinc-500 font-mono text-[11px]">/</span>
             <span className="font-mono text-zinc-400 text-[11px] pr-1">{numPages}</span>
@@ -204,10 +245,10 @@ export const Header: React.FC<HeaderProps> = ({
           className={`btn-secondary ${
             isInverted ? 'bg-[#34343f] text-zinc-100 border-[#484856]' : 'text-zinc-400'
           }`}
-          title="Invert Colors / Dark Mode (Cmd+I)"
+          title={isInverted ? 'Use light appearance (Cmd+I)' : 'Use dark appearance (Cmd+I)'}
         >
           {isInverted ? <Sun className="w-3.5 h-3.5 text-zinc-300" /> : <Moon className="w-3.5 h-3.5" />}
-          <span className="hidden lg:inline">{isInverted ? 'Inverted' : 'Invert'}</span>
+          <span className="hidden lg:inline">{isInverted ? 'Light' : 'Dark'}</span>
         </button>
 
         {/* Display Settings */}

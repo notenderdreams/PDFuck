@@ -20,11 +20,12 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Annotation Tools',
     items: [
-      { keys: ['H'], desc: 'Highlighter Pen Tool' },
+      { keys: ['L'], desc: 'Straight Line Highlighter (Auto-Snap)' },
+      { keys: ['H'], desc: 'Freehand Highlighter Pen' },
       { keys: ['R'], desc: 'Area Highlight Box' },
       { keys: ['P'], desc: 'Freehand Pen' },
       { keys: ['I'], desc: 'Attach Image / Stamp' },
-      { keys: ['T'], desc: 'Text Note Tool' },
+      { keys: ['T'], desc: 'Sticky Text Note Tool' },
       { keys: ['E'], desc: 'Eraser (Sweep / Click)' },
       { keys: ['V'], desc: 'Select / Pointer Tool' },
     ],
@@ -32,10 +33,13 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Navigation & View',
     items: [
+      { keys: ['Cmd', 'L'], desc: 'Toggle Library Dashboard' },
       { keys: ['Cmd', 'O'], desc: 'Open PDF File' },
       { keys: ['Cmd', 'S'], desc: 'Save Modified PDF' },
       { keys: ['Cmd', 'I'], desc: 'Invert Colors' },
       { keys: ['Cmd', 'F'], desc: 'Find Text in Document' },
+      { keys: ['Cmd+Shift+C'], desc: 'Copy Page Text' },
+      { keys: ['Cmd+Shift+J'], desc: 'Copy Page as Image' },
       { keys: ['→', 'J'], desc: 'Next Page' },
       { keys: ['←', 'K'], desc: 'Previous Page' },
       { keys: ['F'], desc: 'Fullscreen Focus Mode' },

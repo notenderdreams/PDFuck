@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import type {
   Annotation,
   DrawingAnnotation,
+  LineHighlightAnnotation,
   RectHighlightAnnotation,
   StrokePoint,
   TextNoteAnnotation,
@@ -21,6 +22,19 @@ interface AnnotationCanvasProps {
   onDeleteAnnotation: (id: string) => void;
 }
 
+// Distance from point to line segment helper
+function distToSegment(
+  p: { x: number; y: number },
+  v: { x: number; y: number },
+  w: { x: number; y: number }
+) {
+  const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+  if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+  let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+}
+
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   pageNumber,
   pageWidth,
@@ -37,6 +51,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   // Freehand Drawing State
   const [currentStroke, setCurrentStroke] = useState<StrokePoint[] | null>(null);
+
+  // Straight Line Highlight State
+  const [lineStart, setLineStart] = useState<StrokePoint | null>(null);
+  const [lineCurrent, setLineCurrent] = useState<StrokePoint | null>(null);
 
   // Rectangle Area Highlight State
   const [rectStart, setRectStart] = useState<StrokePoint | null>(null);
@@ -83,6 +101,16 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             break;
           }
         }
+      } else if (ann.type === 'highlight-line') {
+        const lineAnn = ann as LineHighlightAnnotation;
+        const x1 = lineAnn.startX * pageWidth;
+        const y1 = lineAnn.startY * pageHeight;
+        const x2 = lineAnn.endX * pageWidth;
+        const y2 = lineAnn.endY * pageHeight;
+        const dist = distToSegment({ x: px, y: py }, { x: x1, y: y1 }, { x: x2, y: y2 });
+        if (dist <= ERASE_RADIUS + (lineAnn.strokeWidth || 10) / 2) {
+          onDeleteAnnotation(ann.id);
+        }
       } else if (ann.type === 'highlight-rect') {
         const hRect = ann as RectHighlightAnnotation;
         const rx = hRect.x * pageWidth;
@@ -117,6 +145,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
     if (activeTool === 'eraser') {
       performEraseAt(px, py);
+    } else if (activeTool === 'highlight-line') {
+      isInteractingRef.current = true;
+      setLineStart({ x, y });
+      setLineCurrent({ x, y });
     } else if (activeTool === 'pen' || activeTool === 'highlight-pen') {
       isInteractingRef.current = true;
       setCurrentStroke([{ x, y }]);
@@ -143,7 +175,17 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
     if (!isInteractingRef.current) return;
 
-    if (activeTool === 'pen' || activeTool === 'highlight-pen') {
+    if (activeTool === 'highlight-line') {
+      let curX = x;
+      let curY = y;
+      if (lineStart) {
+        // Auto-snap horizontal line if vertical difference is small (within 10px)
+        if (Math.abs(y - lineStart.y) * pageHeight < 10) {
+          curY = lineStart.y;
+        }
+      }
+      setLineCurrent({ x: curX, y: curY });
+    } else if (activeTool === 'pen' || activeTool === 'highlight-pen') {
       setCurrentStroke((prev) => (prev ? [...prev, { x, y }] : [{ x, y }]));
     } else if (activeTool === 'highlight-rect') {
       setRectCurrent({ x, y });
@@ -157,7 +199,32 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     if (!isInteractingRef.current) return;
     isInteractingRef.current = false;
 
-    if (
+    if (activeTool === 'highlight-line' && lineStart && lineCurrent) {
+      let endX = lineCurrent.x;
+      let endY = lineCurrent.y;
+      if (Math.abs(endY - lineStart.y) * pageHeight < 10) {
+        endY = lineStart.y;
+      }
+      const distPx = Math.hypot((endX - lineStart.x) * pageWidth, (endY - lineStart.y) * pageHeight);
+      if (distPx > 6) {
+        const newLine: LineHighlightAnnotation = {
+          id: `line_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          pageNumber,
+          type: 'highlight-line',
+          startX: lineStart.x,
+          startY: lineStart.y,
+          endX,
+          endY,
+          color: selectedColor,
+          strokeWidth: strokeWidth * 2.8,
+          opacity,
+          createdAt: Date.now(),
+        };
+        onAddAnnotation(newLine);
+      }
+      setLineStart(null);
+      setLineCurrent(null);
+    } else if (
       (activeTool === 'pen' || activeTool === 'highlight-pen') &&
       currentStroke &&
       currentStroke.length > 1
@@ -287,6 +354,27 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             );
           })}
 
+        {/* Render Existing Straight Line Highlights */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-line')
+          .map((a) => {
+            const line = a as LineHighlightAnnotation;
+            return (
+              <line
+                key={line.id}
+                x1={line.startX * pageWidth}
+                y1={line.startY * pageHeight}
+                x2={line.endX * pageWidth}
+                y2={line.endY * pageHeight}
+                stroke={line.color}
+                strokeWidth={line.strokeWidth}
+                strokeOpacity={line.opacity}
+                strokeLinecap="square"
+                style={{ mixBlendMode: 'multiply' }}
+              />
+            );
+          })}
+
         {/* Render Existing Freehand Drawings & Highlights */}
         {pageAnnotations
           .filter((a) => a.type === 'pen' || a.type === 'highlight-pen')
@@ -306,6 +394,25 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               />
             );
           })}
+
+        {/* Active Straight Line Highlight in progress */}
+        {lineStart && lineCurrent && (
+          <line
+            x1={lineStart.x * pageWidth}
+            y1={lineStart.y * pageHeight}
+            x2={lineCurrent.x * pageWidth}
+            y2={
+              Math.abs(lineCurrent.y - lineStart.y) * pageHeight < 10
+                ? lineStart.y * pageHeight
+                : lineCurrent.y * pageHeight
+            }
+            stroke={selectedColor}
+            strokeWidth={strokeWidth * 2.8}
+            strokeOpacity={opacity}
+            strokeLinecap="square"
+            style={{ mixBlendMode: 'multiply' }}
+          />
+        )}
 
         {/* Active Freehand Drawing in progress */}
         {currentStroke && (
@@ -385,7 +492,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             </button>
             <button
               onClick={handleSaveTextNote}
-              className="px-3 py-1 rounded bg-[#e8e8ed] hover:bg-white text-zinc-900 text-xs font-semibold shadow-xs"
+              className="btn-primary px-3 py-1"
             >
               Add Note
             </button>

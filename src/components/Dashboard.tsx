@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   FolderPlus,
   FolderOpen,
@@ -17,6 +17,11 @@ import {
   CheckCircle2,
   Folder,
   Layers,
+  Moon,
+  Sun,
+  ChevronDown,
+  Check,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { DashboardPdfItem, SavedDirectory } from '../utils/types';
 import {
@@ -35,21 +40,155 @@ import {
   loadFavorites,
   toggleFavorite as toggleStorageFavorite,
 } from '../utils/storage';
+import { pdfjsLib } from '../utils/pdfWorker';
 
 interface DashboardProps {
-  onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string) => void;
+  onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => void;
   onSwitchToReader: () => void;
   hasActiveDoc: boolean;
   activeDocName?: string;
+  isDarkTheme: boolean;
+  onToggleTheme: () => void;
 }
 
 type FilterTab = 'all' | 'recent' | 'favorites' | string; // string for specific directory ID
+type SortOption = 'recent' | 'name' | 'size';
+
+const SORT_OPTIONS: { value: SortOption; label: string; icon: React.FC<{ className?: string }> }[] = [
+  { value: 'recent', label: 'Recently opened', icon: Clock },
+  { value: 'name', label: 'File name', icon: FileText },
+  { value: 'size', label: 'File size', icon: HardDrive },
+];
+
+const coverCache = new Map<string, string>();
+
+const PdfCoverThumbnail: React.FC<{ item: DashboardPdfItem }> = ({ item }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cacheKey = `${item.filePath}:${item.modifiedTimestamp}`;
+  const [isVisible, setIsVisible] = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(() => coverCache.get(cacheKey) || null);
+  const [isLoadingCover, setIsLoadingCover] = useState(!coverCache.has(cacheKey));
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || coverUrl) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '320px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [coverUrl]);
+
+  useEffect(() => {
+    if (!isVisible || coverUrl || !item.filePath || !isTauri()) {
+      if (isVisible && !isTauri()) setIsLoadingCover(false);
+      return;
+    }
+
+    let isCancelled = false;
+    let loadingTask: ReturnType<typeof pdfjsLib.getDocument> | null = null;
+
+    const renderCover = async () => {
+      try {
+        const cached = coverCache.get(cacheKey);
+        if (cached) {
+          setCoverUrl(cached);
+          return;
+        }
+
+        const fileData = await tauriReadFile(item.filePath);
+        if (!fileData || isCancelled) return;
+
+        loadingTask = pdfjsLib.getDocument({ data: fileData.data });
+        const doc = await loadingTask.promise;
+        const page = await doc.getPage(1);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const scale = 440 / baseViewport.width;
+        const viewport = page.getViewport({ scale });
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d', { alpha: false });
+
+        if (!context || isCancelled) {
+          await doc.destroy();
+          return;
+        }
+
+        canvas.width = Math.ceil(viewport.width * outputScale);
+        canvas.height = Math.ceil(viewport.height * outputScale);
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({
+          canvasContext: context,
+          viewport,
+          transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
+        }).promise;
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+        coverCache.set(cacheKey, dataUrl);
+        if (!isCancelled) setCoverUrl(dataUrl);
+        await doc.destroy();
+      } catch {
+        // A missing or protected file simply uses the styled PDF fallback.
+      } finally {
+        if (!isCancelled) setIsLoadingCover(false);
+      }
+    };
+
+    renderCover();
+    return () => {
+      isCancelled = true;
+      loadingTask?.destroy();
+    };
+  }, [cacheKey, coverUrl, isVisible, item.filePath]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="library-pdf-cover relative w-full aspect-[3/4] overflow-hidden bg-[#1a1a20] border-b border-[#32323e] flex items-center justify-center"
+    >
+      {coverUrl ? (
+        <img
+          src={coverUrl}
+          alt={`First page of ${item.fileName}`}
+          className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.015]"
+          draggable={false}
+        />
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(145deg,var(--secondary),var(--card))]">
+          <div className="w-14 h-18 bg-white border border-black/10 shadow-md flex items-center justify-center text-[#2e97ef]">
+            <FileText className="w-7 h-7" />
+          </div>
+          <span className="max-w-[75%] truncate text-[10px] font-medium text-zinc-400">
+            {isLoadingCover ? 'Loading cover…' : 'PDF document'}
+          </span>
+        </div>
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent pointer-events-none" />
+      <span className="absolute bottom-2.5 left-3 px-2 py-0.5 rounded-full bg-black/55 text-[9px] font-semibold tracking-[0.12em] text-white backdrop-blur-sm">
+        PDF
+      </span>
+    </div>
+  );
+};
 
 export const Dashboard: React.FC<DashboardProps> = ({
   onOpenPdf,
   onSwitchToReader,
   hasActiveDoc,
   activeDocName,
+  isDarkTheme,
+  onToggleTheme,
 }) => {
   const [directories, setDirectories] = useState<SavedDirectory[]>(() => loadSavedDirectories());
   const [pdfItems, setPdfItems] = useState<DashboardPdfItem[]>([]);
@@ -58,8 +197,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewLayout, setViewLayout] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'size'>('recent');
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [isScanning, setIsScanning] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isSortOpen) return;
+
+    const closeSortMenu = (event: MouseEvent) => {
+      if (!sortMenuRef.current?.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSortOpen(false);
+    };
+
+    document.addEventListener('mousedown', closeSortMenu);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeSortMenu);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isSortOpen]);
 
   // Auto-scan all saved directories
   const scanAllDirectories = useCallback(async (dirList: SavedDirectory[]) => {
@@ -188,9 +349,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           filePath: fileData.filePath,
           fileSize: fileData.data.byteLength,
           modifiedTimestamp: Date.now(),
+          lastReadPage: item.lastReadPage || 1,
         });
         setRecentDocs(loadRecentDocs());
-        onOpenPdf(fileData.data, fileData.fileName, fileData.filePath);
+        onOpenPdf(fileData.data, fileData.fileName, fileData.filePath, item.lastReadPage);
         return;
       }
     }
@@ -296,7 +458,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Center Search Input */}
         <div className="flex items-center gap-2 app-no-drag w-full max-w-md">
-          <div className="w-full flex items-center gap-1.5 px-2.5 py-1 bg-[#1d1d23] rounded-md border border-[#343440]">
+          <div className="control-field w-full flex items-center gap-1.5 px-2.5 py-1 bg-[#1d1d23] rounded-md border border-[#343440]">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
               type="text"
@@ -318,6 +480,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Right Actions: Add Folder, Open File & Back to Reader Studio */}
         <div className="flex items-center gap-1.5 app-no-drag">
+          <button
+            onClick={onToggleTheme}
+            className="btn-icon"
+            title={isDarkTheme ? 'Use light appearance' : 'Use dark appearance'}
+            aria-label={isDarkTheme ? 'Use light appearance' : 'Use dark appearance'}
+          >
+            {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          </button>
+
           <button
             onClick={handleAddDirectory}
             className="btn-secondary"
@@ -483,18 +654,63 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Sort Selector */}
-              <div className="flex items-center gap-1 text-xs text-zinc-400 bg-[#24242b] border border-[#343440] px-2 py-1 rounded-md">
-                <span className="text-[10px] text-zinc-500">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'recent' | 'name' | 'size')}
-                  className="bg-transparent text-xs text-zinc-200 focus:outline-none cursor-pointer"
+              {/* Styled Sort Selector */}
+              <div ref={sortMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSortOpen((open) => !open)}
+                  className={`flex items-center gap-2 min-w-42 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                    isSortOpen
+                      ? 'bg-[#34343f] border-[#484856] text-white shadow-md'
+                      : 'bg-[#24242b] border-[#343440] text-zinc-300 hover:bg-[#2a2a34]'
+                  }`}
+                  aria-haspopup="menu"
+                  aria-expanded={isSortOpen}
                 >
-                  <option value="recent">Recently Opened</option>
-                  <option value="name">File Name</option>
-                  <option value="size">File Size</option>
-                </select>
+                  <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
+                  <span className="flex-1 text-left">
+                    {SORT_OPTIONS.find((option) => option.value === sortBy)?.label}
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {isSortOpen && (
+                  <div
+                    role="menu"
+                    className="absolute top-full right-0 z-50 mt-2 w-48 p-1.5 rounded-lg bg-[#26262d] border border-[#3a3a46] shadow-2xl backdrop-blur-xl animate-slide-down"
+                  >
+                    <div className="px-2.5 pt-1 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                      Sort documents
+                    </div>
+                    {SORT_OPTIONS.map((option) => {
+                      const OptionIcon = option.icon;
+                      const isSelected = sortBy === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={isSelected}
+                          onClick={() => {
+                            setSortBy(option.value);
+                            setIsSortOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs transition-colors ${
+                            isSelected
+                              ? 'bg-[#34343f] text-white'
+                              : 'text-zinc-300 hover:bg-[#2a2a34] hover:text-zinc-100'
+                          }`}
+                        >
+                          <OptionIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="flex-1 text-left font-medium">{option.label}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* View Layout Toggle */}
@@ -554,35 +770,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div
                   key={item.filePath || item.id}
                   onClick={() => handleOpenItem(item)}
-                  className="p-3.5 rounded-xl bg-[#24242b] hover:bg-[#2a2a34] border border-[#383846] hover:border-zinc-500 flex flex-col justify-between gap-3 cursor-pointer group transition-all duration-150 shadow-md hover:shadow-xl active:scale-[0.99]"
+                  className="library-pdf-card rounded-xl bg-[#24242b] hover:bg-[#2a2a34] border border-[#383846] hover:border-zinc-500 overflow-hidden flex flex-col cursor-pointer group transition-all duration-150 shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.99]"
                 >
-                  {/* Card Thumbnail / Banner */}
-                  <div className="w-full aspect-[4/3] rounded-lg bg-[#1a1a20] border border-[#32323e] flex flex-col items-center justify-center relative overflow-hidden group-hover:border-zinc-500/50 transition-colors">
-                    <FileText className="w-10 h-10 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
+                  {/* Real first-page cover, rendered lazily from the PDF. */}
+                  <div className="relative">
+                    <PdfCoverThumbnail item={item} />
 
                     {/* Star button */}
                     <button
                       onClick={(e) => handleToggleFavorite(item.id || item.filePath, e)}
-                      className={`absolute top-2 right-2 p-1 rounded-md transition-all ${
+                      className={`absolute top-2.5 right-2.5 p-1.5 rounded-full backdrop-blur-md transition-all ${
                         item.isFavorite
-                          ? 'text-amber-400 bg-black/40'
-                          : 'text-zinc-500 hover:text-amber-400 opacity-0 group-hover:opacity-100 bg-black/20'
+                          ? 'text-amber-400 bg-black/55'
+                          : 'text-white hover:text-amber-400 opacity-0 group-hover:opacity-100 bg-black/35'
                       }`}
                       title={item.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
                     >
                       <Star className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-amber-400' : ''}`} />
                     </button>
 
-                    {/* Badge */}
-                    <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/50 text-[9px] font-mono text-zinc-400">
-                      PDF
-                    </span>
+                    {item.annotationCount !== undefined && item.annotationCount > 0 && (
+                      <span className="absolute bottom-2.5 right-3 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[9px] font-medium shadow-md">
+                        {item.annotationCount} note{item.annotationCount === 1 ? '' : 's'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Document Title & Meta */}
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1.5 p-3.5">
                     <span
-                      className="font-medium text-xs text-zinc-200 group-hover:text-white truncate"
+                      className="font-semibold text-[13px] text-zinc-200 group-hover:text-white truncate"
                       title={item.fileName}
                     >
                       {item.fileName}
@@ -593,7 +810,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         {item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(1)} MB` : 'N/A'}
                       </span>
                       {item.lastReadPage && (
-                        <span className="text-zinc-300">p.{item.lastReadPage}</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-[#2a2a34] text-zinc-300">
+                          Page {item.lastReadPage}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -637,6 +856,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="flex items-center gap-2">
                           <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                           <span className="truncate">{item.fileName}</span>
+                          {item.annotationCount !== undefined && item.annotationCount > 0 && (
+                            <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-mono shrink-0">
+                              ✏️ {item.annotationCount}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-2 px-3 text-zinc-400 font-mono text-[10.5px] truncate max-w-[250px] hidden md:table-cell">

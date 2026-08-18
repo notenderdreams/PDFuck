@@ -48,7 +48,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   return (
     <div className="fixed top-13 right-4 z-40 flex items-center gap-1.5 p-1 rounded-lg bg-[#24242b] border border-[#383846] shadow-2xl animate-slide-down text-xs">
-      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1c1c22] rounded border border-[#343440]">
+      <div className="control-field flex items-center gap-1.5 px-2 py-1 bg-[#1c1c22] rounded border border-[#343440]">
         <Search className="w-3.5 h-3.5 text-zinc-400" />
         <input
           ref={inputRef}

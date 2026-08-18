@@ -92,6 +92,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       } else {
         // Single key shortcuts
         switch (e.key.toLowerCase()) {
+          case 'l':
+            options.onSelectTool('highlight-line');
+            break;
           case 'h':
             options.onSelectTool('highlight-pen');
             break;

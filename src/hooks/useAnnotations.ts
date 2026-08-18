@@ -1,29 +1,68 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Annotation, AttachedImageAnnotation } from '../utils/types';
-import { loadAnnotationsForDoc, saveAnnotationsForDoc } from '../utils/storage';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import type { Annotation, AttachedImageAnnotation, DocumentInfo } from '../utils/types';
+import {
+  loadAnnotationsForDocAsync,
+  loadAnnotationsForDocSync,
+  saveAnnotationsForDoc,
+} from '../utils/storage';
 
-export function useAnnotations(docKey: string) {
+export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [history, setHistory] = useState<Annotation[][]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
   const isLoadedRef = useRef<boolean>(false);
 
-  // Load annotations on docKey change
+  const fallbackKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (docInfo?.filePath) keys.push(docInfo.filePath);
+    if (docInfo?.fileName) keys.push(docInfo.fileName);
+    if (docInfo?.fingerprint) keys.push(docInfo.fingerprint);
+    return keys;
+  }, [docInfo?.filePath, docInfo?.fileName, docInfo?.fingerprint]);
+
+  // Load annotations on docKey or document identity change
   useEffect(() => {
     if (!docKey) return;
-    const saved = loadAnnotationsForDoc(docKey);
-    setAnnotations(saved);
-    setHistory([saved]);
+    isLoadedRef.current = false;
+
+    // 1. Instant sync load from localStorage (0ms latency)
+    const savedSync = loadAnnotationsForDocSync(docKey, fallbackKeys);
+    setAnnotations(savedSync);
+    setHistory([savedSync]);
     setHistoryIndex(0);
+
+    // 2. Async load from IndexedDB for high-capacity payloads (images/stickers)
+    let isCancelled = false;
+    loadAnnotationsForDocAsync(docKey, fallbackKeys).then((savedAsync) => {
+      if (isCancelled || !savedAsync) return;
+      if (savedAsync.length > 0 && (savedSync.length === 0 || savedAsync.length !== savedSync.length)) {
+        setAnnotations(savedAsync);
+        setHistory([savedAsync]);
+        setHistoryIndex(0);
+      }
+    });
+
     isLoadedRef.current = true;
-  }, [docKey]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [docKey, fallbackKeys]);
 
   // Auto-save on annotations change
   useEffect(() => {
-    if (isLoadedRef.current && docKey) {
-      saveAnnotationsForDoc(docKey, annotations);
-    }
-  }, [annotations, docKey]);
+    if (!isLoadedRef.current || !docKey) return;
+    setSaveStatus('saving');
+
+    saveAnnotationsForDoc(docKey, annotations, fallbackKeys);
+
+    const timer = setTimeout(() => {
+      setSaveStatus('saved');
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [annotations, docKey, fallbackKeys]);
 
   const pushState = useCallback((newAnnotations: Annotation[]) => {
     setHistory((prevHistory) => {
@@ -141,6 +180,7 @@ export function useAnnotations(docKey: string) {
 
   return {
     annotations,
+    saveStatus,
     addAnnotation,
     updateAnnotation,
     deleteAnnotation,

@@ -2,6 +2,7 @@ export type ToolType =
   | 'select'
   | 'highlight-text'
   | 'highlight-pen'
+  | 'highlight-line'
   | 'highlight-rect'
   | 'pen'
   | 'image'
@@ -26,6 +27,20 @@ export interface DrawingAnnotation {
   points: StrokePoint[];
   color: string;
   strokeWidth: number; // in relative units or pt
+  opacity: number;
+  createdAt: number;
+}
+
+export interface LineHighlightAnnotation {
+  id: string;
+  pageNumber: number;
+  type: 'highlight-line';
+  startX: number; // Normalized 0..1
+  startY: number; // Normalized 0..1
+  endX: number; // Normalized 0..1
+  endY: number; // Normalized 0..1
+  color: string;
+  strokeWidth: number;
   opacity: number;
   createdAt: number;
 }
@@ -86,6 +101,7 @@ export interface TextNoteAnnotation {
 
 export type Annotation =
   | DrawingAnnotation
+  | LineHighlightAnnotation
   | RectHighlightAnnotation
   | TextHighlightAnnotation
   | AttachedImageAnnotation
@@ -146,6 +162,7 @@ export interface DashboardPdfItem {
   directoryPath?: string;
   lastOpenedAt?: number;
   lastReadPage?: number;
+  annotationCount?: number;
   numPages?: number;
   isFavorite?: boolean;
 }

@@ -21,85 +21,100 @@ export function usePDFDocument() {
 
   const activeDocRef = useRef<PDFDocumentProxy | null>(null);
 
-  const loadPdf = useCallback(async (data: Uint8Array | ArrayBuffer, fileName: string = 'document.pdf', filePath?: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-      setRawPdfBytes(bytes);
+  const loadPdf = useCallback(
+    async (
+      data: Uint8Array | ArrayBuffer,
+      fileName: string = 'document.pdf',
+      filePath?: string,
+      initialPageNumber?: number
+    ) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+        setRawPdfBytes(bytes);
 
-      const loadingTask = pdfjsLib.getDocument({
-        data: bytes,
-        cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
-        cMapPacked: true,
-      });
+        const loadingTask = pdfjsLib.getDocument({
+          data: bytes,
+          cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
+          cMapPacked: true,
+        });
 
-      const loadedDoc = await loadingTask.promise;
-      activeDocRef.current = loadedDoc;
-      setPdfDoc(loadedDoc);
+        const loadedDoc = await loadingTask.promise;
+        activeDocRef.current = loadedDoc;
+        setPdfDoc(loadedDoc);
 
-      const key = `${fileName}_${loadedDoc.numPages}_${bytes.length}`;
-      setDocKey(key);
+        const key = `${fileName}_${loadedDoc.numPages}_${bytes.length}`;
+        setDocKey(key);
 
-      // Metadata
-      const metadata = await loadedDoc.getMetadata().catch(() => ({ info: {} }));
-      const infoObj = (metadata?.info || {}) as Record<string, string>;
-      setDocInfo({
-        fileName,
-        filePath,
-        numPages: loadedDoc.numPages,
-        fileSize: bytes.byteLength,
-        title: infoObj.Title || fileName,
-        author: infoObj.Author || undefined,
-        fingerprint: (loadedDoc as unknown as { fingerprint?: string }).fingerprint || key,
-      });
+        // Metadata
+        const metadata = await loadedDoc.getMetadata().catch(() => ({ info: {} }));
+        const infoObj = (metadata?.info || {}) as Record<string, string>;
+        setDocInfo({
+          fileName,
+          filePath,
+          numPages: loadedDoc.numPages,
+          fileSize: bytes.byteLength,
+          title: infoObj.Title || fileName,
+          author: infoObj.Author || undefined,
+          fingerprint: (loadedDoc as unknown as { fingerprint?: string }).fingerprint || key,
+        });
 
-      // Outline / Table of Contents
-      const rawOutline = await loadedDoc.getOutline().catch(() => null);
-      if (rawOutline && rawOutline.length > 0) {
-        const parsedOutline: PDFOutlineItem[] = [];
-        for (const item of rawOutline) {
-          let pageNum = 1;
-          if (item.dest) {
-            try {
-              let explicitDest: unknown = item.dest;
-              if (typeof item.dest === 'string') {
-                explicitDest = await loadedDoc.getDestination(item.dest);
-              }
-              if (Array.isArray(explicitDest) && explicitDest[0]) {
-                const pageIndex = await loadedDoc.getPageIndex(explicitDest[0] as Parameters<typeof loadedDoc.getPageIndex>[0]);
-                pageNum = pageIndex + 1;
-              }
-            } catch {}
+        // Outline / Table of Contents
+        const rawOutline = await loadedDoc.getOutline().catch(() => null);
+        if (rawOutline && rawOutline.length > 0) {
+          const parsedOutline: PDFOutlineItem[] = [];
+          for (const item of rawOutline) {
+            let pageNum = 1;
+            if (item.dest) {
+              try {
+                let explicitDest: unknown = item.dest;
+                if (typeof item.dest === 'string') {
+                  explicitDest = await loadedDoc.getDestination(item.dest);
+                }
+                if (Array.isArray(explicitDest) && explicitDest[0]) {
+                  const pageIndex = await loadedDoc.getPageIndex(
+                    explicitDest[0] as Parameters<typeof loadedDoc.getPageIndex>[0]
+                  );
+                  pageNum = pageIndex + 1;
+                }
+              } catch {}
+            }
+            parsedOutline.push({
+              title: item.title || 'Untitled Section',
+              pageNumber: pageNum,
+            });
           }
-          parsedOutline.push({
-            title: item.title || 'Untitled Section',
-            pageNumber: pageNum,
-          });
+          setOutline(parsedOutline);
+        } else {
+          setOutline([]);
         }
-        setOutline(parsedOutline);
-      } else {
-        setOutline([]);
+
+        // Restore last saved page or explicit initialPageNumber
+        const savedPage =
+          initialPageNumber || loadLastPageForDoc(key, filePath || fileName);
+        const initialPage = savedPage && savedPage <= loadedDoc.numPages ? savedPage : 1;
+        setCurrentPage(initialPage);
+        saveLastPageForDoc(key, initialPage, fileName, filePath);
+      } catch (err: unknown) {
+        console.error('Error loading PDF:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load PDF');
+      } finally {
+        setIsLoading(false);
       }
+    },
+    []
+  );
 
-      // Restore last saved page or page 1
-      const savedPage = loadLastPageForDoc(key);
-      const initialPage = savedPage && savedPage <= loadedDoc.numPages ? savedPage : 1;
-      setCurrentPage(initialPage);
-    } catch (err: unknown) {
-      console.error('Error loading PDF:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load PDF');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const changePage = useCallback((newPage: number) => {
-    if (!pdfDoc) return;
-    const clamped = Math.max(1, Math.min(newPage, pdfDoc.numPages));
-    setCurrentPage(clamped);
-    saveLastPageForDoc(docKey, clamped);
-  }, [pdfDoc, docKey]);
+  const changePage = useCallback(
+    (newPage: number) => {
+      if (!pdfDoc) return;
+      const clamped = Math.max(1, Math.min(newPage, pdfDoc.numPages));
+      setCurrentPage(clamped);
+      saveLastPageForDoc(docKey, clamped, docInfo?.fileName, docInfo?.filePath);
+    },
+    [pdfDoc, docKey, docInfo]
+  );
 
   // Full-Text Search
   const searchInDocument = useCallback(async (query: string) => {
@@ -138,18 +153,15 @@ export function usePDFDocument() {
           occurrence++;
           matchPos += lowerQuery.length;
         }
-      } catch (e) {
-        console.warn('Search error on page ' + pageNum, e);
+      } catch (err) {
+        console.warn(`Search failed on page ${pageNum}:`, err);
       }
     }
 
     setSearchResults(results);
     setCurrentMatchIndex(results.length > 0 ? 0 : -1);
-    if (results.length > 0) {
-      changePage(results[0].pageNumber);
-    }
     setIsSearching(false);
-  }, [pdfDoc, changePage]);
+  }, [pdfDoc]);
 
   const nextSearchResult = useCallback(() => {
     if (searchResults.length === 0) return;
@@ -164,17 +176,6 @@ export function usePDFDocument() {
     setCurrentMatchIndex(prevIdx);
     changePage(searchResults[prevIdx].pageNumber);
   }, [searchResults, currentMatchIndex, changePage]);
-
-  // Clean up
-  useEffect(() => {
-    return () => {
-      if (activeDocRef.current) {
-        try {
-          (activeDocRef.current as unknown as { cleanup?: () => void; destroy?: () => Promise<void> }).cleanup?.();
-        } catch {}
-      }
-    };
-  }, []);
 
   return {
     pdfDoc,

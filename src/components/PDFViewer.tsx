@@ -100,9 +100,36 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         if (centerScrollLeft > 0) {
           container.scrollLeft = centerScrollLeft;
         }
+
+        // Scroll to currentPage if not page 1
+        if (currentPage > 1) {
+          const targetEl = document.getElementById(`pdf-page-${currentPage}`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
+          }
+        }
       });
     }
   }, [pdfDoc, viewMode]);
+
+  // Scroll to page when navigating via stepper or thumbnail
+  const lastTargetPageRef = useRef<number>(currentPage);
+  useEffect(() => {
+    if (viewMode === 'continuous' && pdfDoc && currentPage > 0) {
+      if (lastTargetPageRef.current === currentPage) return;
+      lastTargetPageRef.current = currentPage;
+
+      const pageEl = document.getElementById(`pdf-page-${currentPage}`);
+      const container = viewerContainerRef.current;
+      if (pageEl && container) {
+        const rect = pageEl.getBoundingClientRect();
+        const contRect = container.getBoundingClientRect();
+        if (rect.bottom < contRect.top || rect.top > contRect.bottom) {
+          pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+  }, [currentPage, pdfDoc, viewMode]);
 
   // Mouse Wheel & Trackpad Pinch-to-Zoom (Ctrl/Cmd + Wheel)
   useEffect(() => {
