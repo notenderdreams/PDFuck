@@ -3,7 +3,6 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
-import { PageQuickActions } from './components/PageQuickActions';
 import { ColorThemeModal } from './components/ColorThemeModal';
 import { StampPickerModal } from './components/StampPickerModal';
 import { SearchBar } from './components/SearchBar';
@@ -455,17 +454,6 @@ export function App() {
           onChangeZoom={(newZoom) => setZoom(newZoom)}
         />
       </div>
-
-      {/* Floating Page Quick Actions Capsule */}
-      {pdfDoc && !isZenMode && (
-        <PageQuickActions
-          currentPage={currentPage}
-          numPages={pdfDoc?.numPages || 0}
-          onCopyPageText={() => handleCopyPageText(currentPage)}
-          onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
-          onDownloadPageJpg={() => handleDownloadPageJpg(currentPage)}
-        />
-      )}
 
       {/* Floating Tool Dock */}
       {pdfDoc && !isZenMode && (
