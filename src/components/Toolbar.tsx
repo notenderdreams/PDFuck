@@ -30,14 +30,14 @@ interface ToolbarProps {
 }
 
 const COLOR_PRESETS = [
-  '#ffe600', // Yellow
-  '#00d4ff', // Studio Cyan
-  '#ff2d75', // Neon Pink
-  '#00e676', // Emerald Green
-  '#ff9100', // Amber Orange
-  '#a855f7', // Violet
-  '#ff3b30', // Red
-  '#0088ff', // Affinity Blue
+  '#facc15', // Classic Yellow
+  '#fbbf24', // Amber Sand
+  '#4ade80', // Soft Sage Green
+  '#38bdf8', // Soft Sky Blue
+  '#fb7185', // Warm Coral
+  '#c084fc', // Lavender
+  '#f87171', // Soft Red
+  '#ffffff', // Monochrome White
 ];
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -57,11 +57,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const tools: { id: ToolType; icon: React.FC<{ className?: string }>; label: string; shortcut: string }[] = [
     { id: 'select', icon: MousePointer, label: 'Pointer Tool (V)', shortcut: 'V' },
     { id: 'highlight-pen', icon: Highlighter, label: 'Highlighter (H)', shortcut: 'H' },
-    { id: 'highlight-rect', icon: Square, label: 'Highlight Area (R)', shortcut: 'R' },
-    { id: 'pen', icon: PenTool, label: 'Vector Pen (P)', shortcut: 'P' },
+    { id: 'highlight-rect', icon: Square, label: 'Area Box (R)', shortcut: 'R' },
+    { id: 'pen', icon: PenTool, label: 'Pen Tool (P)', shortcut: 'P' },
     { id: 'image', icon: ImageIcon, label: 'Attach Image (I)', shortcut: 'I' },
     { id: 'text', icon: Type, label: 'Text Note (T)', shortcut: 'T' },
-    { id: 'eraser', icon: Eraser, label: 'Eraser Tool (E)', shortcut: 'E' },
+    { id: 'eraser', icon: Eraser, label: 'Eraser (E)', shortcut: 'E' },
   ];
 
   const handleToolClick = (toolId: ToolType) => {
@@ -75,10 +75,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <nav
-      aria-label="Studio Tool Dock"
-      className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 p-1 rounded-lg bg-[#25252c] border border-[#383846] shadow-[0_8px_30px_rgba(0,0,0,0.55)] select-none animate-slide-up"
+      aria-label="Annotation Tools"
+      className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-0.5 p-1 rounded-lg bg-[#24242b]/95 border border-[#383846] backdrop-blur-xl shadow-xl select-none animate-slide-up"
     >
-      {/* Studio Tool Buttons */}
+      {/* Tool Buttons */}
       {tools.map((tool) => {
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
@@ -88,12 +88,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             onClick={() => handleToolClick(tool.id)}
             className={`flex items-center justify-center w-7.5 h-7.5 rounded-md transition-all ${
               isActive
-                ? 'bg-[#0080f0] text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-100 hover:bg-[#32323c]'
+                ? 'bg-[#e8e8ed] text-[#18181f] shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-100 hover:bg-[#2f2f38]'
             }`}
             title={tool.label}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-3.5 h-3.5" />
           </button>
         );
       })}
@@ -101,32 +101,32 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* Preset Stamps Quick Trigger */}
       <button
         onClick={onOpenStampPicker}
-        className="flex items-center justify-center w-7.5 h-7.5 rounded-md text-zinc-400 hover:text-emerald-300 hover:bg-[#32323c] transition-all"
-        title="Preset Stamps & Badges"
+        className="flex items-center justify-center w-7.5 h-7.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-[#2f2f38] transition-all"
+        title="Stamps & Badges"
       >
-        <Stamp className="w-4 h-4 text-emerald-400" />
+        <Stamp className="w-3.5 h-3.5" />
       </button>
 
-      {/* Precision Inset Divider */}
-      <div className="w-[1px] h-4 bg-[#383846] mx-0.5" />
+      {/* Subtle Inset Divider */}
+      <div className="w-[1px] h-3.5 bg-[#383846] mx-0.5" />
 
       {/* Color Swatch & Stroke Well */}
       <div className="relative">
         <button
           onClick={() => setShowPalette(!showPalette)}
-          className="flex items-center justify-center w-7.5 h-7.5 rounded-md hover:bg-[#32323c] transition-all p-1"
-          title="Color Swatches & Stroke"
+          className="flex items-center justify-center w-7.5 h-7.5 rounded-md hover:bg-[#2f2f38] transition-all p-1"
+          title="Color & Stroke"
         >
           <span
-            className="w-4 h-4 rounded-full border border-white/20 shadow-xs"
+            className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs"
             style={{ backgroundColor: selectedColor }}
           />
         </button>
 
-        {/* Studio Color & Stroke Flyout */}
+        {/* Color & Stroke Popover */}
         {showPalette && (
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 p-3 rounded-lg bg-[#25252c] border border-[#3c3c4a] shadow-2xl flex flex-col gap-2.5 min-w-[190px] animate-slide-up z-50">
-            <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 p-3 rounded-lg bg-[#26262d] border border-[#3a3a46] shadow-2xl flex flex-col gap-2.5 min-w-[180px] animate-slide-up z-50">
+            <div className="flex items-center justify-between text-[10px] font-medium text-zinc-400 uppercase tracking-wider">
               <span>Swatches</span>
               <input
                 type="color"
@@ -145,10 +145,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     onSelectColor(colorHex);
                     setShowPalette(false);
                   }}
-                  className={`w-6 h-6 rounded-md transition-all ${
+                  className={`w-5.5 h-5.5 rounded-md transition-all ${
                     selectedColor.toLowerCase() === colorHex.toLowerCase()
-                      ? 'ring-2 ring-white scale-105 shadow-sm'
-                      : 'opacity-80 hover:opacity-100 hover:scale-105 border border-black/20'
+                      ? 'ring-2 ring-white scale-105 shadow-xs'
+                      : 'opacity-80 hover:opacity-100 hover:scale-105 border border-black/30'
                   }`}
                   style={{ backgroundColor: colorHex }}
                 />
@@ -157,7 +157,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             {/* Stroke Slider */}
             <div className="pt-2 border-t border-[#343440] flex flex-col gap-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
+              <div className="flex justify-between text-[10px] text-zinc-400 font-medium">
                 <span>Stroke Size</span>
                 <span className="font-mono text-zinc-200">{strokeWidth}px</span>
               </div>
@@ -167,7 +167,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 max="20"
                 value={strokeWidth}
                 onChange={(e) => onChangeStrokeWidth(parseInt(e.target.value, 10))}
-                className="w-full accent-[#0080f0] cursor-pointer h-1"
+                className="w-full accent-zinc-200 cursor-pointer h-1"
               />
             </div>
           </div>

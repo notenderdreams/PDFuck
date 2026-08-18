@@ -47,15 +47,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   if (!isOpen) return null;
 
   return (
-    <aside className="w-68 sm:w-72 h-[calc(100vh-3rem)] bg-[#23232a] border-r border-[#343440] flex flex-col z-30 select-none shadow-xl transition-all">
-      {/* Studio Tab Header Strip */}
-      <div className="p-2 border-b border-[#32323e] flex items-center justify-between bg-[#202026]">
-        <div className="flex items-center gap-0.5 bg-[#1a1a20] p-0.5 rounded-md border border-[#2c2c36]">
+    <aside className="w-68 sm:w-72 h-[calc(100vh-2.75rem)] bg-[#222228] border-r border-[#343440] flex flex-col z-30 select-none shadow-xl transition-all">
+      {/* Tab Header Strip */}
+      <div className="p-2 border-b border-[#30303a] flex items-center justify-between bg-[#202026]">
+        <div className="flex items-center gap-0.5 bg-[#1a1a20] p-0.5 rounded-md border border-[#2e2e38]">
           <button
             onClick={() => setActiveTab('thumbnails')}
             className={`p-1.5 rounded text-xs transition-all ${
               activeTab === 'thumbnails'
-                ? 'bg-[#353544] text-white shadow-xs'
+                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Thumbnails"
@@ -66,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => setActiveTab('outline')}
             className={`p-1.5 rounded text-xs transition-all ${
               activeTab === 'outline'
-                ? 'bg-[#353544] text-white shadow-xs'
+                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Table of Contents"
@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => setActiveTab('annotations')}
             className={`p-1.5 rounded text-xs transition-all ${
               activeTab === 'annotations'
-                ? 'bg-[#353544] text-white shadow-xs'
+                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title={`Annotations (${annotations.length})`}
@@ -88,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => setActiveTab('info')}
             className={`p-1.5 rounded text-xs transition-all ${
               activeTab === 'info'
-                ? 'bg-[#353544] text-white shadow-xs'
+                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Document Details"
@@ -99,14 +99,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={onClose}
-          className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#2e2e38]"
-          title="Close Inspector"
+          className="btn-icon w-7 h-7"
+          title="Close Sidebar"
         >
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Studio Tab Content Area */}
+      {/* Tab Content Area */}
       <div className="flex-1 overflow-y-auto p-2.5">
         {/* TAB 1: THUMBNAILS (Theme-Aware Inversion) */}
         {activeTab === 'thumbnails' && (
@@ -130,17 +130,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex flex-col gap-0.5">
             {outline.length === 0 ? (
               <div className="text-[11px] text-zinc-500 text-center py-6">
-                No Table of Contents in this document.
+                No Table of Contents found.
               </div>
             ) : (
               outline.map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() => onPageSelect(item.pageNumber)}
-                  className="flex items-center justify-between p-1.5 rounded text-left text-xs text-zinc-300 hover:text-white hover:bg-[#2c2c36] transition-all group"
+                  className="flex items-center justify-between p-1.5 rounded text-left text-xs text-zinc-300 hover:text-white hover:bg-[#2a2a34] transition-all group"
                 >
                   <span className="truncate pr-2">{item.title}</span>
-                  <span className="font-mono text-[10px] text-zinc-500 group-hover:text-[#0088ff]">
+                  <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-200">
                     p.{item.pageNumber}
                   </span>
                 </button>
@@ -161,15 +161,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div
                   key={ann.id}
                   onClick={() => onPageSelect(ann.pageNumber)}
-                  className="p-2 rounded bg-[#202026] hover:bg-[#2a2a34] border border-[#2f2f3c] flex items-center justify-between gap-2 cursor-pointer transition-all group text-xs"
+                  className="p-2 rounded bg-[#272730]/60 hover:bg-[#2c2c36] border border-[#343440] flex items-center justify-between gap-2 cursor-pointer transition-all group text-xs"
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     {ann.type === 'image' ? (
-                      <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                      <ImageIcon className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                     ) : (
                       <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20"
-                        style={{ backgroundColor: (ann as { color?: string }).color || '#ffe600' }}
+                        className="w-2 h-2 rounded-full shrink-0 border border-white/20"
+                        style={{ backgroundColor: (ann as { color?: string }).color || '#facc15' }}
                       />
                     )}
                     <div className="flex flex-col overflow-hidden">
@@ -200,9 +200,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* TAB 4: DOCUMENT INFO */}
         {activeTab === 'info' && (
-          <div className="flex flex-col gap-2.5 text-xs">
-            <div className="p-2.5 rounded-md bg-[#202026] border border-[#2f2f3c] flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-[#272730]/60 border border-[#343440] flex flex-col gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
                 Document Details
               </span>
               <div className="flex justify-between">
@@ -225,13 +225,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
 
-            <div className="p-2.5 rounded-md bg-[#202026] border border-[#2f2f3c] flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+            <div className="p-2.5 rounded-lg bg-[#272730]/60 border border-[#343440] flex flex-col gap-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
                 Session Stats
               </span>
               <div className="flex justify-between">
                 <span className="text-zinc-400">Annotations:</span>
-                <span className="text-[#0088ff] font-mono font-semibold">
+                <span className="text-zinc-200 font-mono font-medium">
                   {annotations.length}
                 </span>
               </div>
@@ -290,8 +290,8 @@ const ThumbnailItem: React.FC<{
       onClick={onClick}
       className={`flex flex-col items-center gap-1.5 p-1.5 rounded-lg cursor-pointer transition-all ${
         isActive
-          ? 'bg-[#0080f0]/20 border border-[#0080f0] shadow-sm'
-          : 'bg-[#1a1a20] hover:bg-[#262630] border border-[#2d2d38]'
+          ? 'bg-[#30303c] border border-zinc-400 shadow-xs'
+          : 'bg-[#25252e] hover:bg-[#2c2c38] border border-[#343440]'
       }`}
     >
       {/* Thumbnail Paper Container with matching Theme Background & Filter */}
@@ -308,7 +308,7 @@ const ThumbnailItem: React.FC<{
       </div>
       <span
         className={`text-[10px] font-mono font-medium ${
-          isActive ? 'text-[#38bdf8]' : 'text-zinc-400'
+          isActive ? 'text-zinc-100' : 'text-zinc-400'
         }`}
       >
         {pageNumber}

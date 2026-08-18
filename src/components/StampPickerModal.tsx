@@ -10,10 +10,10 @@ interface StampPickerModalProps {
 
 function generateStampSvgDataUrl(text: string, colorHex: string, subtext: string = ''): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="120" viewBox="0 0 300 120">
-    <rect x="5" y="5" width="290" height="110" rx="10" fill="none" stroke="${colorHex}" stroke-width="6" stroke-dasharray="8 4" opacity="0.9"/>
-    <rect x="12" y="12" width="276" height="96" rx="6" fill="${colorHex}" fill-opacity="0.08" stroke="${colorHex}" stroke-width="2"/>
-    <text x="150" y="${subtext ? 62 : 68}" font-family="Impact, Arial Black, sans-serif" font-size="34" font-weight="bold" fill="${colorHex}" text-anchor="middle" letter-spacing="3">${text}</text>
-    ${subtext ? `<text x="150" y="88" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="${colorHex}" text-anchor="middle" letter-spacing="1.5">${subtext}</text>` : ''}
+    <rect x="5" y="5" width="290" height="110" rx="6" fill="none" stroke="${colorHex}" stroke-width="4" stroke-dasharray="6 3" opacity="0.9"/>
+    <rect x="10" y="10" width="280" height="100" rx="4" fill="${colorHex}" fill-opacity="0.06" stroke="${colorHex}" stroke-width="1.5"/>
+    <text x="150" y="${subtext ? 62 : 68}" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="28" font-weight="bold" fill="${colorHex}" text-anchor="middle" letter-spacing="2">${text}</text>
+    ${subtext ? `<text x="150" y="86" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600" fill="${colorHex}" text-anchor="middle" letter-spacing="1">${subtext}</text>` : ''}
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -23,42 +23,42 @@ const PRESET_STAMPS = [
     id: 'approved',
     name: 'APPROVED',
     subtext: 'VERIFIED & PASSED',
-    color: '#00e599',
+    color: '#4ade80',
     icon: CheckCircle,
   },
   {
     id: 'confidential',
     name: 'CONFIDENTIAL',
     subtext: 'DO NOT DISTRIBUTE',
-    color: '#ff3366',
+    color: '#f87171',
     icon: AlertTriangle,
   },
   {
     id: 'reviewed',
     name: 'REVIEWED',
     subtext: 'QC INSPECTION PASSED',
-    color: '#00d4ff',
+    color: '#38bdf8',
     icon: ShieldCheck,
   },
   {
     id: 'draft',
     name: 'DRAFT',
     subtext: 'WORK IN PROGRESS',
-    color: '#ff9f1c',
+    color: '#fbbf24',
     icon: FileCheck,
   },
   {
     id: 'urgent',
     name: 'URGENT',
     subtext: 'PRIORITY ACTION',
-    color: '#ff2d75',
+    color: '#fb7185',
     icon: AlertTriangle,
   },
   {
     id: 'final',
     name: 'FINAL COPY',
     subtext: 'OFFICIAL RECORD',
-    color: '#a855f7',
+    color: '#c084fc',
     icon: Stamp,
   },
 ];
@@ -73,21 +73,21 @@ export const StampPickerModal: React.FC<StampPickerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
-      <div className="w-full max-w-md bg-[#25252c] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
+      <div className="w-full max-w-md bg-[#24242b] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
-              <Stamp className="w-4 h-4 text-[#00e599]" />
+            <h3 className="text-sm font-semibold text-zinc-100 tracking-tight flex items-center gap-1.5">
+              <Stamp className="w-4 h-4 text-zinc-400" />
               <span>Attach Stamp or Image</span>
             </h3>
             <p className="text-[11px] text-zinc-400">
-              Select an official seal or browse an image from disk
+              Attach a badge or custom signature image
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] transition-all"
+            className="btn-icon w-7 h-7"
           >
             <X className="w-4 h-4" />
           </button>
@@ -99,16 +99,16 @@ export const StampPickerModal: React.FC<StampPickerModalProps> = ({
             onClose();
             onAttachCustomImage();
           }}
-          className="p-3 rounded-lg border border-dashed border-[#0080f0]/50 bg-[#0080f0]/10 hover:bg-[#0080f0]/20 text-[#38bdf8] flex items-center justify-center gap-2 transition-all group font-medium"
+          className="p-3 rounded-lg border border-dashed border-zinc-600 bg-[#1e1e24] hover:bg-[#2a2a34] text-zinc-300 hover:text-white flex items-center justify-center gap-2 transition-all font-medium"
         >
-          <Upload className="w-4 h-4 group-hover:scale-105 transition-transform" />
+          <Upload className="w-4 h-4 text-zinc-400" />
           <span>Browse Custom Image / Signature File</span>
         </button>
 
         {/* Preset Stamps Grid */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-            Preset Office & Review Badges
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+            Preset Stamps & Badges
           </span>
 
           <div className="grid grid-cols-3 gap-2">
@@ -126,11 +126,11 @@ export const StampPickerModal: React.FC<StampPickerModalProps> = ({
                     onSelectStamp(dataUrl, stamp.name);
                     onClose();
                   }}
-                  className="p-2.5 rounded-lg border border-[#343440] bg-[#1e1e24] hover:bg-[#282832] hover:border-[#424252] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-98 group"
+                  className="p-2.5 rounded-lg border border-[#363644] bg-[#1e1e24] hover:bg-[#2a2a34] hover:border-[#444456] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-98 group"
                 >
                   <Icon className="w-4 h-4" style={{ color: stamp.color }} />
                   <span
-                    className="text-[11px] font-bold tracking-wider font-mono"
+                    className="text-[10.5px] font-bold tracking-wider font-mono"
                     style={{ color: stamp.color }}
                   >
                     {stamp.name}

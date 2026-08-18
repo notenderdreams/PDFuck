@@ -47,8 +47,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   return (
-    <div className="fixed top-14 right-4 z-40 flex items-center gap-1.5 p-1 rounded-lg bg-[#25252c] border border-[#383846] shadow-2xl animate-slide-down text-xs">
-      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1a1a20] rounded border border-[#2e2e3a]">
+    <div className="fixed top-13 right-4 z-40 flex items-center gap-1.5 p-1 rounded-lg bg-[#24242b] border border-[#383846] shadow-2xl animate-slide-down text-xs">
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1c1c22] rounded border border-[#343440]">
         <Search className="w-3.5 h-3.5 text-zinc-400" />
         <input
           ref={inputRef}
@@ -62,7 +62,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           placeholder="Find in document..."
           className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none w-40 font-sans"
         />
-        {isSearching && <Loader2 className="w-3 h-3 text-[#0088ff] animate-spin" />}
+        {isSearching && <Loader2 className="w-3 h-3 text-zinc-400 animate-spin" />}
       </div>
 
       {searchResults.length > 0 ? (
@@ -77,7 +77,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           onClick={onPrev}
           disabled={searchResults.length === 0}
-          className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="btn-icon w-6 h-6 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Previous match (Shift+Enter)"
         >
           <ChevronUp className="w-3.5 h-3.5" />
@@ -85,14 +85,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           onClick={onNext}
           disabled={searchResults.length === 0}
-          className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="btn-icon w-6 h-6 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Next match (Enter)"
         >
           <ChevronDown className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={onClose}
-          className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#32323c] transition-all ml-0.5"
+          className="btn-icon w-6 h-6 ml-0.5"
           title="Close search (Esc)"
         >
           <X className="w-3.5 h-3.5" />

@@ -265,7 +265,7 @@ export function App() {
   });
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#09090b] text-[#f4f4f5] overflow-hidden select-none">
+    <div className="h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
       {/* Hidden File Inputs for Browser Fallback */}
       <input
         ref={pdfInputRef}
@@ -294,7 +294,6 @@ export function App() {
         isSidebarOpen={isSidebarOpen}
         isSearchOpen={isSearchOpen}
         onOpenPdf={handleOpenPdf}
-        onLoadSample={handleLoadSample}
         onExportClick={() => setIsExportModalOpen(true)}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
@@ -361,7 +360,7 @@ export function App() {
             reader.readAsArrayBuffer(file);
           }}
           onOpenPdfClick={handleOpenPdf}
-          onLoadSampleClick={handleLoadSample}
+          onChangeZoom={(newZoom) => setZoom(newZoom)}
         />
       </div>
 

@@ -2,81 +2,150 @@
 
 @layer base {
   :root {
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 
-    /* Unity / Affinity Studio Color Tokens */
-    --studio-bg: #1a1a1f;
-    --studio-panel: #23232a;
-    --studio-header: #282830;
-    --studio-card: #2e2e38;
-    --studio-border: #383844;
-    --studio-border-subtle: #2f2f3a;
-    --studio-accent: #0088ff;
-    --studio-accent-hover: #0077ee;
-    --studio-text-primary: #f0f0f4;
-    --studio-text-secondary: #9c9ca8;
-    --studio-text-muted: #6a6a78;
+    /* Refined Neutral Gray Studio Palette (No Pure Black) */
+    --background: #1e1e24;
+    --foreground: #f0f0f4;
+    --card: #26262d;
+    --card-foreground: #f0f0f4;
+    --popover: #282830;
+    --popover-foreground: #f0f0f4;
+    --primary: #f0f0f4;
+    --primary-foreground: #1c1c22;
+    --secondary: #2c2c34;
+    --secondary-foreground: #f0f0f4;
+    --muted: #34343e;
+    --muted-foreground: #a2a2b0;
+    --accent: #34343e;
+    --accent-foreground: #f0f0f4;
+    --destructive: #ef4444;
+    --destructive-foreground: #f0f0f4;
+    --border: #3a3a46;
+    --input: #30303a;
+    --ring: #787888;
   }
 
   * {
-    border-color: var(--studio-border);
+    border-color: #383846;
   }
 
   body {
     font-family: var(--font-sans);
-    color: var(--studio-text-primary);
-    background-color: var(--studio-bg);
+    color: #f0f0f4;
+    background-color: #1e1e24;
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
   }
 }
 
-/* Unity / Affinity Precision Studio Scrollbar */
+/* Neutral Gray Studio Scrollbars */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e1e24;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3c3c48;
-  border-radius: 4px;
-  border: 1px solid #282832;
+  background: #3e3e4a;
+  border-radius: 9999px;
   transition: background 0.15s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #505060;
+  background: #525262;
 }
 
-/* Affinity / Unity Studio Panels & Cards */
-.studio-surface {
-  background-color: #23232a;
-  border: 1px solid #363642;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+/* Shadcn Neutral Button & Control Utility Classes */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  background-color: #e8e8ed;
+  color: #18181f;
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.btn-primary:hover {
+  background-color: #ffffff;
+}
+.btn-primary:active {
+  transform: scale(0.98);
 }
 
-.studio-panel {
-  background-color: #26262e;
-  border: 1px solid #383846;
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  background-color: #2a2a32;
+  color: #f0f0f4;
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #3c3c48;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  background-color: #34343e;
+}
+.btn-secondary:active {
+  transform: scale(0.98);
 }
 
-.studio-well {
-  background-color: #1a1a20;
-  border: 1px solid #2d2d38;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  background-color: transparent;
+  color: #a2a2b0;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease;
+}
+.btn-ghost:hover {
+  background-color: #2c2c35;
+  color: #f0f0f4;
+}
+.btn-ghost:active {
+  transform: scale(0.98);
 }
 
-.studio-button-active {
-  background-color: #0080f0 !important;
-  color: #ffffff !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 12px rgba(0, 128, 240, 0.4);
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.375rem;
+  color: #a2a2b0;
+  background-color: transparent;
+  transition: all 0.15s ease;
+}
+.btn-icon:hover {
+  background-color: #2c2c35;
+  color: #f0f0f4;
+}
+.btn-icon:active {
+  transform: scale(0.96);
 }
 
 /* Document Reading Theme Filters */
@@ -86,12 +155,12 @@
 
 .page-theme-invert {
   filter: invert(0.92) hue-rotate(180deg) contrast(0.95) brightness(0.95);
-  background-color: #16161a !important;
+  background-color: #1a1a20 !important;
 }
 
 .page-theme-oled {
   filter: invert(1) contrast(1.15) brightness(0.88);
-  background-color: #000000 !important;
+  background-color: #0c0c0e !important;
 }
 
 .page-theme-sepia {
@@ -106,7 +175,7 @@
 
 .page-theme-matrix {
   filter: invert(0.95) hue-rotate(90deg) contrast(1.1) brightness(0.85) saturate(1.4);
-  background-color: #0d1a0d !important;
+  background-color: #0f1a0f !important;
 }
 
 .page-theme-invert .preserve-image-color,
@@ -116,7 +185,7 @@
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Precision Selectable & Copiable PDF Text Layer */
+/* Precision Selectable PDF Text Layer */
 .textLayer {
   position: absolute;
   text-align: initial;
@@ -139,19 +208,19 @@
 }
 
 .textLayer ::selection {
-  background: rgba(0, 128, 240, 0.38) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
   color: transparent !important;
 }
 
 .textLayer ::-moz-selection {
-  background: rgba(0, 128, 240, 0.38) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
   color: transparent !important;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.99);
+    transform: translateY(-4px) scale(0.995);
   }
   to {
     opacity: 1;
@@ -162,7 +231,7 @@
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.99);
+    transform: translateY(6px) scale(0.995);
   }
   to {
     opacity: 1;
@@ -171,14 +240,13 @@
 }
 
 .animate-slide-down {
-  animation: slideDown 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideDown 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Window Drag Regions */
 .app-drag-region {
   -webkit-app-region: drag;
 }
