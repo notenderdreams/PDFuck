@@ -3,11 +3,13 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
+import { PageQuickActions } from './components/PageQuickActions';
 import { ColorThemeModal } from './components/ColorThemeModal';
 import { StampPickerModal } from './components/StampPickerModal';
 import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ExportModal } from './components/ExportModal';
+import { Check, Info } from 'lucide-react';
 
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
@@ -16,6 +18,12 @@ import { useKeyboard } from './hooks/useKeyboard';
 import { createSamplePDF } from './utils/samplePdf';
 import { loadViewMode, saveViewMode } from './utils/storage';
 import { isTauri, tauriOpenPdf, tauriOpenImage } from './utils/tauriBridge';
+import {
+  extractPageText,
+  copyTextToClipboard,
+  copyPageImageToClipboard,
+  downloadPageAsJpg,
+} from './utils/pageExtractor';
 import type { ToolType, ViewMode } from './utils/types';
 
 export function App() {
@@ -29,6 +37,16 @@ export function App() {
   const [isStampPickerOpen, setIsStampPickerOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+
+  // Active Toast Feedback
+  const [toastMessage, setToastMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+
+  const showToast = useCallback((text: string, isError = false) => {
+    setToastMessage({ text, isError });
+    setTimeout(() => {
+      setToastMessage((prev) => (prev?.text === text ? null : prev));
+    }, 2400);
+  }, []);
 
   // Active Tool & Style State
   const [activeTool, setActiveTool] = useState<ToolType>('select');
@@ -65,6 +83,7 @@ export function App() {
   const {
     annotations,
     addAnnotation,
+    addAttachedImage,
     updateAnnotation,
     deleteAnnotation,
     clearAllAnnotationsForPage,
@@ -72,52 +91,45 @@ export function App() {
     redo,
     canUndo,
     canRedo,
-    addAttachedImage,
   } = useAnnotations(docKey);
 
   const {
     settings: themeSettings,
     setTheme,
     toggleInvert,
-    updateSetting,
-    resetFilters,
+    updateSetting: updateThemeSetting,
+    resetFilters: resetThemeFilters,
     getPageFilterClass,
     getCustomFilterStyle,
   } = useColorTheme();
 
-  const isDarkTheme = themeSettings.theme !== 'default' && themeSettings.theme !== 'sepia';
+  const isDarkTheme = themeSettings.theme !== 'default';
 
-  // Load sample document on initial start if empty
+  // Load a demo PDF on initial startup if none is loaded
   useEffect(() => {
-    let mounted = true;
-    createSamplePDF().then((sampleBytes) => {
-      if (mounted && !pdfDoc) {
-        loadPdf(sampleBytes, 'High_Performance_Systems_Whitepaper.pdf');
-      }
-    });
-    return () => {
-      mounted = false;
+    const initDemo = async () => {
+      const sampleBytes = await createSamplePDF();
+      loadPdf(sampleBytes, 'Welcome-Document.pdf');
     };
-  }, []);
+    initDemo();
+  }, [loadPdf]);
 
-  // Handle View Mode Change
+  // Handle View Mode persistence
   const handleChangeViewMode = (mode: ViewMode) => {
     setViewMode(mode);
     saveViewMode(mode);
   };
 
-  // Open PDF File (Tauri or Browser input)
+  // Open PDF File (Desktop native dialog or Browser File Input fallback)
   const handleOpenPdf = async () => {
     if (isTauri()) {
-      const result = await tauriOpenPdf();
-      if (result) {
-        loadPdf(result.data, result.fileName);
-        return;
+      const fileData = await tauriOpenPdf();
+      if (fileData) {
+        loadPdf(fileData.data, fileData.fileName);
       }
+    } else {
+      pdfInputRef.current?.click();
     }
-
-    // Web fallback
-    pdfInputRef.current?.click();
   };
 
   const handlePdfInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,45 +142,43 @@ export function App() {
         }
       };
       reader.readAsArrayBuffer(file);
-      e.target.value = '';
     }
+    e.target.value = '';
   };
 
-  // Attach Image from Disk (Tauri or Web input)
+  // Open Image to Attach (Desktop native dialog or Browser File Input fallback)
   const handleOpenImage = async () => {
-    const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-    const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-    const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
-
     if (isTauri()) {
-      const result = await tauriOpenImage();
-      if (result && result.dataUrl) {
-        addAttachedImage(targetPage, result.dataUrl, 1.33, result.fileName, {
+      const imgData = await tauriOpenImage();
+      if (imgData) {
+        const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
+        const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
+        const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
+
+        addAttachedImage(targetPage, imgData.dataUrl, 2.5, imgData.fileName, {
           x: posX,
           y: posY,
           attachedInInvertedMode: isDarkTheme,
           invertInLightMode: isDarkTheme,
         });
         setActiveTool('select');
-        return;
       }
+    } else {
+      imageInputRef.current?.click();
     }
-
-    // Web fallback
-    imageInputRef.current?.click();
   };
 
   const handleImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-      const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-      const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
-
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
-          addAttachedImage(targetPage, reader.result, 1.33, file.name, {
+          const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
+          const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
+          const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
+
+          addAttachedImage(targetPage, reader.result, 2.5, file.name, {
             x: posX,
             y: posY,
             attachedInInvertedMode: isDarkTheme,
@@ -178,19 +188,19 @@ export function App() {
         }
       };
       reader.readAsDataURL(file);
-      e.target.value = '';
     }
+    e.target.value = '';
   };
 
-  // Image file drop on a specific page
+  // Handle Drag & Drop of image directly onto a page canvas
   const handleImageDropOnPage = (pageNumber: number, file: File) => {
-    const posX = cursorPosRef.current?.pageNumber === pageNumber ? cursorPosRef.current.x : 0.5;
-    const posY = cursorPosRef.current?.pageNumber === pageNumber ? cursorPosRef.current.y : 0.45;
-
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        addAttachedImage(pageNumber, reader.result, 1.33, file.name, {
+        const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
+        const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.5;
+
+        addAttachedImage(pageNumber, reader.result, 2.5, file.name, {
           x: posX,
           y: posY,
           attachedInInvertedMode: isDarkTheme,
@@ -202,48 +212,114 @@ export function App() {
     reader.readAsDataURL(file);
   };
 
-  // Load sample document on click
-  const handleLoadSample = async () => {
-    const bytes = await createSamplePDF();
-    loadPdf(bytes, 'High_Performance_Systems_Whitepaper.pdf');
-  };
+  // Extract and Copy all text from a page
+  const handleCopyPageText = useCallback(
+    async (pageParam?: number | unknown) => {
+      const pageNumber = typeof pageParam === 'number' && !isNaN(pageParam) ? pageParam : currentPage;
+      if (!pdfDoc) return;
+      try {
+        const fullText = await extractPageText(pdfDoc, pageNumber);
+        if (!fullText) {
+          showToast(`No text found on Page ${pageNumber}.`, true);
+          return;
+        }
 
-  // Handle Clipboard Paste (Cmd+V) of images directly at the mouse cursor position!
+        const copied = await copyTextToClipboard(fullText);
+        if (copied) {
+          const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+          showToast(`Copied ${wordCount} words from Page ${pageNumber}!`);
+        } else {
+          showToast(`Could not copy to clipboard.`, true);
+        }
+      } catch (err) {
+        console.error('Failed to copy page text:', err);
+        showToast(`Failed to extract page text.`, true);
+      }
+    },
+    [pdfDoc, currentPage, showToast]
+  );
+
+  // Copy active page directly to clipboard as image
+  const handleCopyPageJpg = useCallback(
+    async (pageParam?: number | unknown) => {
+      const pageNumber = typeof pageParam === 'number' && !isNaN(pageParam) ? pageParam : currentPage;
+      if (!pdfDoc) return;
+      try {
+        const copiedToClipboard = await copyPageImageToClipboard(pageNumber, pdfDoc);
+        if (copiedToClipboard) {
+          showToast(`Page ${pageNumber} image copied to clipboard!`);
+        } else {
+          showToast(`Could not copy image to clipboard.`, true);
+        }
+      } catch (err) {
+        console.error('Failed to copy page image:', err);
+        showToast(`Failed to capture page image.`, true);
+      }
+    },
+    [pdfDoc, currentPage, showToast]
+  );
+
+  // Download page directly as high-res JPG
+  const handleDownloadPageJpg = useCallback(
+    async (pageParam?: number | unknown) => {
+      const pageNumber = typeof pageParam === 'number' && !isNaN(pageParam) ? pageParam : currentPage;
+      if (!pdfDoc) return;
+      try {
+        const downloaded = await downloadPageAsJpg(
+          pageNumber,
+          pdfDoc,
+          docInfo?.fileName || 'document'
+        );
+        if (downloaded) {
+          showToast(`Downloaded Page ${pageNumber} as JPG!`);
+        } else {
+          showToast(`Page ${pageNumber} canvas not ready.`, true);
+        }
+      } catch (err) {
+        console.error('Failed to download JPG:', err);
+        showToast(`Failed to download JPG.`, true);
+      }
+    },
+    [pdfDoc, currentPage, showToast, docInfo]
+  );
+
+  // Cursor-aware Clipboard Paste: Pastes image at mouse cursor position on hovered page
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      if (e.clipboardData && e.clipboardData.items) {
-        for (const item of Array.from(e.clipboardData.items)) {
-          if (item.type.startsWith('image/')) {
-            const blob = item.getAsFile();
-            if (blob) {
-              const reader = new FileReader();
-              reader.onload = () => {
-                if (typeof reader.result === 'string') {
-                  const targetPage = cursorPosRef.current
-                    ? cursorPosRef.current.pageNumber
-                    : currentPage;
-                  const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-                  const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
-                  addAttachedImage(targetPage, reader.result, 1.33, 'Pasted Image', {
-                    x: posX,
-                    y: posY,
-                    attachedInInvertedMode: isDarkTheme,
-                    invertInLightMode: isDarkTheme,
-                  });
-                  setActiveTool('select');
-                }
-              };
-              reader.readAsDataURL(blob);
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (!file) continue;
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === 'string') {
+              const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
+              const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
+              const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
+
+              addAttachedImage(targetPage, reader.result as string, 2.5, 'Pasted-Image', {
+                x: posX,
+                y: posY,
+                attachedInInvertedMode: isDarkTheme,
+                invertInLightMode: isDarkTheme,
+              });
+              setActiveTool('select');
+              showToast(`Pasted image on Page ${targetPage}!`);
             }
-          }
+          };
+          reader.readAsDataURL(file);
+          break;
         }
       }
     };
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [currentPage, isDarkTheme, addAttachedImage]);
+  }, [currentPage, isDarkTheme, addAttachedImage, showToast]);
 
   // Global Keyboard Shortcuts
   useKeyboard({
@@ -255,13 +331,15 @@ export function App() {
     onSelectTool: (t) => setActiveTool(t),
     onUndo: undo,
     onRedo: redo,
-    onZoomIn: () => setZoom((z) => Math.min(3.0, z + 0.15)),
-    onZoomOut: () => setZoom((z) => Math.max(0.4, z - 0.15)),
+    onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
+    onZoomOut: () => setZoom((z) => Math.max(0.3, z - 0.15)),
     onResetZoom: () => setZoom(1.15),
     onNextPage: () => changePage(currentPage + 1),
     onPrevPage: () => changePage(currentPage - 1),
     onToggleZen: () => setIsZenMode((prev) => !prev),
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
+    onCopyPageText: () => handleCopyPageText(currentPage),
+    onCopyPageJpg: () => handleCopyPageJpg(currentPage),
   });
 
   return (
@@ -281,6 +359,18 @@ export function App() {
         className="hidden"
         onChange={handleImageInputChange}
       />
+
+      {/* Floating Dynamic Feedback Toast */}
+      {toastMessage && (
+        <div className="fixed top-13 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#26262e]/95 border border-[#3e3e4c] text-xs text-zinc-100 shadow-2xl backdrop-blur-md animate-slide-down pointer-events-none">
+          {toastMessage.isError ? (
+            <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          ) : (
+            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          )}
+          <span className="font-medium">{toastMessage.text}</span>
+        </div>
+      )}
 
       {/* Top Header & Titlebar */}
       <Header
@@ -304,6 +394,8 @@ export function App() {
         onChangeViewMode={handleChangeViewMode}
         onChangeZoom={(newZoom) => setZoom(newZoom)}
         onPageChange={(p) => changePage(p)}
+        onCopyPageText={() => handleCopyPageText(currentPage)}
+        onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
       />
 
       {/* Main Reading & Sidebar Workspace */}
@@ -364,6 +456,17 @@ export function App() {
         />
       </div>
 
+      {/* Floating Page Quick Actions Capsule */}
+      {pdfDoc && !isZenMode && (
+        <PageQuickActions
+          currentPage={currentPage}
+          numPages={pdfDoc?.numPages || 0}
+          onCopyPageText={() => handleCopyPageText(currentPage)}
+          onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
+          onDownloadPageJpg={() => handleDownloadPageJpg(currentPage)}
+        />
+      )}
+
       {/* Floating Tool Dock */}
       {pdfDoc && !isZenMode && (
         <Toolbar
@@ -373,10 +476,10 @@ export function App() {
           opacity={opacity}
           canUndo={canUndo}
           canRedo={canRedo}
-          onSelectTool={(t) => setActiveTool(t)}
+          onSelectTool={(tool) => setActiveTool(tool)}
           onSelectColor={(c) => setSelectedColor(c)}
           onChangeStrokeWidth={(w) => setStrokeWidth(w)}
-          onChangeOpacity={(op) => setOpacity(op)}
+          onChangeOpacity={(o) => setOpacity(o)}
           onAttachImageClick={handleOpenImage}
           onOpenStampPicker={() => setIsStampPickerOpen(true)}
           onUndo={undo}
@@ -385,29 +488,29 @@ export function App() {
         />
       )}
 
-      {/* Full-Text Search Bar */}
+      {/* In-Document Quick Search HUD */}
       <SearchBar
         isOpen={isSearchOpen}
         isSearching={isSearching}
         searchResults={searchResults}
         currentMatchIndex={currentMatchIndex}
-        onSearch={(q) => searchInDocument(q)}
+        onSearch={searchInDocument}
         onNext={nextSearchResult}
         onPrev={prevSearchResult}
         onClose={() => setIsSearchOpen(false)}
       />
 
-      {/* Reading Theme & Color Invert Settings Modal */}
+      {/* Reading Theme & Brightness Modal */}
       <ColorThemeModal
         isOpen={isThemeModalOpen}
         settings={themeSettings}
         onClose={() => setIsThemeModalOpen(false)}
-        onSelectTheme={(t) => setTheme(t)}
-        onUpdateSetting={updateSetting}
-        onResetFilters={resetFilters}
+        onSelectTheme={setTheme}
+        onUpdateSetting={updateThemeSetting}
+        onResetFilters={resetThemeFilters}
       />
 
-      {/* Stamps & Stickers Picker Modal */}
+      {/* Stamp & Badge Picker Modal */}
       <StampPickerModal
         isOpen={isStampPickerOpen}
         onClose={() => setIsStampPickerOpen(false)}

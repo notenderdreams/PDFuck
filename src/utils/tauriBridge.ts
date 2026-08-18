@@ -88,3 +88,29 @@ export async function tauriSaveJson(jsonString: string, defaultName: string): Pr
     return { success: false };
   }
 }
+
+export async function tauriCopyImageToClipboard(pngDataUrl: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const res = await invoke<boolean>('copy_image_to_clipboard', {
+      pngDataUrl,
+    });
+    return res;
+  } catch (err) {
+    console.error('Tauri native copy image error:', err);
+    return false;
+  }
+}
+
+export async function tauriCopyTextToClipboard(text: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const res = await invoke<boolean>('copy_text_to_clipboard', {
+      text,
+    });
+    return res;
+  } catch (err) {
+    console.error('Tauri native copy text error:', err);
+    return false;
+  }
+}

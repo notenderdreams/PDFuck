@@ -11,7 +11,8 @@ import {
   SlidersHorizontal,
   Sidebar as SidebarIcon,
   HelpCircle,
-  Sparkles,
+  Copy,
+  Camera,
   Rows,
   Square,
   Columns2,
@@ -39,6 +40,8 @@ interface HeaderProps {
   onChangeViewMode: (mode: ViewMode) => void;
   onChangeZoom: (newZoom: number) => void;
   onPageChange: (page: number) => void;
+  onCopyPageText?: () => void;
+  onCopyPageJpg?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -62,6 +65,8 @@ export const Header: React.FC<HeaderProps> = ({
   onChangeViewMode,
   onChangeZoom,
   onPageChange,
+  onCopyPageText,
+  onCopyPageJpg,
 }) => {
   if (isZenMode) {
     return (
@@ -111,12 +116,12 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Center Section: Document Title & Page Stepper */}
-      <div className="flex items-center gap-2 app-no-drag max-w-[40%]">
+      {/* Center Section: Document Title, Page Stepper & Page Quick Copy Actions */}
+      <div className="flex items-center gap-2 app-no-drag max-w-[45%]">
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d23] border border-[#343440] text-zinc-300">
           <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span
-            className="font-medium truncate max-w-[150px] sm:max-w-[200px]"
+            className="font-medium truncate max-w-[130px] sm:max-w-[180px]"
             title={docInfo?.fileName || 'No Document'}
           >
             {docInfo?.fileName || 'No Document'}
@@ -137,7 +142,28 @@ export const Header: React.FC<HeaderProps> = ({
               className="w-7 text-center bg-[#2a2a33] rounded px-1 py-0.5 text-zinc-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
             <span className="text-zinc-500 font-mono text-[11px]">/</span>
-            <span className="font-mono text-zinc-400 text-[11px] pr-0.5">{numPages}</span>
+            <span className="font-mono text-zinc-400 text-[11px] pr-1">{numPages}</span>
+
+            {/* Quick Page Extract Action Buttons */}
+            <div className="w-[1px] h-3 bg-[#343440] mx-0.5" />
+
+            {/* Copy All Page Text */}
+            <button
+              onClick={onCopyPageText}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-[#2c2c36] transition-all"
+              title={`Copy all text from Page ${currentPage} (Cmd+Shift+C)`}
+            >
+              <Copy className="w-3 h-3" />
+            </button>
+
+            {/* Copy / Save Page as JPG */}
+            <button
+              onClick={onCopyPageJpg}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-[#2c2c36] transition-all"
+              title={`Copy / Save Page ${currentPage} as JPG image (Cmd+Shift+J)`}
+            >
+              <Camera className="w-3 h-3" />
+            </button>
           </div>
         )}
       </div>

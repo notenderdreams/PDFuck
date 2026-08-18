@@ -17,6 +17,8 @@ interface KeyboardShortcutOptions {
   onPrevPage: () => void;
   onToggleZen: () => void;
   onToggleShortcuts: () => void;
+  onCopyPageText?: () => void;
+  onCopyPageJpg?: () => void;
 }
 
 export function useKeyboard(options: KeyboardShortcutOptions) {
@@ -41,7 +43,13 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (cmdOrCtrl) {
-        if (e.key.toLowerCase() === 'o') {
+        if (e.shiftKey && e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          options.onCopyPageText?.();
+        } else if (e.shiftKey && e.key.toLowerCase() === 'j') {
+          e.preventDefault();
+          options.onCopyPageJpg?.();
+        } else if (e.key.toLowerCase() === 'o') {
           e.preventDefault();
           options.onOpenPdf();
         } else if (e.key.toLowerCase() === 's') {
@@ -96,7 +104,6 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
             options.onSelectTool('eraser');
             break;
           case 'v':
-          case 's':
             options.onSelectTool('select');
             break;
           case 'r':
@@ -106,15 +113,14 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
             options.onToggleZen();
             break;
           case '?':
+          case '/':
             options.onToggleShortcuts();
             break;
           case 'arrowright':
-          case 'pagedown':
           case 'j':
             options.onNextPage();
             break;
           case 'arrowleft':
-          case 'pageup':
           case 'k':
             options.onPrevPage();
             break;

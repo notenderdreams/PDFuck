@@ -148,6 +148,48 @@ fn read_file_from_path(file_path: String) -> Option<OpenFileResult> {
     })
 }
 
+#[tauri::command]
+fn copy_image_to_clipboard(png_data_url: String) -> bool {
+    let b64 = if let Some(idx) = png_data_url.find(',') {
+        &png_data_url[idx + 1..]
+    } else {
+        &png_data_url
+    };
+
+    let bytes = match base64::engine::general_purpose::STANDARD.decode(b64) {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+
+    let img = match image::load_from_memory(&bytes) {
+        Ok(i) => i.to_rgba8(),
+        Err(_) => return false,
+    };
+
+    let (width, height) = img.dimensions();
+    let img_data = arboard::ImageData {
+        width: width as usize,
+        height: height as usize,
+        bytes: img.into_raw().into(),
+    };
+
+    let mut clipboard = match arboard::Clipboard::new() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    clipboard.set_image(img_data).is_ok()
+}
+
+#[tauri::command]
+fn copy_text_to_clipboard(text: String) -> bool {
+    let mut clipboard = match arboard::Clipboard::new() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    clipboard.set_text(text).is_ok()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -167,6 +209,8 @@ pub fn run() {
             save_pdf_dialog,
             save_json_dialog,
             read_file_from_path,
+            copy_image_to_clipboard,
+            copy_text_to_clipboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
