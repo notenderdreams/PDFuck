@@ -21,7 +21,7 @@ export function usePDFDocument() {
 
   const activeDocRef = useRef<PDFDocumentProxy | null>(null);
 
-  const loadPdf = useCallback(async (data: Uint8Array | ArrayBuffer, fileName: string = 'document.pdf') => {
+  const loadPdf = useCallback(async (data: Uint8Array | ArrayBuffer, fileName: string = 'document.pdf', filePath?: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -46,6 +46,7 @@ export function usePDFDocument() {
       const infoObj = (metadata?.info || {}) as Record<string, string>;
       setDocInfo({
         fileName,
+        filePath,
         numPages: loadedDoc.numPages,
         fileSize: bytes.byteLength,
         title: infoObj.Title || fileName,

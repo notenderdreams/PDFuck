@@ -12,6 +12,8 @@ export type ReadingTheme = 'default' | 'invert' | 'oled' | 'sepia' | 'nord' | 'm
 
 export type ViewMode = 'continuous' | 'single' | 'spread';
 
+export type AppScreen = 'dashboard' | 'reader';
+
 export interface StrokePoint {
   x: number; // Normalized 0..1 relative to page width
   y: number; // Normalized 0..1 relative to page height
@@ -123,6 +125,7 @@ export interface DocumentInfo {
   fileName: string;
   numPages: number;
   fileSize?: number;
+  filePath?: string;
   fingerprint?: string;
   title?: string;
   author?: string;
@@ -132,4 +135,25 @@ export interface SearchMatch {
   pageNumber: number;
   matchIndex: number;
   snippet: string;
+}
+
+export interface DashboardPdfItem {
+  id: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  modifiedTimestamp: number;
+  directoryPath?: string;
+  lastOpenedAt?: number;
+  lastReadPage?: number;
+  numPages?: number;
+  isFavorite?: boolean;
+}
+
+export interface SavedDirectory {
+  id: string;
+  path: string;
+  name: string;
+  addedAt: number;
+  pdfCount?: number;
 }

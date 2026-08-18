@@ -163,17 +163,44 @@ export async function exportAnnotatedPDF(
         }
       } else if (ann.type === 'text-note') {
         const textAnn = ann as TextNoteAnnotation;
-        const color = hexToRgb(textAnn.color || '#000000');
-        const x = textAnn.x * pageWidth;
-        const y = pageHeight - textAnn.y * pageHeight;
+        const fontSize = textAnn.fontSize || 11;
+        const lines = textAnn.text.split('\n');
+        const lineHeight = fontSize * 1.35;
+        const boxPadding = 6;
 
-        page.drawText(textAnn.text, {
+        let maxLineWidth = 0;
+        for (const line of lines) {
+          const w = fontHelvetica.widthOfTextAtSize(line, fontSize);
+          if (w > maxLineWidth) maxLineWidth = w;
+        }
+
+        const boxWidth = Math.max(maxLineWidth + boxPadding * 2, 60);
+        const boxHeight = lines.length * lineHeight + boxPadding * 2;
+        const x = textAnn.x * pageWidth;
+        const yTop = pageHeight - textAnn.y * pageHeight;
+        const yBottom = yTop - boxHeight;
+
+        // Draw note background box
+        page.drawRectangle({
           x,
-          y,
-          size: textAnn.fontSize || 12,
-          font: fontHelvetica,
-          color: rgb(color.r, color.g, color.b),
+          y: yBottom,
+          width: boxWidth,
+          height: boxHeight,
+          color: rgb(0.99, 0.94, 0.54),
+          borderColor: rgb(0.99, 0.88, 0.28),
+          borderWidth: 1,
         });
+
+        // Draw text lines
+        for (let l = 0; l < lines.length; l++) {
+          page.drawText(lines[l], {
+            x: x + boxPadding,
+            y: yTop - boxPadding - (l + 0.8) * lineHeight,
+            size: fontSize,
+            font: fontHelvetica,
+            color: rgb(0.15, 0.15, 0.18),
+          });
+        }
       }
     }
   }

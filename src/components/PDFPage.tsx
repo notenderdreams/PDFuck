@@ -3,7 +3,14 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import { TextLayer } from 'pdfjs-dist';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { ImageOverlay } from './ImageOverlay';
-import type { Annotation, AttachedImageAnnotation, ReadingTheme, ToolType } from '../utils/types';
+import { TextNoteOverlay } from './TextNoteOverlay';
+import type {
+  Annotation,
+  AttachedImageAnnotation,
+  TextNoteAnnotation,
+  ReadingTheme,
+  ToolType,
+} from '../utils/types';
 
 interface PDFPageProps {
   pdfDoc: PDFDocumentProxy;
@@ -100,28 +107,28 @@ export const PDFPage: React.FC<PDFPageProps> = ({
 
         await renderTask.promise;
         if (isCancelled) return;
+        setIsRendered(true);
 
-        // Render Selectable & Copiable Text Layer
-        if (textLayerRef.current) {
-          textLayerRef.current.innerHTML = '';
-          textLayerRef.current.style.setProperty('--scale-factor', `${scale}`);
+        // Render Selectable Text Layer
+        const textContent = await page.getTextContent();
+        if (isCancelled) return;
 
-          const textContentSource = page.streamTextContent();
+        const textLayerDiv = textLayerRef.current;
+        if (textLayerDiv) {
+          textLayerDiv.innerHTML = '';
+          textLayerDiv.style.setProperty('--scale-factor', `${scale}`);
+
           const textLayer = new TextLayer({
-            textContentSource,
-            container: textLayerRef.current,
+            textContentSource: textContent,
+            container: textLayerDiv,
             viewport: baseViewport,
           });
 
           await textLayer.render();
         }
-
-        if (!isCancelled) {
-          setIsRendered(true);
-        }
       } catch (err: unknown) {
-        if ((err as { name?: string })?.name !== 'RenderingCancelledException') {
-          console.warn(`Render error on page ${pageNumber}:`, err);
+        if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name !== 'RenderingCancelledException') {
+          console.error(`Page ${pageNumber} render error:`, err);
         }
       }
     };
@@ -138,14 +145,13 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     };
   }, [pdfDoc, pageNumber, scale]);
 
-  // Track cursor position for pasting at cursor location
+  // Track cursor coordinates across the page
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (onCursorMove && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-      onCursorMove(pageNumber, normX, normY);
-    }
+    if (!containerRef.current || !onCursorMove) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const nx = Math.max(0, Math.min((e.clientX - rect.left) / pageDimensions.width, 1));
+    const ny = Math.max(0, Math.min((e.clientY - rect.top) / pageDimensions.height, 1));
+    onCursorMove(pageNumber, nx, ny);
   };
 
   // Handle Drag & Drop of Images directly onto this page
@@ -177,6 +183,10 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   const pageImages = annotations.filter(
     (a) => a.pageNumber === pageNumber && a.type === 'image'
   ) as AttachedImageAnnotation[];
+
+  const pageTextNotes = annotations.filter(
+    (a) => a.pageNumber === pageNumber && a.type === 'text-note'
+  ) as TextNoteAnnotation[];
 
   return (
     <div
@@ -223,7 +233,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         />
       </div>
 
-      {/* Annotation Canvas (SVG / Freehand / Highlights) */}
+      {/* Annotation Canvas (SVG / Freehand / Highlights / Note Creator) */}
       <AnnotationCanvas
         pageNumber={pageNumber}
         pageWidth={pageDimensions.width}
@@ -243,6 +253,22 @@ export const PDFPage: React.FC<PDFPageProps> = ({
           key={imgAnn.id}
           annotation={imgAnn}
           isSelected={selectedAnnotationId === imgAnn.id}
+          pageWidth={pageDimensions.width}
+          pageHeight={pageDimensions.height}
+          currentTheme={currentTheme}
+          activeTool={activeTool}
+          onSelect={onSelectAnnotation}
+          onUpdate={onUpdateAnnotation}
+          onDelete={onDeleteAnnotation}
+        />
+      ))}
+
+      {/* Interactive Text Notes Layer */}
+      {pageTextNotes.map((noteAnn) => (
+        <TextNoteOverlay
+          key={noteAnn.id}
+          annotation={noteAnn}
+          isSelected={selectedAnnotationId === noteAnn.id}
           pageWidth={pageDimensions.width}
           pageHeight={pageDimensions.height}
           currentTheme={currentTheme}

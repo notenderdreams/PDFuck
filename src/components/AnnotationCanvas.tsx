@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import type {
   Annotation,
   DrawingAnnotation,
@@ -21,24 +21,6 @@ interface AnnotationCanvasProps {
   onDeleteAnnotation: (id: string) => void;
 }
 
-// Distance from point to line segment in pixels
-function distToSegment(
-  px: number,
-  py: number,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number
-): number {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const l2 = dx * dx + dy * dy;
-  if (l2 === 0) return Math.hypot(px - x1, py - y1);
-  let t = ((px - x1) * dx + (py - y1) * dy) / l2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-}
-
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   pageNumber,
   pageWidth,
@@ -51,41 +33,52 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   onAddAnnotation,
   onDeleteAnnotation,
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Freehand Drawing State
   const [currentStroke, setCurrentStroke] = useState<StrokePoint[] | null>(null);
-  const [rectStart, setRectStart] = useState<{ x: number; y: number } | null>(null);
-  const [rectCurrent, setRectCurrent] = useState<{ x: number; y: number } | null>(null);
-  const [textInputPos, setTextInputPos] = useState<{ x: number; y: number } | null>(null);
-  const [textInputValue, setTextInputValue] = useState('');
+
+  // Rectangle Area Highlight State
+  const [rectStart, setRectStart] = useState<StrokePoint | null>(null);
+  const [rectCurrent, setRectCurrent] = useState<StrokePoint | null>(null);
+
+  // Text Note Input Popup State
+  const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
+  const [textInputValue, setTextInputValue] = useState<string>('');
+
+  // Eraser Brush Indicator Position
   const [eraserCursorPos, setEraserCursorPos] = useState<{ x: number; y: number } | null>(null);
 
-  const isInteractingRef = useRef(false);
   const isMouseDownRef = useRef(false);
-
-  // Helper to convert mouse event to normalized coordinates (0..1)
-  const getNormalizedCoords = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    return { x, y, px: e.clientX - rect.left, py: e.clientY - rect.top };
-  };
+  const isInteractingRef = useRef(false);
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
 
-  // Hit-test and erase annotations near (px, py)
+  // Convert mouse event coordinates to normalized 0..1 coordinates relative to page dimensions
+  const getNormalizedCoords = (e: React.MouseEvent<HTMLDivElement>): { x: number; y: number; px: number; py: number } => {
+    if (!containerRef.current) return { x: 0, y: 0, px: 0, py: 0 };
+    const rect = containerRef.current.getBoundingClientRect();
+    const px = Math.max(0, Math.min(e.clientX - rect.left, pageWidth));
+    const py = Math.max(0, Math.min(e.clientY - rect.top, pageHeight));
+    return {
+      x: px / pageWidth,
+      y: py / pageHeight,
+      px,
+      py,
+    };
+  };
+
+  // Helper for eraser tool: finds any annotation near point (px, py) and deletes it
   const performEraseAt = (px: number, py: number) => {
-    const ERASE_RADIUS = 20; // 20px hit-test radius for effortless erasing
+    const ERASE_RADIUS = 22;
 
     for (const ann of pageAnnotations) {
       if (ann.type === 'pen' || ann.type === 'highlight-pen') {
         const drawAnn = ann as DrawingAnnotation;
-        const pts = drawAnn.points;
-        for (let i = 0; i < pts.length - 1; i++) {
-          const x1 = pts[i].x * pageWidth;
-          const y1 = pts[i].y * pageHeight;
-          const x2 = pts[i + 1].x * pageWidth;
-          const y2 = pts[i + 1].y * pageHeight;
-          const d = distToSegment(px, py, x1, y1, x2, y2);
-          if (d <= ERASE_RADIUS + (drawAnn.strokeWidth || 3)) {
+        for (const pt of drawAnn.points) {
+          const ptX = pt.x * pageWidth;
+          const ptY = pt.y * pageHeight;
+          if (Math.hypot(px - ptX, py - ptY) <= ERASE_RADIUS + drawAnn.strokeWidth) {
             onDeleteAnnotation(ann.id);
             break;
           }
@@ -97,7 +90,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         const rw = hRect.width * pageWidth;
         const rh = hRect.height * pageHeight;
 
-        // Check if inside rect or near borders
         if (
           px >= rx - ERASE_RADIUS &&
           px <= rx + rw + ERASE_RADIUS &&
@@ -110,7 +102,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         const note = ann as TextNoteAnnotation;
         const nx = note.x * pageWidth;
         const ny = note.y * pageHeight;
-        if (Math.hypot(px - nx, py - ny) <= ERASE_RADIUS + 30) {
+        if (Math.hypot(px - nx, py - ny) <= ERASE_RADIUS + 40) {
           onDeleteAnnotation(ann.id);
         }
       }
@@ -225,8 +217,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         x: textInputPos.x,
         y: textInputPos.y,
         text: textInputValue.trim(),
-        color: selectedColor,
-        fontSize: 13,
+        color: '#fef08a', // Default sticky yellow
+        fontSize: 12,
         createdAt: Date.now(),
       };
       onAddAnnotation(newNote);
@@ -244,12 +236,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   return (
     <div
+      ref={containerRef}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       className={`absolute inset-0 z-20 select-none ${
-        activeTool === 'select'
+        activeTool === 'select' || activeTool === 'image'
           ? 'pointer-events-none'
           : activeTool === 'eraser'
           ? 'cursor-none pointer-events-auto'
@@ -346,60 +339,53 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         )}
       </svg>
 
-      {/* Render Text Notes */}
-      {pageAnnotations
-        .filter((a) => a.type === 'text-note')
-        .map((a) => {
-          const note = a as TextNoteAnnotation;
-          return (
-            <div
-              key={note.id}
-              style={{
-                left: `${note.x * pageWidth}px`,
-                top: `${note.y * pageHeight}px`,
-                color: note.color,
-                fontSize: `${note.fontSize}px`,
-              }}
-              className="absolute p-1.5 rounded bg-yellow-100/90 text-zinc-900 border border-yellow-300 shadow-md font-sans text-xs max-w-xs pointer-events-auto"
-            >
-              {note.text}
-            </div>
-          );
-        })}
-
-      {/* Active Text Note Input */}
+      {/* Active Text Note Creation Popup */}
       {textInputPos && (
         <div
           style={{
-            left: `${textInputPos.x * pageWidth}px`,
-            top: `${textInputPos.y * pageHeight}px`,
+            left: `${Math.min(textInputPos.x * pageWidth, pageWidth - 240)}px`,
+            top: `${Math.min(textInputPos.y * pageHeight, pageHeight - 140)}px`,
           }}
-          className="absolute z-50 p-2 rounded-xl bg-[#1a1a22] border border-white/20 shadow-2xl flex flex-col gap-2 min-w-[200px]"
+          className="absolute z-50 p-2.5 rounded-xl bg-[#24242b] border border-[#383846] shadow-2xl flex flex-col gap-2 min-w-[220px] pointer-events-auto"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
+          <div className="flex items-center justify-between text-zinc-400 text-[10.5px] font-medium">
+            <span>New Sticky Note</span>
+            <span className="text-[9px] text-zinc-500">Enter to save</span>
+          </div>
+
           <textarea
             autoFocus
-            rows={2}
+            rows={3}
             value={textInputValue}
             onChange={(e) => setTextInputValue(e.target.value)}
             placeholder="Type your note..."
-            className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+            className="w-full bg-[#1c1c22] border border-[#343440] rounded-md p-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 font-sans resize-none leading-relaxed"
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
+                e.preventDefault();
                 handleSaveTextNote();
+              } else if (e.key === 'Escape') {
+                setTextInputPos(null);
+                setTextInputValue('');
               }
             }}
           />
-          <div className="flex justify-end gap-1">
+
+          <div className="flex items-center justify-end gap-1.5 pt-0.5">
             <button
-              onClick={() => setTextInputPos(null)}
-              className="px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-white"
+              onClick={() => {
+                setTextInputPos(null);
+                setTextInputValue('');
+              }}
+              className="px-2 py-1 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-[#2c2c34]"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTextNote}
-              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium"
+              className="px-3 py-1 rounded bg-[#e8e8ed] hover:bg-white text-zinc-900 text-xs font-semibold shadow-xs"
             >
               Add Note
             </button>

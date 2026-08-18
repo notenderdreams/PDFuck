@@ -16,6 +16,7 @@ import {
   Rows,
   Square,
   Columns2,
+  Layers,
 } from 'lucide-react';
 import type { DocumentInfo, ReadingTheme, ViewMode } from '../utils/types';
 
@@ -29,6 +30,7 @@ interface HeaderProps {
   isZenMode: boolean;
   isSidebarOpen: boolean;
   isSearchOpen: boolean;
+  onOpenDashboard?: () => void;
   onOpenPdf: () => void;
   onExportClick: () => void;
   onToggleSidebar: () => void;
@@ -54,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   isZenMode,
   isSidebarOpen,
   isSearchOpen,
+  onOpenDashboard,
   onOpenPdf,
   onExportClick,
   onToggleSidebar,
@@ -87,10 +90,22 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-11 bg-[#24242b] border-b border-[#363642] flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
-      {/* Left Section: macOS spacer, Sidebar toggle, Open file */}
+      {/* Left Section: macOS spacer, Library / Dashboard button, Sidebar toggle, Open file */}
       <div className="flex items-center gap-1.5 app-no-drag">
         {/* Window control spacer */}
         <div className="w-16 hidden sm:block" />
+
+        {/* Back to Library Dashboard */}
+        {onOpenDashboard && (
+          <button
+            onClick={onOpenDashboard}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d23] hover:bg-[#2e2e38] border border-[#343440] text-zinc-200 font-semibold transition-all"
+            title="Open PDF Library Dashboard"
+          >
+            <Layers className="w-3.5 h-3.5 text-zinc-300" />
+            <span>Library</span>
+          </button>
+        )}
 
         {/* Sidebar Toggle */}
         <button

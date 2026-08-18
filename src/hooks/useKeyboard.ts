@@ -17,6 +17,7 @@ interface KeyboardShortcutOptions {
   onPrevPage: () => void;
   onToggleZen: () => void;
   onToggleShortcuts: () => void;
+  onToggleLibrary?: () => void;
   onCopyPageText?: () => void;
   onCopyPageJpg?: () => void;
 }
@@ -43,7 +44,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (cmdOrCtrl) {
-        if (e.shiftKey && e.key.toLowerCase() === 'c') {
+        if (e.key.toLowerCase() === 'l') {
+          e.preventDefault();
+          options.onToggleLibrary?.();
+        } else if (e.shiftKey && e.key.toLowerCase() === 'c') {
           e.preventDefault();
           options.onCopyPageText?.();
         } else if (e.shiftKey && e.key.toLowerCase() === 'j') {

@@ -1,26 +1,35 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct OpenFileResult {
     pub file_name: String,
     pub file_path: String,
     pub data: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct OpenImageResult {
     pub file_name: String,
     pub file_path: String,
     pub data_url: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SaveResult {
     pub success: bool,
     pub file_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ScannedPdfResult {
+    pub file_name: String,
+    pub file_path: String,
+    pub file_size: u64,
+    pub modified_timestamp: u64,
+    pub directory_path: String,
 }
 
 #[tauri::command]
@@ -149,6 +158,93 @@ fn read_file_from_path(file_path: String) -> Option<OpenFileResult> {
 }
 
 #[tauri::command]
+fn select_directory_dialog() -> Option<String> {
+    let folder = rfd::FileDialog::new()
+        .set_title("Select Directory to Add to PDF Library")
+        .pick_folder()?;
+    Some(folder.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn scan_directory_pdfs(directory_path: String) -> Vec<ScannedPdfResult> {
+    let mut results = Vec::new();
+    let root = Path::new(&directory_path);
+    if !root.exists() || !root.is_dir() {
+        return results;
+    }
+
+    fn scan_dir(dir: &Path, base_dir: &str, results: &mut Vec<ScannedPdfResult>, depth: usize) {
+        if depth > 4 {
+            return;
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(ext) = path.extension() {
+                        if ext.to_string_lossy().to_lowercase() == "pdf" {
+                            let file_name = path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_else(|| "document.pdf".to_string());
+                            let file_size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                            let modified_timestamp = entry
+                                .metadata()
+                                .and_then(|m| m.modified())
+                                .ok()
+                                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                                .map(|d| d.as_millis() as u64)
+                                .unwrap_or(0);
+
+                            results.push(ScannedPdfResult {
+                                file_name,
+                                file_path: path.to_string_lossy().to_string(),
+                                file_size,
+                                modified_timestamp,
+                                directory_path: base_dir.to_string(),
+                            });
+                        }
+                    }
+                } else if path.is_dir() {
+                    let dir_name = path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    if !dir_name.starts_with('.') && dir_name != "node_modules" && dir_name != "target" {
+                        scan_dir(&path, base_dir, results, depth + 1);
+                    }
+                }
+            }
+        }
+    }
+
+    scan_dir(root, &directory_path, &mut results, 0);
+    results
+}
+
+#[tauri::command]
+fn get_default_directories() -> Vec<String> {
+    let mut dirs = Vec::new();
+    if let Some(home) = dirs_home() {
+        let docs = home.join("Documents");
+        if docs.exists() && docs.is_dir() {
+            dirs.push(docs.to_string_lossy().to_string());
+        }
+        let downloads = home.join("Downloads");
+        if downloads.exists() && downloads.is_dir() {
+            dirs.push(downloads.to_string_lossy().to_string());
+        }
+    }
+    dirs
+}
+
+fn dirs_home() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
+#[tauri::command]
 fn copy_image_to_clipboard(png_data_url: String) -> bool {
     let b64 = if let Some(idx) = png_data_url.find(',') {
         &png_data_url[idx + 1..]
@@ -209,6 +305,9 @@ pub fn run() {
             save_pdf_dialog,
             save_json_dialog,
             read_file_from_path,
+            select_directory_dialog,
+            scan_directory_pdfs,
+            get_default_directories,
             copy_image_to_clipboard,
             copy_text_to_clipboard,
         ])

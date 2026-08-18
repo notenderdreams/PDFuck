@@ -17,6 +17,14 @@ export interface SaveResult {
   file_path?: string | null;
 }
 
+export interface ScannedPdfResult {
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  modified_timestamp: number;
+  directory_path: string;
+}
+
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
@@ -34,6 +42,23 @@ export async function tauriOpenPdf(): Promise<{ fileName: string; filePath: stri
     }
   } catch (err) {
     console.warn('Tauri open PDF dialog error:', err);
+  }
+  return null;
+}
+
+export async function tauriReadFile(filePath: string): Promise<{ fileName: string; filePath: string; data: Uint8Array } | null> {
+  if (!isTauri()) return null;
+  try {
+    const res = await invoke<OpenFileResult | null>('read_file_from_path', { filePath });
+    if (res && res.data) {
+      return {
+        fileName: res.file_name,
+        filePath: res.file_path,
+        data: new Uint8Array(res.data),
+      };
+    }
+  } catch (err) {
+    console.error('Tauri read file error:', err);
   }
   return null;
 }
@@ -86,6 +111,39 @@ export async function tauriSaveJson(jsonString: string, defaultName: string): Pr
   } catch (err) {
     console.error('Tauri save JSON error:', err);
     return { success: false };
+  }
+}
+
+export async function tauriSelectDirectory(): Promise<string | null> {
+  if (!isTauri()) return null;
+  try {
+    const res = await invoke<string | null>('select_directory_dialog');
+    return res;
+  } catch (err) {
+    console.error('Tauri select directory error:', err);
+    return null;
+  }
+}
+
+export async function tauriScanDirectoryPdfs(directoryPath: string): Promise<ScannedPdfResult[]> {
+  if (!isTauri()) return [];
+  try {
+    const res = await invoke<ScannedPdfResult[]>('scan_directory_pdfs', { directoryPath });
+    return res || [];
+  } catch (err) {
+    console.error('Tauri scan directory error:', err);
+    return [];
+  }
+}
+
+export async function tauriGetDefaultDirectories(): Promise<string[]> {
+  if (!isTauri()) return [];
+  try {
+    const res = await invoke<string[]>('get_default_directories');
+    return res || [];
+  } catch (err) {
+    console.error('Tauri get default directories error:', err);
+    return [];
   }
 }
 

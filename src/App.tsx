@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
+import { Dashboard } from './components/Dashboard';
 import { ColorThemeModal } from './components/ColorThemeModal';
 import { StampPickerModal } from './components/StampPickerModal';
 import { SearchBar } from './components/SearchBar';
@@ -15,7 +16,7 @@ import { useAnnotations } from './hooks/useAnnotations';
 import { useColorTheme } from './hooks/useColorTheme';
 import { useKeyboard } from './hooks/useKeyboard';
 import { createSamplePDF } from './utils/samplePdf';
-import { loadViewMode, saveViewMode } from './utils/storage';
+import { loadViewMode, saveViewMode, recordRecentDoc } from './utils/storage';
 import { isTauri, tauriOpenPdf, tauriOpenImage } from './utils/tauriBridge';
 import {
   extractPageText,
@@ -23,9 +24,12 @@ import {
   copyPageImageToClipboard,
   downloadPageAsJpg,
 } from './utils/pageExtractor';
-import type { ToolType, ViewMode } from './utils/types';
+import type { AppScreen, ToolType, ViewMode } from './utils/types';
 
 export function App() {
+  // Screen Routing: 'dashboard' (Library view) | 'reader' (PDF reader & annotation studio)
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>('dashboard');
+
   // View & UI State
   const [zoom, setZoom] = useState<number>(1.15);
   const [viewMode, setViewMode] = useState<ViewMode>(() => loadViewMode());
@@ -124,7 +128,14 @@ export function App() {
     if (isTauri()) {
       const fileData = await tauriOpenPdf();
       if (fileData) {
-        loadPdf(fileData.data, fileData.fileName);
+        recordRecentDoc({
+          fileName: fileData.fileName,
+          filePath: fileData.filePath,
+          fileSize: fileData.data.byteLength,
+          modifiedTimestamp: Date.now(),
+        });
+        loadPdf(fileData.data, fileData.fileName, fileData.filePath);
+        setCurrentScreen('reader');
       }
     } else {
       pdfInputRef.current?.click();
@@ -137,7 +148,15 @@ export function App() {
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result instanceof ArrayBuffer) {
-          loadPdf(new Uint8Array(reader.result), file.name);
+          const bytes = new Uint8Array(reader.result);
+          recordRecentDoc({
+            fileName: file.name,
+            filePath: file.name,
+            fileSize: file.size,
+            modifiedTimestamp: file.lastModified || Date.now(),
+          });
+          loadPdf(bytes, file.name);
+          setCurrentScreen('reader');
         }
       };
       reader.readAsArrayBuffer(file);
@@ -258,30 +277,6 @@ export function App() {
     [pdfDoc, currentPage, showToast]
   );
 
-  // Download page directly as high-res JPG
-  const handleDownloadPageJpg = useCallback(
-    async (pageParam?: number | unknown) => {
-      const pageNumber = typeof pageParam === 'number' && !isNaN(pageParam) ? pageParam : currentPage;
-      if (!pdfDoc) return;
-      try {
-        const downloaded = await downloadPageAsJpg(
-          pageNumber,
-          pdfDoc,
-          docInfo?.fileName || 'document'
-        );
-        if (downloaded) {
-          showToast(`Downloaded Page ${pageNumber} as JPG!`);
-        } else {
-          showToast(`Page ${pageNumber} canvas not ready.`, true);
-        }
-      } catch (err) {
-        console.error('Failed to download JPG:', err);
-        showToast(`Failed to download JPG.`, true);
-      }
-    },
-    [pdfDoc, currentPage, showToast, docInfo]
-  );
-
   // Cursor-aware Clipboard Paste: Pastes image at mouse cursor position on hovered page
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -337,6 +332,8 @@ export function App() {
     onPrevPage: () => changePage(currentPage - 1),
     onToggleZen: () => setIsZenMode((prev) => !prev),
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
+    onToggleLibrary: () =>
+      setCurrentScreen((prev) => (prev === 'dashboard' ? 'reader' : 'dashboard')),
     onCopyPageText: () => handleCopyPageText(currentPage),
     onCopyPageJpg: () => handleCopyPageJpg(currentPage),
   });
@@ -371,168 +368,185 @@ export function App() {
         </div>
       )}
 
-      {/* Top Header & Titlebar */}
-      <Header
-        docInfo={docInfo}
-        currentPage={currentPage}
-        numPages={pdfDoc?.numPages || 0}
-        zoom={zoom}
-        viewMode={viewMode}
-        theme={themeSettings.theme}
-        isZenMode={isZenMode}
-        isSidebarOpen={isSidebarOpen}
-        isSearchOpen={isSearchOpen}
-        onOpenPdf={handleOpenPdf}
-        onExportClick={() => setIsExportModalOpen(true)}
-        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
-        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
-        onToggleInvert={toggleInvert}
-        onOpenThemeModal={() => setIsThemeModalOpen(true)}
-        onToggleZen={() => setIsZenMode((prev) => !prev)}
-        onToggleShortcuts={() => setIsShortcutsModalOpen(true)}
-        onChangeViewMode={handleChangeViewMode}
-        onChangeZoom={(newZoom) => setZoom(newZoom)}
-        onPageChange={(p) => changePage(p)}
-        onCopyPageText={() => handleCopyPageText(currentPage)}
-        onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
-      />
-
-      {/* Main Reading & Sidebar Workspace */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Navigation Sidebar */}
-        <Sidebar
-          isOpen={isSidebarOpen && !isZenMode}
-          pdfDoc={pdfDoc}
-          docInfo={docInfo}
-          outline={outline}
-          currentPage={currentPage}
-          numPages={pdfDoc?.numPages || 0}
-          annotations={annotations}
-          filterClass={getPageFilterClass()}
-          customFilterStyle={getCustomFilterStyle()}
-          onClose={() => setIsSidebarOpen(false)}
-          onPageSelect={(p) => changePage(p)}
-          onDeleteAnnotation={(id) => deleteAnnotation(id)}
-        />
-
-        {/* Primary PDF Canvas Viewport */}
-        <PDFViewer
-          pdfDoc={pdfDoc}
-          rawPdfBytes={rawPdfBytes}
-          currentPage={currentPage}
-          numPages={pdfDoc?.numPages || 0}
-          zoom={zoom}
-          viewMode={viewMode}
-          currentTheme={themeSettings.theme}
-          filterClass={getPageFilterClass()}
-          customFilterStyle={getCustomFilterStyle()}
-          activeTool={activeTool}
-          selectedColor={selectedColor}
-          strokeWidth={strokeWidth}
-          opacity={opacity}
-          annotations={annotations}
-          selectedAnnotationId={selectedAnnotationId}
-          onPageChange={(p) => changePage(p)}
-          onSelectAnnotation={(id) => setSelectedAnnotationId(id)}
-          onAddAnnotation={(ann) => addAnnotation(ann)}
-          onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
-          onDeleteAnnotation={(id) => deleteAnnotation(id)}
-          onImageDrop={handleImageDropOnPage}
-          onCursorMove={(page, x, y) => {
-            cursorPosRef.current = { pageNumber: page, x, y };
+      {/* VIEW 1: DASHBOARD & SAVED DIRECTORIES LIBRARY */}
+      {currentScreen === 'dashboard' ? (
+        <Dashboard
+          hasActiveDoc={!!pdfDoc}
+          activeDocName={docInfo?.fileName}
+          onSwitchToReader={() => setCurrentScreen('reader')}
+          onOpenPdf={(data, fileName, filePath) => {
+            loadPdf(data, fileName, filePath);
+            setCurrentScreen('reader');
           }}
-          onPdfFileDrop={(file) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              if (reader.result instanceof ArrayBuffer) {
-                loadPdf(new Uint8Array(reader.result), file.name);
-              }
-            };
-            reader.readAsArrayBuffer(file);
-          }}
-          onOpenPdfClick={handleOpenPdf}
-          onChangeZoom={(newZoom) => setZoom(newZoom)}
         />
-      </div>
+      ) : (
+        /* VIEW 2: FULL READER & ANNOTATION STUDIO */
+        <>
+          {/* Top Header & Titlebar */}
+          <Header
+            docInfo={docInfo}
+            currentPage={currentPage}
+            numPages={pdfDoc?.numPages || 0}
+            zoom={zoom}
+            viewMode={viewMode}
+            theme={themeSettings.theme}
+            isZenMode={isZenMode}
+            isSidebarOpen={isSidebarOpen}
+            isSearchOpen={isSearchOpen}
+            onOpenDashboard={() => setCurrentScreen('dashboard')}
+            onOpenPdf={handleOpenPdf}
+            onExportClick={() => setIsExportModalOpen(true)}
+            onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+            onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
+            onToggleInvert={toggleInvert}
+            onOpenThemeModal={() => setIsThemeModalOpen(true)}
+            onToggleZen={() => setIsZenMode((prev) => !prev)}
+            onToggleShortcuts={() => setIsShortcutsModalOpen(true)}
+            onChangeViewMode={handleChangeViewMode}
+            onChangeZoom={(newZoom) => setZoom(newZoom)}
+            onPageChange={(p) => changePage(p)}
+            onCopyPageText={() => handleCopyPageText(currentPage)}
+            onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
+          />
 
-      {/* Floating Tool Dock */}
-      {pdfDoc && !isZenMode && (
-        <Toolbar
-          activeTool={activeTool}
-          selectedColor={selectedColor}
-          strokeWidth={strokeWidth}
-          opacity={opacity}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onSelectTool={(tool) => setActiveTool(tool)}
-          onSelectColor={(c) => setSelectedColor(c)}
-          onChangeStrokeWidth={(w) => setStrokeWidth(w)}
-          onChangeOpacity={(o) => setOpacity(o)}
-          onAttachImageClick={handleOpenImage}
-          onOpenStampPicker={() => setIsStampPickerOpen(true)}
-          onUndo={undo}
-          onRedo={redo}
-          onClearPageAnnotations={() => clearAllAnnotationsForPage(currentPage)}
-        />
+          {/* Main Reading & Sidebar Workspace */}
+          <div className="flex-1 flex overflow-hidden relative">
+            {/* Navigation Sidebar */}
+            <Sidebar
+              isOpen={isSidebarOpen && !isZenMode}
+              pdfDoc={pdfDoc}
+              docInfo={docInfo}
+              outline={outline}
+              currentPage={currentPage}
+              numPages={pdfDoc?.numPages || 0}
+              annotations={annotations}
+              filterClass={getPageFilterClass()}
+              customFilterStyle={getCustomFilterStyle()}
+              onClose={() => setIsSidebarOpen(false)}
+              onPageSelect={(p) => changePage(p)}
+              onDeleteAnnotation={(id) => deleteAnnotation(id)}
+            />
+
+            {/* Primary PDF Canvas Viewport */}
+            <PDFViewer
+              pdfDoc={pdfDoc}
+              rawPdfBytes={rawPdfBytes}
+              currentPage={currentPage}
+              numPages={pdfDoc?.numPages || 0}
+              zoom={zoom}
+              viewMode={viewMode}
+              currentTheme={themeSettings.theme}
+              filterClass={getPageFilterClass()}
+              customFilterStyle={getCustomFilterStyle()}
+              activeTool={activeTool}
+              selectedColor={selectedColor}
+              strokeWidth={strokeWidth}
+              opacity={opacity}
+              annotations={annotations}
+              selectedAnnotationId={selectedAnnotationId}
+              onPageChange={(p) => changePage(p)}
+              onSelectAnnotation={(id) => setSelectedAnnotationId(id)}
+              onAddAnnotation={(ann) => addAnnotation(ann)}
+              onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
+              onDeleteAnnotation={(id) => deleteAnnotation(id)}
+              onImageDrop={handleImageDropOnPage}
+              onCursorMove={(page, x, y) => {
+                cursorPosRef.current = { pageNumber: page, x, y };
+              }}
+              onPdfFileDrop={(file) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (reader.result instanceof ArrayBuffer) {
+                    loadPdf(new Uint8Array(reader.result), file.name);
+                  }
+                };
+                reader.readAsArrayBuffer(file);
+              }}
+              onOpenPdfClick={handleOpenPdf}
+              onChangeZoom={(newZoom) => setZoom(newZoom)}
+            />
+          </div>
+
+          {/* Floating Tool Dock */}
+          {pdfDoc && !isZenMode && (
+            <Toolbar
+              activeTool={activeTool}
+              selectedColor={selectedColor}
+              strokeWidth={strokeWidth}
+              opacity={opacity}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onSelectTool={(tool) => setActiveTool(tool)}
+              onSelectColor={(c) => setSelectedColor(c)}
+              onChangeStrokeWidth={(w) => setStrokeWidth(w)}
+              onChangeOpacity={(o) => setOpacity(o)}
+              onAttachImageClick={handleOpenImage}
+              onOpenStampPicker={() => setIsStampPickerOpen(true)}
+              onUndo={undo}
+              onRedo={redo}
+              onClearPageAnnotations={() => clearAllAnnotationsForPage(currentPage)}
+            />
+          )}
+
+          {/* In-Document Quick Search HUD */}
+          <SearchBar
+            isOpen={isSearchOpen}
+            isSearching={isSearching}
+            searchResults={searchResults}
+            currentMatchIndex={currentMatchIndex}
+            onSearch={searchInDocument}
+            onNext={nextSearchResult}
+            onPrev={prevSearchResult}
+            onClose={() => setIsSearchOpen(false)}
+          />
+
+          {/* Reading Theme & Brightness Modal */}
+          <ColorThemeModal
+            isOpen={isThemeModalOpen}
+            settings={themeSettings}
+            onClose={() => setIsThemeModalOpen(false)}
+            onSelectTheme={setTheme}
+            onUpdateSetting={updateThemeSetting}
+            onResetFilters={resetThemeFilters}
+          />
+
+          {/* Stamp & Badge Picker Modal */}
+          <StampPickerModal
+            isOpen={isStampPickerOpen}
+            onClose={() => setIsStampPickerOpen(false)}
+            onSelectStamp={(dataUrl, name) => {
+              const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
+              const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
+              const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
+
+              addAttachedImage(targetPage, dataUrl, 2.5, name, {
+                x: posX,
+                y: posY,
+                attachedInInvertedMode: isDarkTheme,
+                invertInLightMode: isDarkTheme,
+              });
+              setActiveTool('select');
+            }}
+            onAttachCustomImage={handleOpenImage}
+          />
+
+          {/* Keyboard Shortcuts Reference Modal */}
+          <KeyboardShortcutsModal
+            isOpen={isShortcutsModalOpen}
+            onClose={() => setIsShortcutsModalOpen(false)}
+          />
+
+          {/* PDF Export & Save Modal */}
+          <ExportModal
+            isOpen={isExportModalOpen}
+            rawPdfBytes={rawPdfBytes}
+            annotations={annotations}
+            fileName={docInfo?.fileName || 'document.pdf'}
+            currentPage={currentPage}
+            onClose={() => setIsExportModalOpen(false)}
+          />
+        </>
       )}
-
-      {/* In-Document Quick Search HUD */}
-      <SearchBar
-        isOpen={isSearchOpen}
-        isSearching={isSearching}
-        searchResults={searchResults}
-        currentMatchIndex={currentMatchIndex}
-        onSearch={searchInDocument}
-        onNext={nextSearchResult}
-        onPrev={prevSearchResult}
-        onClose={() => setIsSearchOpen(false)}
-      />
-
-      {/* Reading Theme & Brightness Modal */}
-      <ColorThemeModal
-        isOpen={isThemeModalOpen}
-        settings={themeSettings}
-        onClose={() => setIsThemeModalOpen(false)}
-        onSelectTheme={setTheme}
-        onUpdateSetting={updateThemeSetting}
-        onResetFilters={resetThemeFilters}
-      />
-
-      {/* Stamp & Badge Picker Modal */}
-      <StampPickerModal
-        isOpen={isStampPickerOpen}
-        onClose={() => setIsStampPickerOpen(false)}
-        onSelectStamp={(dataUrl, name) => {
-          const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-          const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-          const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
-
-          addAttachedImage(targetPage, dataUrl, 2.5, name, {
-            x: posX,
-            y: posY,
-            attachedInInvertedMode: isDarkTheme,
-            invertInLightMode: isDarkTheme,
-          });
-          setActiveTool('select');
-        }}
-        onAttachCustomImage={handleOpenImage}
-      />
-
-      {/* Keyboard Shortcuts Reference Modal */}
-      <KeyboardShortcutsModal
-        isOpen={isShortcutsModalOpen}
-        onClose={() => setIsShortcutsModalOpen(false)}
-      />
-
-      {/* PDF Export & Save Modal */}
-      <ExportModal
-        isOpen={isExportModalOpen}
-        rawPdfBytes={rawPdfBytes}
-        annotations={annotations}
-        fileName={docInfo?.fileName || 'document.pdf'}
-        currentPage={currentPage}
-        onClose={() => setIsExportModalOpen(false)}
-      />
     </div>
   );
 }
