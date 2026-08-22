@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type {
   Annotation,
   DrawingAnnotation,
@@ -84,6 +84,25 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   // Flash feedback state after capturing a snippet
   const [capturedFlashRect, setCapturedFlashRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const textNoteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Guarantee instant focus on text note creation
+  useEffect(() => {
+    if (textInputPos) {
+      const focusTextarea = () => {
+        if (textNoteTextareaRef.current) {
+          textNoteTextareaRef.current.focus();
+        }
+      };
+      focusTextarea();
+      const t1 = setTimeout(focusTextarea, 20);
+      const t2 = setTimeout(focusTextarea, 80);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [textInputPos]);
 
   // Convert pointer event coordinates to normalized 0..1 coordinates relative to page dimensions
   const getNormalizedCoords = (e: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>): { x: number; y: number; px: number; py: number } => {
@@ -574,6 +593,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             top: `${Math.min(textInputPos.y * pageHeight, pageHeight - 140)}px`,
           }}
           className="absolute z-50 p-2.5 rounded-xl bg-[#24242b] border border-[#383846] shadow-2xl flex flex-col gap-2 min-w-[220px] pointer-events-auto"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -583,6 +604,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </div>
 
           <textarea
+            ref={textNoteTextareaRef}
             autoFocus
             rows={3}
             value={textInputValue}
