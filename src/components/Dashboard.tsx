@@ -6,8 +6,6 @@ import {
   Search,
   Star,
   Clock,
-  LayoutGrid,
-  List,
   RefreshCw,
   Trash2,
   BookOpen,
@@ -40,15 +38,6 @@ import {
   loadFavorites,
   toggleFavorite as toggleStorageFavorite,
 } from '../utils/storage';
-import { pdfjsLib } from '../utils/pdfWorker';
-import {
-  DataTable,
-  DataTableBody,
-  DataTableCell,
-  DataTableHead,
-  DataTableHeader,
-  DataTableRow,
-} from './ui/DataTable';
 
 interface DashboardProps {
   onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => void;
@@ -68,128 +57,6 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: React.FC<{ classNa
   { value: 'size', label: 'File size', icon: HardDrive },
 ];
 
-const coverCache = new Map<string, string>();
-
-const PdfCoverThumbnail: React.FC<{ item: DashboardPdfItem }> = ({ item }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const cacheKey = `${item.filePath}:${item.modifiedTimestamp}`;
-  const [isVisible, setIsVisible] = useState(false);
-  const [coverUrl, setCoverUrl] = useState<string | null>(() => coverCache.get(cacheKey) || null);
-  const [isLoadingCover, setIsLoadingCover] = useState(!coverCache.has(cacheKey));
-
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node || coverUrl) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '320px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [coverUrl]);
-
-  useEffect(() => {
-    if (!isVisible || coverUrl || !item.filePath || !isTauri()) {
-      if (isVisible && !isTauri()) setIsLoadingCover(false);
-      return;
-    }
-
-    let isCancelled = false;
-    let loadingTask: ReturnType<typeof pdfjsLib.getDocument> | null = null;
-
-    const renderCover = async () => {
-      try {
-        const cached = coverCache.get(cacheKey);
-        if (cached) {
-          setCoverUrl(cached);
-          return;
-        }
-
-        const fileData = await tauriReadFile(item.filePath);
-        if (!fileData || isCancelled) return;
-
-        loadingTask = pdfjsLib.getDocument({ data: fileData.data });
-        const doc = await loadingTask.promise;
-        const page = await doc.getPage(1);
-        const baseViewport = page.getViewport({ scale: 1 });
-        const scale = 440 / baseViewport.width;
-        const viewport = page.getViewport({ scale });
-        const outputScale = Math.min(window.devicePixelRatio || 1, 2);
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d', { alpha: false });
-
-        if (!context || isCancelled) {
-          await doc.destroy();
-          return;
-        }
-
-        canvas.width = Math.ceil(viewport.width * outputScale);
-        canvas.height = Math.ceil(viewport.height * outputScale);
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
-        await page.render({
-          canvasContext: context,
-          viewport,
-          transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
-        }).promise;
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
-        coverCache.set(cacheKey, dataUrl);
-        if (!isCancelled) setCoverUrl(dataUrl);
-        await doc.destroy();
-      } catch {
-        // A missing or protected file simply uses the styled PDF fallback.
-      } finally {
-        if (!isCancelled) setIsLoadingCover(false);
-      }
-    };
-
-    renderCover();
-    return () => {
-      isCancelled = true;
-      loadingTask?.destroy();
-    };
-  }, [cacheKey, coverUrl, isVisible, item.filePath]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="library-pdf-cover relative w-full aspect-[3/4] overflow-hidden bg-[#1a1a20] border-b border-[#32323e] flex items-center justify-center"
-    >
-      {coverUrl ? (
-        <img
-          src={coverUrl}
-          alt={`First page of ${item.fileName}`}
-          className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.015]"
-          draggable={false}
-        />
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(145deg,var(--secondary),var(--card))]">
-          <div className="w-14 h-18 bg-white border border-black/10 shadow-md flex items-center justify-center text-[#2e97ef]">
-            <FileText className="w-7 h-7" />
-          </div>
-          <span className="max-w-[75%] truncate text-[10px] font-medium text-zinc-400">
-            {isLoadingCover ? 'Loading cover…' : 'PDF document'}
-          </span>
-        </div>
-      )}
-
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent pointer-events-none" />
-      <span className="absolute bottom-2.5 left-3 px-2 py-0.5 rounded-full bg-black/55 text-[9px] font-semibold tracking-[0.12em] text-white backdrop-blur-sm">
-        PDF
-      </span>
-    </div>
-  );
-};
-
 export const Dashboard: React.FC<DashboardProps> = ({
   onOpenPdf,
   onSwitchToReader,
@@ -204,7 +71,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewLayout, setViewLayout] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [isScanning, setIsScanning] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -645,7 +511,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </aside>
 
-        {/* Main Document Grid / List Content */}
+        {/* Main Document Library Content */}
         <main className="macos-content flex-1 p-6 overflow-y-auto flex flex-col gap-5">
           {/* Controls Bar: Title, Count, Layout, Sorting */}
           <div className="flex items-center justify-between border-b border-[#343440] pb-3">
@@ -723,32 +589,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* View Layout Toggle */}
-              <div className="macos-segmented-control flex items-center p-0.5 rounded-md">
-                <button
-                  onClick={() => setViewLayout('grid')}
-                  className={`p-1 rounded transition-all ${
-                    viewLayout === 'grid'
-                      ? 'bg-[#34343f] text-zinc-100'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                  title="Grid View"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setViewLayout('list')}
-                  className={`p-1 rounded transition-all ${
-                    viewLayout === 'list'
-                      ? 'bg-[#34343f] text-zinc-100'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                  title="Table List View"
-                >
-                  <List className="w-3.5 h-3.5" />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -774,133 +614,55 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>Add Folder to Library</span>
               </button>
             </div>
-          ) : viewLayout === 'grid' ? (
-            /* GRID VIEW */
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 pb-12">
+          ) : (
+            <div className="library-document-list pb-12" aria-label="PDF library documents">
               {filteredItems.map((item) => (
                 <div
                   key={item.filePath || item.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleOpenItem(item)}
-                  className="library-pdf-card rounded-xl bg-[#24242b] hover:bg-[#2a2a34] border border-[#383846] hover:border-zinc-500 overflow-hidden flex flex-col cursor-pointer group transition-all duration-150 shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.99]"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleOpenItem(item);
+                    }
+                  }}
+                  className="library-document-list-item group"
                 >
-                  {/* Real first-page cover, rendered lazily from the PDF. */}
-                  <div className="relative">
-                    <PdfCoverThumbnail item={item} />
-
-                    {/* Star button */}
-                    <button
-                      onClick={(e) => handleToggleFavorite(item.id || item.filePath, e)}
-                      className={`absolute top-2.5 right-2.5 p-1.5 rounded-full backdrop-blur-md transition-all ${
-                        item.isFavorite
-                          ? 'text-amber-400 bg-black/55'
-                          : 'text-white hover:text-amber-400 opacity-0 group-hover:opacity-100 bg-black/35'
-                      }`}
-                      title={item.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
-                    >
-                      <Star className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-amber-400' : ''}`} />
-                    </button>
-
-                    {item.annotationCount !== undefined && item.annotationCount > 0 && (
-                      <span className="absolute bottom-2.5 right-3 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[9px] font-medium shadow-md">
-                        {item.annotationCount} note{item.annotationCount === 1 ? '' : 's'}
-                      </span>
-                    )}
+                  <div className="library-document-list-icon shrink-0" aria-hidden="true">
+                    <FileText className="w-4 h-4" />
                   </div>
-
-                  {/* Document Title & Meta */}
-                  <div className="flex flex-col gap-1.5 p-3.5">
-                    <span
-                      className="font-semibold text-[13px] text-zinc-200 group-hover:text-white truncate"
-                      title={item.fileName}
-                    >
-                      {item.fileName}
-                    </span>
-
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
-                      <span>
-                        {item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(1)} MB` : 'N/A'}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="truncate text-[13px] font-medium text-zinc-200 group-hover:text-white" title={item.fileName}>
+                        {item.fileName}
                       </span>
-                      {item.lastReadPage && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-[#2a2a34] text-zinc-300">
-                          Page {item.lastReadPage}
+                      {item.annotationCount !== undefined && item.annotationCount > 0 && (
+                        <span className="macos-annotation-count shrink-0">
+                          {item.annotationCount} note{item.annotationCount === 1 ? '' : 's'}
                         </span>
                       )}
                     </div>
+                    <div className="mt-1 flex items-center gap-x-2 gap-y-0.5 overflow-hidden text-[11px] text-zinc-500">
+                      <span className="truncate max-w-[22rem]">{item.directoryPath || item.filePath || 'Local document'}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="shrink-0 tabular-nums">{item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}</span>
+                      {item.lastReadPage && <span className="shrink-0">Last read · Page {item.lastReadPage}</span>}
+                    </div>
                   </div>
+                  <button
+                    onClick={(event) => handleToggleFavorite(item.id || item.filePath, event)}
+                    className={`library-document-list-favorite ${item.isFavorite ? 'is-favorite' : ''}`}
+                    title={item.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
+                    aria-label={item.isFavorite ? `Remove ${item.fileName} from favorites` : `Add ${item.fileName} to favorites`}
+                  >
+                    <Star className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                  <ArrowRight className="library-document-list-arrow w-4 h-4 shrink-0" aria-hidden="true" />
                 </div>
               ))}
             </div>
-          ) : (
-            /* TABLE LIST VIEW */
-            <DataTable aria-label="PDF library documents">
-                <DataTableHeader>
-                  <DataTableRow>
-                    <DataTableHead className="w-9"></DataTableHead>
-                    <DataTableHead>Name</DataTableHead>
-                    <DataTableHead className="hidden md:table-cell">Location</DataTableHead>
-                    <DataTableHead className="w-24">Size</DataTableHead>
-                    <DataTableHead className="w-30 hidden sm:table-cell">Modified</DataTableHead>
-                    <DataTableHead className="w-20 text-right"><span className="sr-only">Open</span></DataTableHead>
-                  </DataTableRow>
-                </DataTableHeader>
-                <DataTableBody>
-                  {filteredItems.map((item) => (
-                    <DataTableRow
-                      key={item.filePath || item.id}
-                      onClick={() => handleOpenItem(item)}
-                      className="cursor-pointer group"
-                    >
-                      <DataTableCell className="text-center">
-                        <button
-                          onClick={(e) => handleToggleFavorite(item.id || item.filePath, e)}
-                          className="macos-table-favorite text-zinc-500 hover:text-amber-400"
-                          title={item.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
-                        >
-                          <Star
-                            className={`w-3.5 h-3.5 ${
-                              item.isFavorite ? 'text-amber-400 fill-amber-400' : ''
-                            }`}
-                          />
-                        </button>
-                      </DataTableCell>
-                      <DataTableCell className="font-medium text-zinc-200 max-w-[260px]">
-                        <div className="flex items-center gap-2">
-                          <div className="macos-document-icon shrink-0">
-                            <FileText className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="block truncate text-[12px] text-zinc-200 group-hover:text-white">{item.fileName}</span>
-                            {item.lastReadPage && (
-                              <span className="block text-[10px] text-zinc-500">Last read · Page {item.lastReadPage}</span>
-                            )}
-                          </div>
-                          {item.annotationCount !== undefined && item.annotationCount > 0 && (
-                            <span className="macos-annotation-count shrink-0">
-                              {item.annotationCount} note{item.annotationCount === 1 ? '' : 's'}
-                            </span>
-                          )}
-                        </div>
-                      </DataTableCell>
-                      <DataTableCell className="text-zinc-400 text-[11px] truncate max-w-[260px] hidden md:table-cell">
-                        <span className="block truncate">{item.directoryPath || item.filePath}</span>
-                      </DataTableCell>
-                      <DataTableCell className="text-zinc-400 tabular-nums text-[11px]">
-                        {item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(2)} MB` : '-'}
-                      </DataTableCell>
-                      <DataTableCell className="text-zinc-500 tabular-nums text-[11px] hidden sm:table-cell">
-                        {item.modifiedTimestamp
-                          ? new Date(item.modifiedTimestamp).toLocaleDateString()
-                          : '-'}
-                      </DataTableCell>
-                      <DataTableCell className="text-right">
-                        <span className="macos-table-open text-zinc-400 inline-flex items-center gap-1 font-medium text-[11px]">
-                          Open <ArrowRight className="w-3.5 h-3.5" />
-                        </span>
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))}
-                </DataTableBody>
-            </DataTable>
           )}
         </main>
       </div>

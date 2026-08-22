@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import {
   LayoutGrid,
   ListTree,
@@ -10,6 +10,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import type { Annotation, DocumentInfo, PDFOutlineItem } from '../utils/types';
+import { ThumbnailRenderQueue } from '../utils/thumbnailRenderQueue';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -43,6 +44,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteAnnotation,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('thumbnails');
+  const thumbnailQueueRef = useRef<ThumbnailRenderQueue | null>(null);
+
+  if (!thumbnailQueueRef.current) {
+    thumbnailQueueRef.current = new ThumbnailRenderQueue();
+  }
+  const thumbnailQueue = thumbnailQueueRef.current;
 
   if (!isOpen) return null;
 
@@ -119,6 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 isActive={currentPage === pageNum}
                 filterClass={filterClass}
                 customFilterStyle={customFilterStyle}
+                renderQueue={thumbnailQueue}
                 onClick={() => onPageSelect(pageNum)}
               />
             ))}
@@ -250,13 +258,55 @@ const ThumbnailItem: React.FC<{
   isActive: boolean;
   filterClass: string;
   customFilterStyle: React.CSSProperties;
+  renderQueue: ThumbnailRenderQueue;
   onClick: () => void;
-}> = ({ pdfDoc, pageNumber, isActive, filterClass, customFilterStyle, onClick }) => {
+}> = ({ pdfDoc, pageNumber, isActive, filterClass, customFilterStyle, renderQueue, onClick }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const thumbnailRef = useRef<HTMLDivElement | null>(null);
+  const [isNearViewport, setIsNearViewport] = useState(false);
 
   useEffect(() => {
-    if (!pdfDoc) return;
+    const thumbnail = thumbnailRef.current;
+    if (!thumbnail) return;
+
+    if (!('IntersectionObserver' in window)) {
+      setIsNearViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setIsNearViewport(true);
+        observer.disconnect();
+      },
+      { rootMargin: '180px 0px' },
+    );
+    observer.observe(thumbnail);
+    return () => observer.disconnect();
+  }, []);
+
+  const shouldRender = isNearViewport || isActive;
+
+  useEffect(() => {
+    if (!pdfDoc || !shouldRender) return;
     let isCancelled = false;
+    let renderTask: RenderTask | undefined;
+
+    const scheduleContinuation = (continueRender: () => void) => {
+      const idleWindow = window as Window & {
+        requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      };
+      if (typeof idleWindow.requestIdleCallback === 'function') {
+        idleWindow.requestIdleCallback(() => {
+          if (!isCancelled) continueRender();
+        }, { timeout: 120 });
+        return;
+      }
+      globalThis.setTimeout(() => {
+        if (!isCancelled) continueRender();
+      }, 16);
+    };
 
     const renderThumbnail = async () => {
       try {
@@ -272,21 +322,26 @@ const ThumbnailItem: React.FC<{
 
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        await page.render({
+        renderTask = page.render({
           canvasContext: ctx,
           viewport,
-        }).promise;
+        });
+        renderTask.onContinue = scheduleContinuation;
+        await renderTask.promise;
       } catch {}
     };
 
-    renderThumbnail();
+    const cancelQueuedRender = renderQueue.enqueue(renderThumbnail, isActive ? 'high' : 'normal');
     return () => {
       isCancelled = true;
+      cancelQueuedRender();
+      renderTask?.cancel();
     };
-  }, [pdfDoc, pageNumber]);
+  }, [isActive, pageNumber, pdfDoc, renderQueue, shouldRender]);
 
   return (
     <div
+      ref={thumbnailRef}
       onClick={onClick}
       className="flex flex-col items-center gap-1.5 p-1.5 cursor-pointer transition-transform hover:scale-[1.01]"
     >
