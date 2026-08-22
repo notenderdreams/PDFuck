@@ -3,6 +3,8 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFPage } from './PDFPage';
 import { ChevronLeft, ChevronRight, UploadCloud } from 'lucide-react';
 import type { Annotation, ReadingTheme, ToolType, ViewMode } from '../utils/types';
+import type { AiExplanationAnnotation } from '../utils/types';
+import type { AiJobState } from '../hooks/useAiExplanations';
 
 interface PDFViewerProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -31,6 +33,11 @@ interface PDFViewerProps {
   onChangeZoom: (newZoom: number) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
+  aiJobs: Record<string, AiJobState>;
+  onAiBoxCreated: (annotationId: string) => void;
+  onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
+  onCancelAi: (annotationId: string) => void;
+  onCloseAi: (annotationId: string) => void;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -59,6 +66,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onChangeZoom,
   onCursorMove,
   onCaptureSnippet,
+  aiJobs,
+  onAiBoxCreated,
+  onSubmitAi,
+  onCancelAi,
+  onCloseAi,
 }) => {
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const [isViewerDraggingFile, setIsViewerDraggingFile] = useState(false);
@@ -357,6 +369,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
                 onCaptureSnippet={onCaptureSnippet}
+                aiJobs={aiJobs}
+                onAiBoxCreated={onAiBoxCreated}
+                onSubmitAi={onSubmitAi}
+                onCancelAi={onCancelAi}
+                onCloseAi={onCloseAi}
                 isFlush
               />
             ))}
@@ -386,6 +403,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               onImageDrop={onImageDrop}
               onCursorMove={onCursorMove}
               onCaptureSnippet={onCaptureSnippet}
+              aiJobs={aiJobs}
+              onAiBoxCreated={onAiBoxCreated}
+              onSubmitAi={onSubmitAi}
+              onCancelAi={onCancelAi}
+              onCloseAi={onCloseAi}
             />
 
             {/* Floating Next/Prev Page Buttons */}
@@ -438,6 +460,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
                 onCaptureSnippet={onCaptureSnippet}
+                aiJobs={aiJobs}
+                onAiBoxCreated={onAiBoxCreated}
+                onSubmitAi={onSubmitAi}
+                onCancelAi={onCancelAi}
+                onCloseAi={onCloseAi}
               />
 
               {/* Right Page (if exists) */}
@@ -462,6 +489,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onImageDrop={onImageDrop}
                   onCursorMove={onCursorMove}
                   onCaptureSnippet={onCaptureSnippet}
+                  aiJobs={aiJobs}
+                  onAiBoxCreated={onAiBoxCreated}
+                  onSubmitAi={onSubmitAi}
+                  onCancelAi={onCancelAi}
+                  onCloseAi={onCloseAi}
                 />
               )}
             </div>

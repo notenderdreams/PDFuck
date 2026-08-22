@@ -4,10 +4,13 @@ import { TextLayer } from 'pdfjs-dist';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { ImageOverlay } from './ImageOverlay';
 import { TextNoteOverlay } from './TextNoteOverlay';
+import { AiExplanationOverlay } from './AiExplanationOverlay';
+import type { AiJobState } from '../hooks/useAiExplanations';
 import { usesInvertedColorSpace } from '../utils/readingTheme';
 import type {
   Annotation,
   AttachedImageAnnotation,
+  AiExplanationAnnotation,
   TextNoteAnnotation,
   ReadingTheme,
   ToolType,
@@ -33,6 +36,11 @@ interface PDFPageProps {
   onImageDrop: (pageNumber: number, file: File) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
+  aiJobs: Record<string, AiJobState>;
+  onAiBoxCreated: (annotationId: string) => void;
+  onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
+  onCancelAi: (annotationId: string) => void;
+  onCloseAi: (annotationId: string) => void;
   isFlush?: boolean;
 }
 
@@ -56,6 +64,11 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onImageDrop,
   onCursorMove,
   onCaptureSnippet,
+  aiJobs,
+  onAiBoxCreated,
+  onSubmitAi,
+  onCancelAi,
+  onCloseAi,
   isFlush = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -193,6 +206,10 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     (a) => a.pageNumber === pageNumber && a.type === 'text-note'
   ) as TextNoteAnnotation[];
 
+  const pageAiExplanations = annotations.filter(
+    (a) => a.pageNumber === pageNumber && a.type === 'ai-explanation'
+  ) as AiExplanationAnnotation[];
+
   return (
     <div
       ref={containerRef}
@@ -254,6 +271,19 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         onAddAnnotation={onAddAnnotation}
         onDeleteAnnotation={onDeleteAnnotation}
         onCaptureSnippet={onCaptureSnippet}
+        onAiBoxCreated={onAiBoxCreated}
+      />
+
+      <AiExplanationOverlay
+        pageWidth={pageDimensions.width}
+        pageHeight={pageDimensions.height}
+        annotations={pageAiExplanations}
+        jobs={aiJobs}
+        onSubmit={onSubmitAi}
+        onCancel={onCancelAi}
+        onCloseJob={onCloseAi}
+        onUpdate={onUpdateAnnotation}
+        onDelete={onDeleteAnnotation}
       />
 
       {/* Attached Images Layer */}

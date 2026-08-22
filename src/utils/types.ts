@@ -8,7 +8,8 @@ export type ToolType =
   | 'image'
   | 'text'
   | 'eraser'
-  | 'snip';
+  | 'snip'
+  | 'ai-box';
 
 export type ReadingTheme = 'default' | 'invert' | 'oled' | 'sepia' | 'nord' | 'matrix';
 
@@ -100,13 +101,29 @@ export interface TextNoteAnnotation {
   createdAt: number;
 }
 
+export interface AiExplanationAnnotation {
+  id: string;
+  pageNumber: number;
+  type: 'ai-explanation';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  prompt: string;
+  response: string;
+  provider: 'codex';
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type Annotation =
   | DrawingAnnotation
   | LineHighlightAnnotation
   | RectHighlightAnnotation
   | TextHighlightAnnotation
   | AttachedImageAnnotation
-  | TextNoteAnnotation;
+  | TextNoteAnnotation
+  | AiExplanationAnnotation;
 
 export interface HighlightColorPreset {
   id: string;

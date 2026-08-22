@@ -25,8 +25,66 @@ export interface ScannedPdfResult {
   directory_path: string;
 }
 
+export type AiProviderStatus =
+  | { status: 'ready'; provider: 'codex'; version: string; executable: string }
+  | { status: 'native_required' | 'missing_cli' | 'unauthenticated' | 'incompatible_cli'; message: string };
+
+export type AiExplanationErrorCode =
+  | 'native_required'
+  | 'missing_cli'
+  | 'unauthenticated'
+  | 'incompatible_cli'
+  | 'timeout'
+  | 'cancelled'
+  | 'process_failed'
+  | 'malformed_output';
+
+export interface AiExplanationRequest {
+  requestId: string;
+  prompt: string;
+  pngDataUrl: string;
+}
+
+export type AiExplanationResult =
+  | { ok: true; response: string }
+  | { ok: false; code: AiExplanationErrorCode; message: string };
+
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+export async function getAiProviderStatus(): Promise<AiProviderStatus> {
+  if (!isTauri()) {
+    return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+  }
+  return invoke<AiProviderStatus>('get_ai_provider_status');
+}
+
+export async function setAiProviderExecutable(executablePath: string): Promise<AiProviderStatus> {
+  if (!isTauri()) {
+    return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+  }
+  return invoke<AiProviderStatus>('set_ai_provider_executable', { executablePath });
+}
+
+export async function runAiExplanation(request: AiExplanationRequest): Promise<AiExplanationResult> {
+  if (!isTauri()) {
+    return { ok: false, code: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+  }
+  try {
+    return await invoke<AiExplanationResult>('run_ai_explanation', { request });
+  } catch (error) {
+    return { ok: false, code: 'process_failed', message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function cancelAiExplanation(requestId: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await invoke<boolean>('cancel_ai_explanation', { requestId });
+  } catch {
+    return false;
+  }
 }
 
 export async function tauriOpenPdf(): Promise<{ fileName: string; filePath: string; data: Uint8Array } | null> {

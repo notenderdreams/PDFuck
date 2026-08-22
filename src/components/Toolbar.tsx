@@ -9,6 +9,7 @@ import {
   Type,
   Eraser,
   Stamp,
+  ScanSearch,
 } from 'lucide-react';
 import type { ToolType } from '../utils/types';
 
@@ -64,6 +65,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { id: 'highlight-rect', icon: Square, label: 'Area Box (R)', shortcut: 'R' },
     { id: 'pen', icon: PenTool, label: 'Pen Tool (P)', shortcut: 'P' },
     { id: 'snip', icon: Crop, label: 'Snip & Compact for AI (C)', shortcut: 'C' },
+    { id: 'ai-box', icon: ScanSearch, label: 'Explain Region with Codex (A)', shortcut: 'A' },
     { id: 'text', icon: Type, label: 'Text Note (T)', shortcut: 'T' },
     { id: 'eraser', icon: Eraser, label: 'Eraser (E)', shortcut: 'E' },
   ];

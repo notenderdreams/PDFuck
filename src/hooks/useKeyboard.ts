@@ -121,6 +121,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case 't':
             options.onSelectTool('text');
             break;
+          case 'a':
+            options.onSelectTool('ai-box');
+            break;
           case 'e':
             options.onSelectTool('eraser');
             break;

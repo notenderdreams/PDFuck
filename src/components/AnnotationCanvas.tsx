@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type {
   Annotation,
+  AiExplanationAnnotation,
   DrawingAnnotation,
   LineHighlightAnnotation,
   RectHighlightAnnotation,
@@ -22,6 +23,7 @@ interface AnnotationCanvasProps {
   onAddAnnotation: (ann: Annotation) => void;
   onDeleteAnnotation: (id: string) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
+  onAiBoxCreated?: (annotationId: string) => void;
 }
 
 // Distance from point to line segment helper
@@ -50,6 +52,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   onAddAnnotation,
   onDeleteAnnotation,
   onCaptureSnippet,
+  onAiBoxCreated,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,6 +70,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   // Snippet / Crop Rectangle State
   const [snipStart, setSnipStart] = useState<StrokePoint | null>(null);
   const [snipCurrent, setSnipCurrent] = useState<StrokePoint | null>(null);
+  const [aiStart, setAiStart] = useState<StrokePoint | null>(null);
+  const [aiCurrent, setAiCurrent] = useState<StrokePoint | null>(null);
 
   // Text Note Input Popup State
   const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
@@ -165,6 +170,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         if (Math.hypot(px - nx, py - ny) <= ERASE_RADIUS + 40) {
           onDeleteAnnotation(ann.id);
         }
+      } else if (ann.type === 'ai-explanation') {
+        const box = ann as AiExplanationAnnotation;
+        if (
+          px >= box.x * pageWidth - ERASE_RADIUS &&
+          px <= (box.x + box.width) * pageWidth + ERASE_RADIUS &&
+          py >= box.y * pageHeight - ERASE_RADIUS &&
+          py <= (box.y + box.height) * pageHeight + ERASE_RADIUS
+        ) onDeleteAnnotation(ann.id);
       }
     }
   };
@@ -197,6 +210,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       isInteractingRef.current = true;
       setSnipStart({ x, y });
       setSnipCurrent({ x, y });
+    } else if (activeTool === 'ai-box') {
+      isInteractingRef.current = true;
+      setAiStart({ x, y });
+      setAiCurrent({ x, y });
     } else if (activeTool === 'text') {
       setTextInputPos({ x, y });
       setTextInputValue('');
@@ -232,6 +249,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       setRectCurrent({ x, y });
     } else if (activeTool === 'snip') {
       setSnipCurrent({ x, y });
+    } else if (activeTool === 'ai-box') {
+      setAiCurrent({ x, y });
     }
   };
 
@@ -327,6 +346,32 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       }
       setSnipStart(null);
       setSnipCurrent(null);
+    } else if (activeTool === 'ai-box' && aiStart && aiCurrent) {
+      const x = Math.min(aiStart.x, aiCurrent.x);
+      const y = Math.min(aiStart.y, aiCurrent.y);
+      const width = Math.abs(aiCurrent.x - aiStart.x);
+      const height = Math.abs(aiCurrent.y - aiStart.y);
+      if (width * pageWidth > 12 && height * pageHeight > 12) {
+        const now = Date.now();
+        const annotation: AiExplanationAnnotation = {
+          id: `ai_box_${now}_${Math.random().toString(36).slice(2, 7)}`,
+          pageNumber,
+          type: 'ai-explanation',
+          x,
+          y,
+          width,
+          height,
+          prompt: 'Explain this clearly and concisely',
+          response: '',
+          provider: 'codex',
+          createdAt: now,
+          updatedAt: now,
+        };
+        onAddAnnotation(annotation);
+        onAiBoxCreated?.(annotation.id);
+      }
+      setAiStart(null);
+      setAiCurrent(null);
     }
   };
 
@@ -345,6 +390,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     setCurrentStroke(null);
     setLineStart(null);
     setLineCurrent(null);
+    setAiStart(null);
+    setAiCurrent(null);
   };
 
   const handleSaveTextNote = () => {
@@ -425,6 +472,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 style={{ mixBlendMode: highlightBlendMode }}
               />
             );
+          })}
+
+        {/* AI regions remain outlined so document content stays readable. */}
+        {pageAnnotations
+          .filter((a) => a.type === 'ai-explanation')
+          .map((a) => {
+            const box = a as AiExplanationAnnotation;
+            return <rect key={box.id} x={box.x * pageWidth} y={box.y * pageHeight} width={box.width * pageWidth} height={box.height * pageHeight} fill="rgba(59,130,246,0.05)" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="5 3" rx={3} />;
           })}
 
         {/* Render Existing Straight Line Highlights */}
@@ -538,6 +593,20 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               rx={3}
             />
           </g>
+        )}
+
+        {activeTool === 'ai-box' && aiStart && aiCurrent && (
+          <rect
+            x={Math.min(aiStart.x, aiCurrent.x) * pageWidth}
+            y={Math.min(aiStart.y, aiCurrent.y) * pageHeight}
+            width={Math.abs(aiCurrent.x - aiStart.x) * pageWidth}
+            height={Math.abs(aiCurrent.y - aiStart.y) * pageHeight}
+            fill="rgba(59, 130, 246, 0.12)"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            strokeDasharray="6 3"
+            rx={3}
+          />
         )}
 
         {/* Captured Flash Effect on Snippet Release */}

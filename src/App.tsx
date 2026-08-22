@@ -15,6 +15,7 @@ import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useSnippets } from './hooks/useSnippets';
 import { useColorTheme } from './hooks/useColorTheme';
+import { useAiExplanations } from './hooks/useAiExplanations';
 import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
 import { createSamplePDF } from './utils/samplePdf';
@@ -106,6 +107,13 @@ export function App() {
     canUndo: canUndoAnnotations,
     canRedo: canRedoAnnotations,
   } = useAnnotations(docKey, docInfo);
+
+  const aiExplanations = useAiExplanations({
+    pdfDoc,
+    documentName: docInfo?.fileName || 'document.pdf',
+    docKey,
+    updateAnnotation,
+  });
 
   const {
     snippets,
@@ -653,6 +661,11 @@ export function App() {
                   cursorPosRef.current = { pageNumber: page, x, y };
                 }}
                 onCaptureSnippet={handleCaptureSnippet}
+                aiJobs={aiExplanations.jobs}
+                onAiBoxCreated={aiExplanations.openComposer}
+                onSubmitAi={(annotation, prompt) => void aiExplanations.submit(annotation, prompt)}
+                onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
+                onCloseAi={aiExplanations.close}
                 onPdfFileDrop={(file) => {
                   const reader = new FileReader();
                   reader.onload = () => {

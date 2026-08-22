@@ -25,6 +25,7 @@ const SHORTCUT_GROUPS = [
       { keys: ['R'], desc: 'Area Highlight Box' },
       { keys: ['P'], desc: 'Freehand Pen' },
       { keys: ['C'], desc: 'Snip & Compact for AI' },
+      { keys: ['A'], desc: 'Explain PDF Region with Codex' },
       { keys: ['T'], desc: 'Sticky Text Note Tool' },
       { keys: ['E'], desc: 'Eraser (Sweep / Click)' },
       { keys: ['V'], desc: 'Select / Pointer Tool' },
