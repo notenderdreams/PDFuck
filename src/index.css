@@ -177,6 +177,91 @@
 [data-ui-theme] .group:hover [class~="group-hover:text-zinc-200"],
 [data-ui-theme] .group:hover [class~="group-hover:text-zinc-300"] { color: var(--foreground) !important; }
 
+/* AI explanation Markdown and math --------------------------------------- */
+.ai-response-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+}
+
+.ai-response-markdown > :first-child { margin-top: 0; }
+.ai-response-markdown > :last-child { margin-bottom: 0; }
+.ai-response-markdown p { margin: 0.55rem 0; }
+.ai-response-markdown h1,
+.ai-response-markdown h2,
+.ai-response-markdown h3,
+.ai-response-markdown h4 {
+  margin: 0.9rem 0 0.4rem;
+  color: var(--foreground);
+  font-weight: 650;
+  line-height: 1.25;
+}
+.ai-response-markdown h1 { font-size: 1rem; }
+.ai-response-markdown h2 { font-size: 0.925rem; }
+.ai-response-markdown h3,
+.ai-response-markdown h4 { font-size: 0.825rem; }
+.ai-response-markdown ul,
+.ai-response-markdown ol {
+  margin: 0.55rem 0;
+  padding-left: 1.25rem;
+}
+.ai-response-markdown ul { list-style: disc; }
+.ai-response-markdown ol { list-style: decimal; }
+.ai-response-markdown li { margin: 0.24rem 0; padding-left: 0.1rem; }
+.ai-response-markdown li::marker { color: var(--muted-foreground); }
+.ai-response-markdown strong { font-weight: 650; }
+.ai-response-markdown a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.ai-response-markdown blockquote {
+  margin: 0.65rem 0;
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  border-left: 2px solid var(--primary);
+  color: var(--muted-foreground);
+}
+.ai-response-markdown code:not(pre code) {
+  padding: 0.08rem 0.3rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+.ai-response-markdown pre {
+  max-width: 100%;
+  margin: 0.65rem 0;
+  padding: 0.7rem;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--workspace);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+.ai-response-markdown table {
+  display: block;
+  max-width: 100%;
+  margin: 0.65rem 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.ai-response-markdown th,
+.ai-response-markdown td {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+.ai-response-markdown th { background: var(--secondary); font-weight: 650; }
+.ai-response-markdown hr { margin: 0.8rem 0; border: 0; border-top: 1px solid var(--border-subtle); }
+.ai-response-markdown .katex-display {
+  max-width: 100%;
+  margin: 0.75rem 0;
+  padding: 0.45rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.ai-response-markdown .katex { font-size: 1.04em; }
+
 /* Compact desktop geometry: enough softness without turning every control into a pill. */
 [data-ui-theme] .rounded-md { border-radius: 0.5rem !important; }
 [data-ui-theme] .rounded-lg { border-radius: 0.625rem !important; }

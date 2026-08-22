@@ -3,6 +3,10 @@ import { Check, Copy, Pencil, RotateCcw, Sparkles, Trash2, X } from 'lucide-reac
 import type { AiJobState } from '../hooks/useAiExplanations';
 import type { AiExplanationAnnotation, Annotation } from '../utils/types';
 
+const AiResponseRenderer = React.lazy(() =>
+  import('./AiResponseRenderer').then((module) => ({ default: module.AiResponseRenderer }))
+);
+
 interface Props {
   pageWidth: number;
   pageHeight: number;
@@ -56,8 +60,10 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
     };
   }, [activeId, job?.phase, onCancel, onCloseJob]);
 
+  const popoverWidth = Math.min(460, Math.max(300, pageWidth - 16));
   const popoverStyle = active ? {
-    left: `${Math.min(Math.max(8, (active.x + active.width) * pageWidth + 8), Math.max(8, pageWidth - 328))}px`,
+    width: `${popoverWidth}px`,
+    left: `${Math.min(Math.max(8, (active.x + active.width) * pageWidth + 8), Math.max(8, pageWidth - popoverWidth - 8))}px`,
     top: `${Math.min(Math.max(8, active.y * pageHeight), Math.max(8, pageHeight - 300))}px`,
   } : undefined;
 
@@ -80,7 +86,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
       })}
 
       {active && (
-        <div ref={popoverRef} style={popoverStyle} role="dialog" aria-label="AI region explanation" className="absolute pointer-events-auto w-80 max-h-[360px] overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--popover)] text-[var(--foreground)] shadow-2xl p-3 flex flex-col gap-2.5" onPointerDown={(event) => event.stopPropagation()}>
+        <div ref={popoverRef} style={popoverStyle} role="dialog" aria-label="AI region explanation" className="absolute pointer-events-auto max-h-[min(72vh,540px)] overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--popover)] text-[var(--foreground)] shadow-2xl p-3.5 flex flex-col gap-2.5" onPointerDown={(event) => event.stopPropagation()}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold"><Sparkles className="w-3.5 h-3.5 text-blue-500" />Codex explanation</div>
             <button className="btn-icon w-6 h-6" onClick={() => { setOpenId(null); onCloseJob(active.id); }} aria-label="Close"><X className="w-3.5 h-3.5" /></button>
@@ -109,7 +115,11 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
               <div className="h-px bg-[var(--border-subtle)]" />
               {editingResponse ? (
                 <textarea autoFocus rows={7} value={drafts[`response_${active.id}`] ?? active.response} onChange={(event) => setDrafts((current) => ({ ...current, [`response_${active.id}`]: event.target.value }))} className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--input)] p-2 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              ) : <div className="whitespace-pre-wrap select-text text-xs leading-relaxed">{active.response}</div>}
+              ) : (
+                <React.Suspense fallback={<div className="text-xs text-[var(--muted-foreground)]">Rendering explanation…</div>}>
+                  <AiResponseRenderer response={active.response} />
+                </React.Suspense>
+              )}
               <div className="flex items-center justify-end gap-1">
                 <button className="btn-icon" title="Copy response" onClick={() => void navigator.clipboard.writeText(active.response)}><Copy className="w-3.5 h-3.5" /></button>
                 <button className="btn-icon" title={editingResponse ? 'Save edit' : 'Edit response'} onClick={() => { if (editingResponse) onUpdate(active.id, { response: drafts[`response_${active.id}`] ?? active.response, updatedAt: Date.now() }); setEditingResponse(!editingResponse); }}>{editingResponse ? <Check className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}</button>
