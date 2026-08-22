@@ -6,6 +6,8 @@ import {
   saveAnnotationsForDoc,
 } from '../utils/storage';
 
+import { calculateImagePlacement, type ImagePlacementOptions } from '../utils/imageUtils';
+
 export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [history, setHistory] = useState<Annotation[][]>([]);
@@ -142,32 +144,52 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     options?: {
       x?: number;
       y?: number;
+      width?: number;
+      height?: number;
+      pageWidth?: number;
+      pageHeight?: number;
+      imageWidth?: number;
+      imageHeight?: number;
       attachedInInvertedMode?: boolean;
       invertInLightMode?: boolean;
     }
   ) => {
-    const defaultWidth = 0.35; // 35% of page width
-    const defaultHeight = defaultWidth / (aspectRatio || 1.33);
+    let x = options?.x;
+    let y = options?.y;
+    let width = options?.width;
+    let height = options?.height;
+    let ar = aspectRatio;
 
-    // If cursor position provided, center the image around cursor (clamped within page bounds)
-    let posX = options?.x !== undefined ? options.x - defaultWidth / 2 : 0.32;
-    let posY = options?.y !== undefined ? options.y - defaultHeight / 2 : 0.35;
+    if (!width || !height || x === undefined || y === undefined) {
+      const placement = calculateImagePlacement({
+        imageWidth: options?.imageWidth,
+        imageHeight: options?.imageHeight,
+        aspectRatio: ar,
+        pageWidth: options?.pageWidth,
+        pageHeight: options?.pageHeight,
+        cursorX: options?.x,
+        cursorY: options?.y,
+      });
 
-    posX = Math.max(0, Math.min(posX, 1 - defaultWidth));
-    posY = Math.max(0, Math.min(posY, 1 - Math.min(defaultHeight, 0.5)));
+      if (x === undefined) x = placement.x;
+      if (y === undefined) y = placement.y;
+      if (!width) width = placement.width;
+      if (!height) height = placement.height;
+      if (!ar || ar <= 0) ar = placement.aspectRatio;
+    }
 
     const newImage: AttachedImageAnnotation = {
       id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       pageNumber,
       type: 'image',
       dataUrl,
-      x: posX,
-      y: posY,
-      width: defaultWidth,
-      height: Math.min(defaultHeight, 0.5),
+      x,
+      y,
+      width,
+      height,
       rotation: 0,
       opacity: 1,
-      aspectRatio,
+      aspectRatio: ar,
       name,
       createdAt: Date.now(),
       attachedInInvertedMode: options?.attachedInInvertedMode ?? false,

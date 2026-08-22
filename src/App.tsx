@@ -25,6 +25,7 @@ import {
   copyPageImageToClipboard,
   downloadPageAsJpg,
 } from './utils/pageExtractor';
+import { getImageDimensions } from './utils/imageUtils';
 import type { AppScreen, ToolType, ViewMode } from './utils/types';
 
 export function App() {
@@ -173,22 +174,53 @@ export function App() {
     e.target.value = '';
   };
 
+  // Unified image addition handler that measures natural dimensions and places image with exact aspect ratio
+  const handleAddImage = useCallback(
+    async (
+      dataUrl: string,
+      targetPage: number,
+      fileName: string = 'Attached Image',
+      cursorPos?: { x: number; y: number } | null
+    ) => {
+      try {
+        const { width: imgW, height: imgH, aspectRatio } = await getImageDimensions(dataUrl);
+        let pageW = 595;
+        let pageH = 842;
+        if (pdfDoc) {
+          try {
+            const page = await pdfDoc.getPage(targetPage);
+            const vp = page.getViewport({ scale: 1.0 });
+            pageW = vp.width;
+            pageH = vp.height;
+          } catch {}
+        }
+
+        addAttachedImage(targetPage, dataUrl, aspectRatio, fileName, {
+          x: cursorPos ? cursorPos.x : undefined,
+          y: cursorPos ? cursorPos.y : undefined,
+          pageWidth: pageW,
+          pageHeight: pageH,
+          imageWidth: imgW,
+          imageHeight: imgH,
+          attachedInInvertedMode: isDarkTheme,
+          invertInLightMode: isDarkTheme,
+        });
+        setActiveTool('select');
+      } catch (err) {
+        console.error('Failed to attach image:', err);
+      }
+    },
+    [pdfDoc, addAttachedImage, isDarkTheme]
+  );
+
   // Open Image to Attach (Desktop native dialog or Browser File Input fallback)
   const handleOpenImage = async () => {
     if (isTauri()) {
       const imgData = await tauriOpenImage();
       if (imgData) {
-        const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-        const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
         const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-
-        addAttachedImage(targetPage, imgData.dataUrl, 2.5, imgData.fileName, {
-          x: posX,
-          y: posY,
-          attachedInInvertedMode: isDarkTheme,
-          invertInLightMode: isDarkTheme,
-        });
-        setActiveTool('select');
+        const cursorPos = cursorPosRef.current ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y } : null;
+        await handleAddImage(imgData.dataUrl, targetPage, imgData.fileName, cursorPos);
       }
     } else {
       imageInputRef.current?.click();
@@ -199,19 +231,11 @@ export function App() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         if (typeof reader.result === 'string') {
-          const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-          const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
           const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-
-          addAttachedImage(targetPage, reader.result, 2.5, file.name, {
-            x: posX,
-            y: posY,
-            attachedInInvertedMode: isDarkTheme,
-            invertInLightMode: isDarkTheme,
-          });
-          setActiveTool('select');
+          const cursorPos = cursorPosRef.current ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y } : null;
+          await handleAddImage(reader.result, targetPage, file.name, cursorPos);
         }
       };
       reader.readAsDataURL(file);
@@ -222,18 +246,13 @@ export function App() {
   // Handle Drag & Drop of image directly onto a page canvas
   const handleImageDropOnPage = (pageNumber: number, file: File) => {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-        const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.5;
-
-        addAttachedImage(pageNumber, reader.result, 2.5, file.name, {
-          x: posX,
-          y: posY,
-          attachedInInvertedMode: isDarkTheme,
-          invertInLightMode: isDarkTheme,
-        });
-        setActiveTool('select');
+        const cursorPos =
+          cursorPosRef.current && cursorPosRef.current.pageNumber === pageNumber
+            ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y }
+            : { x: 0.5, y: 0.5 };
+        await handleAddImage(reader.result, pageNumber, file.name, cursorPos);
       }
     };
     reader.readAsDataURL(file);
@@ -298,19 +317,12 @@ export function App() {
           if (!file) continue;
 
           const reader = new FileReader();
-          reader.onload = () => {
+          reader.onload = async () => {
             if (typeof reader.result === 'string') {
               const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-              const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-              const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
+              const cursorPos = cursorPosRef.current ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y } : null;
 
-              addAttachedImage(targetPage, reader.result as string, 2.5, 'Pasted-Image', {
-                x: posX,
-                y: posY,
-                attachedInInvertedMode: isDarkTheme,
-                invertInLightMode: isDarkTheme,
-              });
-              setActiveTool('select');
+              await handleAddImage(reader.result, targetPage, 'Pasted-Image', cursorPos);
               showToast(`Pasted image on Page ${targetPage}!`);
             }
           };
@@ -322,7 +334,7 @@ export function App() {
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [currentPage, isDarkTheme, addAttachedImage, showToast]);
+  }, [currentPage, handleAddImage, showToast]);
 
   // Global Keyboard Shortcuts
   useKeyboard({
@@ -561,18 +573,10 @@ export function App() {
           <StampPickerModal
             isOpen={isStampPickerOpen}
             onClose={() => setIsStampPickerOpen(false)}
-            onSelectStamp={(dataUrl, name) => {
+            onSelectStamp={async (dataUrl, name) => {
               const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-              const posX = cursorPosRef.current ? cursorPosRef.current.x : 0.5;
-              const posY = cursorPosRef.current ? cursorPosRef.current.y : 0.45;
-
-              addAttachedImage(targetPage, dataUrl, 2.5, name, {
-                x: posX,
-                y: posY,
-                attachedInInvertedMode: isDarkTheme,
-                invertInLightMode: isDarkTheme,
-              });
-              setActiveTool('select');
+              const cursorPos = cursorPosRef.current ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y } : null;
+              await handleAddImage(dataUrl, targetPage, name, cursorPos);
             }}
             onAttachCustomImage={handleOpenImage}
           />

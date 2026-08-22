@@ -173,6 +173,28 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
         className={imageClassName}
         style={imageFilterStyle}
         draggable={false}
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          const naturalW = img.naturalWidth;
+          const naturalH = img.naturalHeight;
+          if (naturalW > 0 && naturalH > 0 && pageWidth > 0 && pageHeight > 0) {
+            const actualRatio = naturalW / naturalH;
+            if (
+              !annotation.aspectRatio ||
+              Math.abs(annotation.aspectRatio - actualRatio) > 0.05
+            ) {
+              const currentPixelW = annotation.width * pageWidth;
+              const correctedPixelH = currentPixelW / actualRatio;
+              const correctedHeight = correctedPixelH / pageHeight;
+              if (annotation.y + correctedHeight <= 1.05) {
+                onUpdate(annotation.id, {
+                  aspectRatio: actualRatio,
+                  height: Math.min(correctedHeight, 0.95),
+                });
+              }
+            }
+          }
+        }}
       />
 
       {/* Selection Handles and Quick Controls */}
