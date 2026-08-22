@@ -15,6 +15,7 @@ interface AnnotationCanvasProps {
   pageHeight: number;
   activeTool: ToolType;
   selectedColor: string;
+  isInvertedColorMode: boolean;
   strokeWidth: number;
   opacity: number;
   annotations: Annotation[];
@@ -41,6 +42,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   pageHeight,
   activeTool,
   selectedColor,
+  isInvertedColorMode,
   strokeWidth,
   opacity,
   annotations,
@@ -69,6 +71,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
+  const highlightBlendMode = isInvertedColorMode ? 'screen' : 'multiply';
+  const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
 
@@ -342,6 +346,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             return (
               <rect
                 key={rect.id}
+                className={colorFilterClass}
                 x={rect.x * pageWidth}
                 y={rect.y * pageHeight}
                 width={rect.width * pageWidth}
@@ -349,7 +354,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 fill={rect.color}
                 fillOpacity={rect.opacity || 0.4}
                 rx={3}
-                style={{ mixBlendMode: 'multiply' }}
+                style={{ mixBlendMode: highlightBlendMode }}
               />
             );
           })}
@@ -362,6 +367,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             return (
               <line
                 key={line.id}
+                className={colorFilterClass}
                 x1={line.startX * pageWidth}
                 y1={line.startY * pageHeight}
                 x2={line.endX * pageWidth}
@@ -370,7 +376,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 strokeWidth={line.strokeWidth}
                 strokeOpacity={line.opacity}
                 strokeLinecap="square"
-                style={{ mixBlendMode: 'multiply' }}
+                style={{ mixBlendMode: highlightBlendMode }}
               />
             );
           })}
@@ -383,6 +389,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             return (
               <path
                 key={draw.id}
+                className={colorFilterClass}
                 d={pointsToSvgPath(draw.points)}
                 stroke={draw.color}
                 strokeWidth={draw.strokeWidth}
@@ -390,7 +397,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
-                style={draw.type === 'highlight-pen' ? { mixBlendMode: 'multiply' } : undefined}
+                style={draw.type === 'highlight-pen' ? { mixBlendMode: highlightBlendMode } : undefined}
               />
             );
           })}
@@ -398,6 +405,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         {/* Active Straight Line Highlight in progress */}
         {lineStart && lineCurrent && (
           <line
+            className={colorFilterClass}
             x1={lineStart.x * pageWidth}
             y1={lineStart.y * pageHeight}
             x2={lineCurrent.x * pageWidth}
@@ -410,13 +418,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             strokeWidth={strokeWidth * 2.8}
             strokeOpacity={opacity}
             strokeLinecap="square"
-            style={{ mixBlendMode: 'multiply' }}
+            style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
 
         {/* Active Freehand Drawing in progress */}
         {currentStroke && (
           <path
+            className={colorFilterClass}
             d={pointsToSvgPath(currentStroke)}
             stroke={selectedColor}
             strokeWidth={activeTool === 'highlight-pen' ? strokeWidth * 2.5 : strokeWidth}
@@ -424,13 +433,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
-            style={activeTool === 'highlight-pen' ? { mixBlendMode: 'multiply' } : undefined}
+            style={activeTool === 'highlight-pen' ? { mixBlendMode: highlightBlendMode } : undefined}
           />
         )}
 
         {/* Active Rectangle Highlight in progress */}
         {rectStart && rectCurrent && (
           <rect
+            className={colorFilterClass}
             x={Math.min(rectStart.x, rectCurrent.x) * pageWidth}
             y={Math.min(rectStart.y, rectCurrent.y) * pageHeight}
             width={Math.abs(rectCurrent.x - rectStart.x) * pageWidth}
@@ -441,7 +451,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             strokeWidth={1}
             strokeDasharray="4 2"
             rx={3}
-            style={{ mixBlendMode: 'multiply' }}
+            style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
       </svg>

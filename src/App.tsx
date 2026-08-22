@@ -14,6 +14,7 @@ import { Check, Info, Sidebar as SidebarIcon } from 'lucide-react';
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useColorTheme } from './hooks/useColorTheme';
+import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
 import { createSamplePDF } from './utils/samplePdf';
 import { loadViewMode, saveViewMode, recordRecentDoc } from './utils/storage';
@@ -107,7 +108,7 @@ export function App() {
     getCustomFilterStyle,
   } = useColorTheme();
 
-  const isDarkTheme = ['invert', 'oled', 'nord', 'matrix'].includes(themeSettings.theme);
+  const isDarkTheme = usesInvertedColorSpace(themeSettings.theme);
 
   useEffect(() => {
     document.documentElement.dataset.uiTheme = isDarkTheme ? 'dark' : 'light';
@@ -494,6 +495,7 @@ export function App() {
             <Toolbar
               activeTool={activeTool}
               selectedColor={selectedColor}
+              isInvertedColorMode={isDarkTheme}
               strokeWidth={strokeWidth}
               opacity={opacity}
               canUndo={canUndo}

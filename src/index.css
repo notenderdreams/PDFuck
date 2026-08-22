@@ -921,6 +921,11 @@
   filter: invert(1) hue-rotate(180deg);
 }
 
+/* Keep annotation swatches and SVG marks in the same color space as an inverted page. */
+.annotation-color-preview-invert {
+  filter: invert(0.92) hue-rotate(180deg) contrast(0.95) brightness(0.95);
+}
+
 /* Precision Selectable PDF Text Layer */
 .textLayer {
   position: absolute;

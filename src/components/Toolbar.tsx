@@ -15,6 +15,7 @@ import type { ToolType } from '../utils/types';
 interface ToolbarProps {
   activeTool: ToolType;
   selectedColor: string;
+  isInvertedColorMode: boolean;
   strokeWidth: number;
   opacity: number;
   canUndo?: boolean;
@@ -44,6 +45,7 @@ const COLOR_PRESETS = [
 export const Toolbar: React.FC<ToolbarProps> = ({
   activeTool,
   selectedColor,
+  isInvertedColorMode,
   strokeWidth,
   opacity,
   onSelectTool,
@@ -120,7 +122,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           title="Color & Stroke"
         >
           <span
-            className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs"
+            className={`w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs ${
+              isInvertedColorMode ? 'annotation-color-preview-invert' : ''
+            }`}
             style={{ backgroundColor: selectedColor }}
           />
         </button>
@@ -134,7 +138,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 type="color"
                 value={selectedColor}
                 onChange={(e) => onSelectColor(e.target.value)}
-                className="w-4 h-4 rounded border-0 bg-transparent cursor-pointer"
+                className={`w-4 h-4 rounded border-0 bg-transparent cursor-pointer ${
+                  isInvertedColorMode ? 'annotation-color-preview-invert' : ''
+                }`}
                 title="Custom Color"
               />
             </div>
@@ -148,6 +154,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     setShowPalette(false);
                   }}
                   className={`w-5.5 h-5.5 rounded-md transition-all ${
+                    isInvertedColorMode ? 'annotation-color-preview-invert' : ''
+                  } ${
                     selectedColor.toLowerCase() === colorHex.toLowerCase()
                       ? 'ring-2 ring-white scale-105 shadow-xs'
                       : 'opacity-80 hover:opacity-100 hover:scale-105 border border-black/30'

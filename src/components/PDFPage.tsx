@@ -4,6 +4,7 @@ import { TextLayer } from 'pdfjs-dist';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { ImageOverlay } from './ImageOverlay';
 import { TextNoteOverlay } from './TextNoteOverlay';
+import { usesInvertedColorSpace } from '../utils/readingTheme';
 import type {
   Annotation,
   AttachedImageAnnotation,
@@ -244,6 +245,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         pageHeight={pageDimensions.height}
         activeTool={activeTool}
         selectedColor={selectedColor}
+        isInvertedColorMode={usesInvertedColorSpace(currentTheme)}
         strokeWidth={strokeWidth}
         opacity={opacity}
         annotations={annotations}
