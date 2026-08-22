@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
-import { Trash2, RotateCw, Sun, Moon } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Trash2, RotateCw, Sun, Moon, Copy, Check } from 'lucide-react';
 import type { AttachedImageAnnotation, ReadingTheme, ToolType } from '../utils/types';
+import { isTauri, tauriCopyTextToClipboard } from '../utils/tauriBridge';
 
 interface ImageOverlayProps {
   annotation: AttachedImageAnnotation;
@@ -25,6 +26,7 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
   onUpdate,
   onDelete,
 }) => {
+  const [copiedText, setCopiedText] = useState(false);
   const isDraggingRef = useRef(false);
   const isResizingRef = useRef(false);
   const dragStartPosRef = useRef({ x: 0, y: 0 });
@@ -130,6 +132,28 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleCopyRawText = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!annotation.extractedText) return;
+    try {
+      if (isTauri()) {
+        await tauriCopyTextToClipboard(annotation.extractedText);
+      } else {
+        await navigator.clipboard.writeText(annotation.extractedText);
+      }
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(annotation.extractedText);
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+    }
+  };
+
   return (
     <div
       style={{
@@ -205,6 +229,18 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
             className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-lg bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
             onMouseDown={(e) => e.stopPropagation()}
           >
+            {/* Copy Raw Text (available when rasterized from text region) */}
+            {annotation.extractedText && (
+              <button
+                onClick={handleCopyRawText}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
+                title="Copy extracted raw text from this region"
+              >
+                {copiedText ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3 text-white" />}
+                <span>{copiedText ? 'Copied' : 'Copy Text'}</span>
+              </button>
+            )}
+
             {/* Opacity slider */}
             <input
               type="range"

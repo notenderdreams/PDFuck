@@ -103,14 +103,26 @@ export function loadViewMode(): ViewMode {
 
 // --- Unified Annotations Auto-Save Engine ---
 
+export function filterPersistableAnnotations(annotations: Annotation[]): Annotation[] {
+  return annotations.filter((ann) => {
+    // If it's an AI explanation box without a response (user just drew a box but didn't send/explain), do not persist
+    if (ann.type === 'ai-explanation') {
+      return Boolean(ann.response && ann.response.trim());
+    }
+    return true;
+  });
+}
+
 export function saveAnnotationsForDoc(
   docKey: string,
   annotations: Annotation[],
   fallbackKeys: string[] = []
 ): void {
+  const persistable = filterPersistableAnnotations(annotations);
+
   // 1. LocalStorage for fast instant access
   try {
-    const json = JSON.stringify(annotations);
+    const json = JSON.stringify(persistable);
     localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`, json);
     for (const key of fallbackKeys) {
       if (key) {
@@ -122,10 +134,10 @@ export function saveAnnotationsForDoc(
   }
 
   // 2. Persistent IndexedDB for full-size payloads & image attachments
-  idbSaveAnnotations(docKey, annotations);
+  idbSaveAnnotations(docKey, persistable);
   for (const key of fallbackKeys) {
     if (key) {
-      idbSaveAnnotations(key, annotations);
+      idbSaveAnnotations(key, persistable);
     }
   }
 
@@ -134,7 +146,7 @@ export function saveAnnotationsForDoc(
     const recents = loadRecentDocs();
     const updated = recents.map((doc) => {
       if (doc.filePath === docKey || doc.fileName === docKey || fallbackKeys.includes(doc.filePath || '')) {
-        return { ...doc, annotationCount: annotations.length };
+        return { ...doc, annotationCount: persistable.length };
       }
       return doc;
     });
@@ -146,7 +158,7 @@ export function loadAnnotationsForDocSync(docKey: string, fallbackKeys: string[]
   // Try main docKey
   try {
     const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`);
-    if (raw) return JSON.parse(raw);
+    if (raw) return filterPersistableAnnotations(JSON.parse(raw));
   } catch {}
 
   // Try fallback keys (e.g. filePath, fileName, fingerprint)
@@ -154,7 +166,7 @@ export function loadAnnotationsForDocSync(docKey: string, fallbackKeys: string[]
     if (!key) continue;
     try {
       const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`);
-      if (raw) return JSON.parse(raw);
+      if (raw) return filterPersistableAnnotations(JSON.parse(raw));
     } catch {}
   }
 
@@ -166,12 +178,12 @@ export async function loadAnnotationsForDocAsync(
   fallbackKeys: string[] = []
 ): Promise<Annotation[] | null> {
   const fromIdb = await idbLoadAnnotations(docKey);
-  if (fromIdb && fromIdb.length > 0) return fromIdb;
+  if (fromIdb && fromIdb.length > 0) return filterPersistableAnnotations(fromIdb);
 
   for (const key of fallbackKeys) {
     if (!key) continue;
     const fb = await idbLoadAnnotations(key);
-    if (fb && fb.length > 0) return fb;
+    if (fb && fb.length > 0) return filterPersistableAnnotations(fb);
   }
 
   return null;

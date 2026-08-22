@@ -662,7 +662,10 @@ export function App() {
                 }}
                 onCaptureSnippet={handleCaptureSnippet}
                 aiJobs={aiExplanations.jobs}
-                onAiBoxCreated={aiExplanations.openComposer}
+                onAiBoxCreated={(id) => {
+                  aiExplanations.openComposer(id);
+                  setActiveTool('select');
+                }}
                 onSubmitAi={(annotation, prompt) => void aiExplanations.submit(annotation, prompt)}
                 onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
                 onCloseAi={aiExplanations.close}

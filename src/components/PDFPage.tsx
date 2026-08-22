@@ -275,6 +275,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
       />
 
       <AiExplanationOverlay
+        pdfDoc={pdfDoc}
         pageWidth={pageDimensions.width}
         pageHeight={pageDimensions.height}
         annotations={pageAiExplanations}
@@ -284,6 +285,8 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         onCloseJob={onCloseAi}
         onUpdate={onUpdateAnnotation}
         onDelete={onDeleteAnnotation}
+        onAddAnnotation={onAddAnnotation}
+        onSelectAnnotation={onSelectAnnotation}
       />
 
       {/* Attached Images Layer */}

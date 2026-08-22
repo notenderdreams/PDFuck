@@ -87,6 +87,7 @@ export interface AttachedImageAnnotation {
   createdAt: number;
   attachedInInvertedMode?: boolean; // True if attached while in Dark/Invert theme
   invertInLightMode?: boolean; // Invert image colors when viewed or saved in Light/Normal mode
+  extractedText?: string; // Optional extracted raw text from rasterized region or OCR
 }
 
 export interface TextNoteAnnotation {

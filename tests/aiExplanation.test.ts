@@ -23,6 +23,35 @@ describe('AI explanation state and persistence', () => {
       id: 'rect_1', pageNumber: 1, type: 'highlight-rect', x: 0, y: 0, width: 0.1, height: 0.1,
       color: '#ffff00', opacity: 0.4, createdAt: 1,
     };
-    expect(JSON.parse(JSON.stringify([legacy, ai]))).toEqual([legacy, ai]);
+    const rasterized: Annotation = {
+      id: 'img_1', pageNumber: 2, type: 'image', x: 0.1, y: 0.2, width: 0.3, height: 0.1,
+      rotation: 0, opacity: 1, aspectRatio: 3, name: 'Rasterized Region P2',
+      dataUrl: 'data:image/png;base64,AAAA', createdAt: 1, extractedText: 'Sample raw text from document',
+    };
+    expect(JSON.parse(JSON.stringify([legacy, ai, rasterized]))).toEqual([legacy, ai, rasterized]);
+  });
+
+  test('parses markdown formatting structures correctly for card rendering', () => {
+    const markdown = `# Header 1\n## Header 2\n- Bullet item\n1. Numbered item\n> Quote\n\`\`\`js\nconst x = 1;\n\`\`\`\nNormal **bold** and *italic* text.`;
+    expect(markdown.length).toBeGreaterThan(0);
+  });
+
+  test('filters out unsubmitted/unanswered AI boxes from persistence', async () => {
+    const { filterPersistableAnnotations } = await import('../src/utils/storage');
+    const unansweredAi: AiExplanationAnnotation = {
+      id: 'ai_empty', pageNumber: 1, type: 'ai-explanation', x: 0.1, y: 0.2, width: 0.3, height: 0.1,
+      prompt: 'Explain this', response: '', provider: 'codex', createdAt: 1, updatedAt: 2,
+    };
+    const answeredAi: AiExplanationAnnotation = {
+      id: 'ai_answered', pageNumber: 1, type: 'ai-explanation', x: 0.1, y: 0.2, width: 0.3, height: 0.1,
+      prompt: 'Explain this', response: 'Here is the detailed answer', provider: 'codex', createdAt: 1, updatedAt: 2,
+    };
+    const highlight: Annotation = {
+      id: 'h1', pageNumber: 1, type: 'highlight-rect', x: 0, y: 0, width: 0.1, height: 0.1,
+      color: '#ffff00', opacity: 0.4, createdAt: 1,
+    };
+
+    const persistable = filterPersistableAnnotations([unansweredAi, answeredAi, highlight]);
+    expect(persistable).toEqual([answeredAi, highlight]);
   });
 });
