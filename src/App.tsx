@@ -101,10 +101,10 @@ export function App() {
     updateAnnotation,
     deleteAnnotation,
     clearAllAnnotationsForPage,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
+    undo: undoAnnotations,
+    redo: redoAnnotations,
+    canUndo: canUndoAnnotations,
+    canRedo: canRedoAnnotations,
   } = useAnnotations(docKey, docInfo);
 
   const {
@@ -116,6 +116,10 @@ export function App() {
     updateDivider,
     updateSnippetLabel,
     clearAll: clearAllSnippets,
+    undo: undoSnippets,
+    redo: redoSnippets,
+    canUndo: canUndoSnippets,
+    canRedo: canRedoSnippets,
   } = useSnippets(docKey);
 
   const {
@@ -345,6 +349,58 @@ export function App() {
     showToast(`Dumped all ${count} snippets from compactor.`);
   }, [snippets.length, clearAllSnippets, showToast]);
 
+  // Contextual Global Undo handler
+  const handleGlobalUndo = useCallback(() => {
+    if (activeTool === 'snip' || sidebarTab === 'snippets') {
+      if (canUndoSnippets) {
+        undoSnippets();
+        showToast('Undid snippet change');
+        return;
+      }
+    }
+    if (canUndoAnnotations) {
+      undoAnnotations();
+      showToast('Undid annotation');
+    } else if (canUndoSnippets) {
+      undoSnippets();
+      showToast('Undid snippet change');
+    }
+  }, [
+    activeTool,
+    sidebarTab,
+    canUndoSnippets,
+    canUndoAnnotations,
+    undoSnippets,
+    undoAnnotations,
+    showToast,
+  ]);
+
+  // Contextual Global Redo handler
+  const handleGlobalRedo = useCallback(() => {
+    if (activeTool === 'snip' || sidebarTab === 'snippets') {
+      if (canRedoSnippets) {
+        redoSnippets();
+        showToast('Redid snippet change');
+        return;
+      }
+    }
+    if (canRedoAnnotations) {
+      redoAnnotations();
+      showToast('Redid annotation');
+    } else if (canRedoSnippets) {
+      redoSnippets();
+      showToast('Redid snippet change');
+    }
+  }, [
+    activeTool,
+    sidebarTab,
+    canRedoSnippets,
+    canRedoAnnotations,
+    redoSnippets,
+    redoAnnotations,
+    showToast,
+  ]);
+
   // Extract and Copy all text from a page
   const handleCopyPageText = useCallback(
     async (pageParam?: number | unknown) => {
@@ -431,8 +487,8 @@ export function App() {
     onToggleInvert: toggleInvert,
     onToggleSearch: () => setIsSearchOpen((prev) => !prev),
     onSelectTool: handleSelectTool,
-    onUndo: undo,
-    onRedo: redo,
+    onUndo: handleGlobalUndo,
+    onRedo: handleGlobalRedo,
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
     onZoomOut: () => setZoom((z) => Math.max(0.3, z - 0.15)),
     onResetZoom: () => setZoom(1.15),
@@ -543,6 +599,10 @@ export function App() {
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
               snippets={snippets}
               isSnipActive={activeTool === 'snip'}
+              canUndoSnippets={canUndoSnippets}
+              canRedoSnippets={canRedoSnippets}
+              onUndoSnippets={undoSnippets}
+              onRedoSnippets={redoSnippets}
               onToggleSnipTool={() => handleSelectTool(activeTool === 'snip' ? 'select' : 'snip')}
               onAddDivider={addDivider}
               onRemoveSnippetEntry={removeSnippetEntry}
@@ -637,16 +697,16 @@ export function App() {
               isInvertedColorMode={isDarkTheme}
               strokeWidth={strokeWidth}
               opacity={opacity}
-              canUndo={canUndo}
-              canRedo={canRedo}
+              canUndo={activeTool === 'snip' ? canUndoSnippets : canUndoAnnotations}
+              canRedo={activeTool === 'snip' ? canRedoSnippets : canRedoAnnotations}
               onSelectTool={handleSelectTool}
               onSelectColor={(c) => setSelectedColor(c)}
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
               onAttachImageClick={handleOpenImage}
               onOpenStampPicker={() => setIsStampPickerOpen(true)}
-              onUndo={undo}
-              onRedo={redo}
+              onUndo={handleGlobalUndo}
+              onRedo={handleGlobalRedo}
               onClearPageAnnotations={() => clearAllAnnotationsForPage(currentPage)}
             />
           )}

@@ -34,6 +34,10 @@ interface SidebarProps {
   // Snippets props
   snippets?: SnippetEntry[];
   isSnipActive?: boolean;
+  canUndoSnippets?: boolean;
+  canRedoSnippets?: boolean;
+  onUndoSnippets?: () => void;
+  onRedoSnippets?: () => void;
   onToggleSnipTool?: () => void;
   onAddDivider?: (afterId?: string, label?: string) => void;
   onRemoveSnippetEntry?: (id: string) => void;
@@ -63,6 +67,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteAnnotation,
   snippets = [],
   isSnipActive = false,
+  canUndoSnippets = false,
+  canRedoSnippets = false,
+  onUndoSnippets,
+  onRedoSnippets,
   onToggleSnipTool,
   onAddDivider,
   onRemoveSnippetEntry,
@@ -265,6 +273,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <SnippetPanel
             snippets={snippets}
             isSnipActive={isSnipActive}
+            canUndo={canUndoSnippets}
+            canRedo={canRedoSnippets}
+            onUndo={onUndoSnippets}
+            onRedo={onRedoSnippets}
             onToggleSnipTool={onToggleSnipTool || (() => {})}
             onAddDivider={onAddDivider || (() => {})}
             onRemoveEntry={onRemoveSnippetEntry || (() => {})}

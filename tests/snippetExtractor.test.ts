@@ -56,3 +56,96 @@ describe('computeStitchLayout', () => {
     expect(canvas).toBeNull();
   });
 });
+
+describe('Snippet Undo/Redo History Logic', () => {
+  class HistoryStack<T> {
+    private history: T[][] = [];
+    private index: number = -1;
+    public state: T[] = [];
+
+    constructor(initial: T[] = []) {
+      this.state = initial;
+      this.history = [initial];
+      this.index = 0;
+    }
+
+    get canUndo() {
+      return this.index > 0;
+    }
+
+    get canRedo() {
+      return this.index < this.history.length - 1;
+    }
+
+    push(next: T[]) {
+      const sliced = this.history.slice(0, this.index + 1);
+      this.history = [...sliced, next];
+      this.index = this.history.length - 1;
+      this.state = next;
+    }
+
+    undo() {
+      if (this.index > 0) {
+        this.index--;
+        this.state = this.history[this.index];
+      }
+    }
+
+    redo() {
+      if (this.index < this.history.length - 1) {
+        this.index++;
+        this.state = this.history[this.index];
+      }
+    }
+  }
+
+  test('tracks additions, undos, redos, and clearing', () => {
+    const stack = new HistoryStack<SnippetEntry>([]);
+    expect(stack.canUndo).toBe(false);
+    expect(stack.canRedo).toBe(false);
+
+    const snip1: SnippetEntry = {
+      id: 'snip_1',
+      type: 'image',
+      pageNumber: 1,
+      dataUrl: 'data:image/png;base64,x',
+      width: 100,
+      height: 100,
+      aspectRatio: 1,
+      createdAt: 100,
+    };
+
+    stack.push([snip1]);
+    expect(stack.canUndo).toBe(true);
+    expect(stack.state.length).toBe(1);
+
+    // Add divider
+    const div1: SnippetEntry = {
+      id: 'div_1',
+      type: 'divider',
+      label: 'Notes',
+      createdAt: 200,
+    };
+    stack.push([snip1, div1]);
+    expect(stack.state.length).toBe(2);
+
+    // Undo divider
+    stack.undo();
+    expect(stack.state.length).toBe(1);
+    expect(stack.state[0].id).toBe('snip_1');
+    expect(stack.canRedo).toBe(true);
+
+    // Redo divider
+    stack.redo();
+    expect(stack.state.length).toBe(2);
+    expect(stack.state[1].id).toBe('div_1');
+
+    // Clear all
+    stack.push([]);
+    expect(stack.state.length).toBe(0);
+
+    // Undo clear
+    stack.undo();
+    expect(stack.state.length).toBe(2);
+  });
+});

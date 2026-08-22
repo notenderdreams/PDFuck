@@ -66,6 +66,9 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     return () => clearTimeout(timer);
   }, [annotations, docKey, fallbackKeys]);
 
+  const annotationsRef = useRef<Annotation[]>([]);
+  annotationsRef.current = annotations;
+
   const pushState = useCallback((newAnnotations: Annotation[]) => {
     setHistory((prevHistory) => {
       const upToCurrent = prevHistory.slice(0, historyIndex + 1);
@@ -78,38 +81,29 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     });
     setHistoryIndex((prev) => Math.min(prev + 1, 39));
     setAnnotations(newAnnotations);
+    annotationsRef.current = newAnnotations;
   }, [historyIndex]);
 
   const addAnnotation = useCallback((annotation: Annotation) => {
-    setAnnotations((prev) => {
-      const updated = [...prev, annotation];
-      pushState(updated);
-      return updated;
-    });
+    const updated = [...annotationsRef.current, annotation];
+    pushState(updated);
   }, [pushState]);
 
   const updateAnnotation = useCallback((id: string, updates: Partial<Annotation>) => {
-    setAnnotations((prev) => {
-      const updated = prev.map((item) => (item.id === id ? ({ ...item, ...updates } as Annotation) : item));
-      pushState(updated);
-      return updated;
-    });
+    const updated = annotationsRef.current.map((item) =>
+      item.id === id ? ({ ...item, ...updates } as Annotation) : item
+    );
+    pushState(updated);
   }, [pushState]);
 
   const deleteAnnotation = useCallback((id: string) => {
-    setAnnotations((prev) => {
-      const updated = prev.filter((item) => item.id !== id);
-      pushState(updated);
-      return updated;
-    });
+    const updated = annotationsRef.current.filter((item) => item.id !== id);
+    pushState(updated);
   }, [pushState]);
 
   const clearAllAnnotationsForPage = useCallback((pageNumber: number) => {
-    setAnnotations((prev) => {
-      const updated = prev.filter((item) => item.pageNumber !== pageNumber);
-      pushState(updated);
-      return updated;
-    });
+    const updated = annotationsRef.current.filter((item) => item.pageNumber !== pageNumber);
+    pushState(updated);
   }, [pushState]);
 
   const clearAllAnnotations = useCallback(() => {
@@ -120,7 +114,9 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
-      setAnnotations(history[newIndex]);
+      const nextState = history[newIndex];
+      setAnnotations(nextState);
+      annotationsRef.current = nextState;
     }
   }, [historyIndex, history]);
 
@@ -128,7 +124,9 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
-      setAnnotations(history[newIndex]);
+      const nextState = history[newIndex];
+      setAnnotations(nextState);
+      annotationsRef.current = nextState;
     }
   }, [historyIndex, history]);
 

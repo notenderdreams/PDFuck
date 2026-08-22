@@ -13,12 +13,18 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import type { SnippetDividerEntry, SnippetEntry, StitchOptions } from '../utils/types';
 
 interface SnippetPanelProps {
   snippets: SnippetEntry[];
   isSnipActive: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onToggleSnipTool: () => void;
   onAddDivider: (afterId?: string, label?: string) => void;
   onRemoveEntry: (id: string) => void;
@@ -35,6 +41,10 @@ interface SnippetPanelProps {
 export const SnippetPanel: React.FC<SnippetPanelProps> = ({
   snippets,
   isSnipActive,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
   onToggleSnipTool,
   onAddDivider,
   onRemoveEntry,
@@ -111,9 +121,31 @@ export const SnippetPanel: React.FC<SnippetPanelProps> = ({
             <Layers className="w-4 h-4 text-blue-400" />
             <span>AI Snippet Compactor</span>
           </div>
-          <span className="text-[10.5px] px-1.5 py-0.5 rounded-full bg-[#2a2a34] text-zinc-400 font-mono">
-            {imageCount} {imageCount === 1 ? 'snip' : 'snips'}
-          </span>
+          <div className="flex items-center gap-1">
+            {onUndo && (
+              <button
+                onClick={onUndo}
+                disabled={!canUndo}
+                className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-400 transition-all"
+                title="Undo Snippet Action (Cmd+Z)"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onRedo && (
+              <button
+                onClick={onRedo}
+                disabled={!canRedo}
+                className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-400 transition-all"
+                title="Redo Snippet Action (Cmd+Shift+Z / Cmd+Y)"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <span className="text-[10.5px] px-1.5 py-0.5 rounded-full bg-[#2a2a34] text-zinc-400 font-mono">
+              {imageCount} {imageCount === 1 ? 'snip' : 'snips'}
+            </span>
+          </div>
         </div>
 
         <button
