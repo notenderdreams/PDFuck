@@ -7,9 +7,7 @@ import {
   Search,
   Maximize2,
   Minimize2,
-  FileText,
   SlidersHorizontal,
-  HelpCircle,
   Copy,
   Camera,
   Rows,
@@ -104,29 +102,24 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="reader-titlebar-left flex items-center gap-2 app-no-drag min-w-0">
         <div className="macos-window-controls-spacer hidden sm:block" />
         {onOpenDashboard && (
-          <button onClick={onOpenDashboard} className="macos-topbar-icon" title="Back to Library">
+          <button onClick={onOpenDashboard} className="macos-topbar-icon" title="Back to Library (Cmd+L)">
             <ArrowLeft className="w-4 h-4" />
           </button>
+        )}
+        {docInfo?.fileName && (
+          <>
+            <span className="reader-toolbar-divider shrink-0" aria-hidden="true" />
+            <span
+              className="font-medium truncate text-[12px] text-zinc-200"
+              title={docInfo.fileName}
+            >
+              {docInfo.fileName}
+            </span>
+          </>
         )}
       </div>
 
       <div className="reader-titlebar-center app-no-drag min-w-0">
-        <div className="macos-document-title reader-document-title min-w-0">
-          <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
-          <div className="min-w-0 leading-tight">
-            <span
-              className="block font-semibold truncate text-[12px]"
-              title={docInfo?.fileName || 'No Document'}
-            >
-              {docInfo?.fileName || 'No Document'}
-            </span>
-            <span className="block truncate text-[10px] text-zinc-500">
-              {numPages > 0 ? `Page ${currentPage} of ${numPages}` : 'Ready to read'}
-              {annotationCount !== undefined && annotationCount > 0 &&
-                ` · ${saveStatus === 'saving' ? 'Saving notes…' : `${annotationCount} note${annotationCount === 1 ? '' : 's'}`}`}
-            </span>
-          </div>
-        </div>
         {numPages > 0 && (
           <div className="macos-toolbar-group macos-page-control flex items-center gap-1 px-1.5">
             <input
@@ -193,9 +186,9 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <span className="reader-toolbar-divider hidden lg:block" aria-hidden="true" />
+        <span className="reader-toolbar-divider hidden md:block" aria-hidden="true" />
 
-        <div className="macos-toolbar-group macos-reader-segmented hidden lg:flex items-center">
+        <div className="macos-toolbar-group macos-reader-segmented hidden md:flex items-center">
           <button
             onClick={() => onChangeViewMode('continuous')}
             className={`p-1 rounded transition-all ${
@@ -231,9 +224,10 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <span className="reader-toolbar-divider hidden lg:block" aria-hidden="true" />
+        <span className="reader-toolbar-divider hidden sm:block" aria-hidden="true" />
 
-        <div className="macos-toolbar-group macos-reader-zoom reader-secondary-actions hidden xl:flex items-center px-1 font-mono text-[11px] text-zinc-300">
+        {/* Zoom Controls */}
+        <div className="macos-toolbar-group macos-reader-zoom flex items-center px-1 font-mono text-[11px] text-zinc-300">
           <button
             onClick={() => onChangeZoom(Math.max(0.4, zoom - 0.15))}
             className="hover:text-white px-1 text-zinc-400"
@@ -241,7 +235,13 @@ export const Header: React.FC<HeaderProps> = ({
           >
             -
           </button>
-          <span className="w-9 text-center">{Math.round(zoom * 100)}%</span>
+          <button
+            onClick={() => onChangeZoom(1.0)}
+            className="w-9 text-center hover:text-white hover:bg-white/10 rounded py-0.5 transition-colors cursor-pointer"
+            title="Reset Zoom to 100% (Cmd 0)"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
           <button
             onClick={() => onChangeZoom(Math.min(3.0, zoom + 0.15))}
             className="hover:text-white px-1 text-zinc-400"
@@ -251,12 +251,9 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <div className="macos-toolbar-group reader-secondary-actions hidden xl:flex">
+        <div className="macos-toolbar-group hidden lg:flex">
           <button onClick={onToggleZen} className="macos-toolbar-group-icon" title="Fullscreen Focus (F)">
             <Maximize2 className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onToggleShortcuts} className="macos-toolbar-group-icon" title="Shortcuts (?)">
-            <HelpCircle className="w-3.5 h-3.5" />
           </button>
         </div>
 
