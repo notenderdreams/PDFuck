@@ -200,9 +200,9 @@ fn check_provider(executable: &Path) -> AiProviderStatus {
 }
 
 #[tauri::command]
-fn get_ai_provider_status(state: tauri::State<'_, AiRunnerState>) -> AiProviderStatus {
+async fn get_ai_provider_status(state: tauri::State<'_, AiRunnerState>) -> Result<AiProviderStatus, ()> {
     let manual = state.executable.lock().ok().and_then(|value| value.clone());
-    match discover_codex(manual) {
+    let status = match discover_codex(manual) {
         Some(executable) => check_provider(&executable),
         None => AiProviderStatus {
             status: "missing_cli".into(),
@@ -213,23 +213,24 @@ fn get_ai_provider_status(state: tauri::State<'_, AiRunnerState>) -> AiProviderS
                 "Codex CLI was not found. Install Codex or select its executable.".into(),
             ),
         },
-    }
+    };
+    Ok(status)
 }
 
 #[tauri::command]
-fn set_ai_provider_executable(
+async fn set_ai_provider_executable(
     executable_path: String,
     state: tauri::State<'_, AiRunnerState>,
-) -> AiProviderStatus {
+) -> Result<AiProviderStatus, ()> {
     let path = PathBuf::from(executable_path);
     if !path.is_absolute() || !path.is_file() {
-        return AiProviderStatus {
+        return Ok(AiProviderStatus {
             status: "missing_cli".into(),
             provider: None,
             version: None,
             executable: None,
             message: Some("Select an existing absolute path to the Codex executable.".into()),
-        };
+        });
     }
     let status = check_provider(&path);
     if status.status == "ready" {
@@ -237,7 +238,7 @@ fn set_ai_provider_executable(
             *manual = Some(path);
         }
     }
-    status
+    Ok(status)
 }
 
 fn codex_arguments(
@@ -282,36 +283,36 @@ fn parse_ai_output(contents: &str) -> Result<String, ()> {
 }
 
 #[tauri::command]
-fn run_ai_explanation(
+async fn run_ai_explanation(
     request: AiExplanationRequest,
     state: tauri::State<'_, AiRunnerState>,
-) -> AiExplanationResult {
+) -> Result<AiExplanationResult, ()> {
     if state
         .cancellations
         .lock()
         .map(|mut values| values.remove(&request.request_id))
         .unwrap_or(false)
     {
-        return ai_error("cancelled", "Explanation cancelled.");
+        return Ok(ai_error("cancelled", "Explanation cancelled."));
     }
     let manual = state.executable.lock().ok().and_then(|value| value.clone());
     let executable = match discover_codex(manual) {
         Some(value) => value,
         None => {
-            return ai_error(
+            return Ok(ai_error(
                 "missing_cli",
                 "Codex CLI was not found. Install Codex or select its executable.",
-            )
+            ));
         }
     };
     let provider = check_provider(&executable);
     if provider.status != "ready" {
-        return ai_error(
+        return Ok(ai_error(
             &provider.status,
             provider
                 .message
                 .unwrap_or_else(|| "Codex is not ready.".into()),
-        );
+        ));
     }
 
     let suffix: String = request
@@ -333,7 +334,7 @@ fn run_ai_explanation(
         suffix
     ));
     if fs::create_dir(&directory).is_err() {
-        return ai_error("process_failed", "Could not create temporary AI workspace.");
+        return Ok(ai_error("process_failed", "Could not create temporary AI workspace."));
     }
     let temporary = TempAiDirectory(directory);
     let crop_path = temporary.0.join("region.png");
@@ -348,14 +349,14 @@ fn run_ai_explanation(
         .unwrap_or(&request.png_data_url);
     let crop = match base64::engine::general_purpose::STANDARD.decode(encoded) {
         Ok(value) => value,
-        Err(_) => return ai_error("process_failed", "The selected region image was invalid."),
+        Err(_) => return Ok(ai_error("process_failed", "The selected region image was invalid.")),
     };
     if fs::write(&crop_path, crop).is_err() || fs::write(&schema_path, r#"{"type":"object","properties":{"explanation":{"type":"string"}},"required":["explanation"],"additionalProperties":false}"#).is_err() {
-        return ai_error("process_failed", "Could not prepare the temporary AI request.");
+        return Ok(ai_error("process_failed", "Could not prepare the temporary AI request."));
     }
     let diagnostics = match fs::File::create(&diagnostics_path) {
         Ok(value) => value,
-        Err(_) => return ai_error("process_failed", "Could not prepare Codex diagnostics."),
+        Err(_) => return Ok(ai_error("process_failed", "Could not prepare Codex diagnostics.")),
     };
     let mut command = Command::new(&executable);
     command
@@ -370,7 +371,7 @@ fn run_ai_explanation(
         .stderr(Stdio::from(diagnostics));
     let mut child = match command.spawn() {
         Ok(value) => value,
-        Err(error) => return ai_error("process_failed", format!("Could not start Codex: {error}")),
+        Err(error) => return Ok(ai_error("process_failed", format!("Could not start Codex: {error}"))),
     };
     if child
         .stdin
@@ -379,10 +380,10 @@ fn run_ai_explanation(
         .is_none()
     {
         let _ = child.kill();
-        return ai_error(
+        return Ok(ai_error(
             "process_failed",
             "Could not send the explanation prompt to Codex.",
-        );
+        ));
     }
     drop(child.stdin.take());
 
@@ -404,7 +405,7 @@ fn run_ai_explanation(
         if let Ok(mut processes) = state.processes.lock() {
             processes.remove(&request.request_id);
         }
-        return ai_error("cancelled", "Explanation cancelled.");
+        return Ok(ai_error("cancelled", "Explanation cancelled."));
     }
     let started = Instant::now();
     let mut cancelled = false;
@@ -435,10 +436,10 @@ fn run_ai_explanation(
             break Some(status);
         }
         if timed_out {
-            std::thread::sleep(Duration::from_millis(30));
+            tokio::time::sleep(Duration::from_millis(30)).await;
             continue;
         }
-        std::thread::sleep(Duration::from_millis(60));
+        tokio::time::sleep(Duration::from_millis(60)).await;
     };
     if let Ok(mut processes) = state.processes.lock() {
         processes.remove(&request.request_id);
@@ -449,37 +450,37 @@ fn run_ai_explanation(
         }
     }
     if timed_out {
-        return ai_error("timeout", "Codex did not respond within three minutes.");
+        return Ok(ai_error("timeout", "Codex did not respond within three minutes."));
     }
     if cancelled {
-        return ai_error("cancelled", "Explanation cancelled.");
+        return Ok(ai_error("cancelled", "Explanation cancelled."));
     }
     if !matches!(exit_status, Some(status) if status.success()) {
         let diagnostic = fs::read_to_string(&diagnostics_path).unwrap_or_default();
         let capped: String = diagnostic.chars().take(4_000).collect();
-        return ai_error(
+        return Ok(ai_error(
             "process_failed",
             if capped.trim().is_empty() {
                 "Codex exited without producing an explanation.".into()
             } else {
                 capped
             },
-        );
+        ));
     }
     match fs::read_to_string(&output_path)
         .ok()
         .and_then(|contents| parse_ai_output(&contents).ok())
     {
-        Some(response) => AiExplanationResult {
+        Some(response) => Ok(AiExplanationResult {
             ok: true,
             response: Some(response),
             code: None,
             message: None,
-        },
-        None => ai_error(
+        }),
+        None => Ok(ai_error(
             "malformed_output",
             "Codex returned an unreadable structured response. Try again.",
-        ),
+        )),
     }
 }
 

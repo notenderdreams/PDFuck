@@ -32,6 +32,12 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
   const job = active ? jobs[active.id] : undefined;
 
   useEffect(() => {
+    if (activeJobId && openId !== activeJobId) {
+      setOpenId(activeJobId);
+    }
+  }, [activeJobId, openId]);
+
+  useEffect(() => {
     if (!active) return;
     setEditingResponse(false);
     setDrafts((current) => current[active.id] === undefined ? { ...current, [active.id]: active.prompt || DEFAULT_PROMPT } : current);
@@ -39,12 +45,6 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
 
   useEffect(() => {
     if (!activeId) return;
-    const closeOnOutside = (event: PointerEvent) => {
-      if (!popoverRef.current?.contains(event.target as Node)) {
-        setOpenId(null);
-        if (job?.phase !== 'running') onCloseJob(activeId);
-      }
-    };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (job?.phase === 'running') void onCancel(activeId);
@@ -52,10 +52,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
         setOpenId(null);
       }
     };
-    window.addEventListener('pointerdown', closeOnOutside);
     window.addEventListener('keydown', closeOnEscape);
     return () => {
-      window.removeEventListener('pointerdown', closeOnOutside);
       window.removeEventListener('keydown', closeOnEscape);
     };
   }, [activeId, job?.phase, onCancel, onCloseJob]);
@@ -86,25 +84,82 @@ export const AiExplanationOverlay: React.FC<Props> = ({ pageWidth, pageHeight, a
       })}
 
       {active && (
-        <div ref={popoverRef} style={popoverStyle} role="dialog" aria-label="AI region explanation" className="absolute pointer-events-auto max-h-[min(72vh,540px)] overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--popover)] text-[var(--foreground)] shadow-2xl p-3.5 flex flex-col gap-2.5" onPointerDown={(event) => event.stopPropagation()}>
+        <div
+          ref={popoverRef}
+          style={popoverStyle}
+          role="dialog"
+          aria-label="AI region explanation"
+          className="absolute pointer-events-auto max-h-[min(72vh,540px)] overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--popover)] text-[var(--foreground)] shadow-2xl p-3.5 flex flex-col gap-2.5"
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold"><Sparkles className="w-3.5 h-3.5 text-blue-500" />Codex explanation</div>
-            <button className="btn-icon w-6 h-6" onClick={() => { setOpenId(null); onCloseJob(active.id); }} aria-label="Close"><X className="w-3.5 h-3.5" /></button>
+            <div className="flex items-center gap-1.5 text-xs font-semibold">
+              <Sparkles className={`w-3.5 h-3.5 text-blue-500 ${job?.phase === 'running' ? 'animate-pulse' : ''}`} />
+              <span>Codex explanation</span>
+              {job?.phase === 'running' && (
+                <span className="text-[10px] font-medium text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-full animate-pulse">
+                  Thinking…
+                </span>
+              )}
+            </div>
+            <button className="btn-icon w-6 h-6" onClick={() => { if (job?.phase === 'running') void onCancel(active.id); setOpenId(null); onCloseJob(active.id); }} aria-label="Close"><X className="w-3.5 h-3.5" /></button>
           </div>
 
           {(!active.response || job) && (
             <>
-              <label className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]" htmlFor={`ai-prompt-${active.id}`}>Question</label>
-              <textarea id={`ai-prompt-${active.id}`} autoFocus disabled={job?.phase === 'running'} rows={3} value={drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT} onChange={(event) => setDrafts((current) => ({ ...current, [active.id]: event.target.value }))} className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--input)] p-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              {job?.phase === 'error' && <div className="text-[11px] text-amber-500" role="alert">{job.message}</div>}
-              <div className="flex justify-between gap-1.5">
-                <button className="btn-ghost px-2 py-1.5 text-red-500" onClick={() => { if (job?.phase === 'running') void onCancel(active.id); onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}>Delete</button>
-                {job?.phase === 'running' ? (
-                  <button className="btn-secondary px-2.5 py-1.5" onClick={() => void onCancel(active.id)}>Cancel</button>
-                ) : (
-                  <button className="btn-primary px-2.5 py-1.5" disabled={!(drafts[active.id] ?? active.prompt).trim()} onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}>{job?.phase === 'error' ? 'Retry' : 'Explain'}</button>
-                )}
-              </div>
+              {job?.phase === 'running' ? (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">Question</div>
+                    <div className="text-xs font-medium text-[var(--foreground)] bg-[var(--secondary)] p-2 rounded-md border border-[var(--border-subtle)] leading-relaxed">
+                      {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 py-3 px-3 rounded-md bg-[var(--input)] border border-[var(--border-subtle)]">
+                    <Sparkles className="w-4 h-4 text-blue-500 animate-spin shrink-0" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-semibold text-[var(--foreground)]">Thinking…</span>
+                      <span className="text-[11px] text-[var(--muted-foreground)]">Analyzing selected document region</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-1.5 pt-0.5">
+                    <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => void onCancel(active.id)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <label className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]" htmlFor={`ai-prompt-${active.id}`}>Question</label>
+                  <textarea
+                    id={`ai-prompt-${active.id}`}
+                    autoFocus
+                    rows={3}
+                    value={drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
+                    onChange={(event) => setDrafts((current) => ({ ...current, [active.id]: event.target.value }))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey || !event.shiftKey)) {
+                        event.preventDefault();
+                        const promptText = (drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT).trim();
+                        if (promptText) {
+                          onSubmit(active, promptText);
+                        }
+                      }
+                    }}
+                    placeholder="Type your question and press Enter..."
+                    className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--input)] p-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
+                  />
+                  {job?.phase === 'error' && <div className="text-[11px] text-amber-500" role="alert">{job.message}</div>}
+                  <div className="flex justify-between gap-1.5">
+                    <button className="btn-ghost px-2 py-1.5 text-red-500" onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}>Delete</button>
+                    <button className="btn-primary px-2.5 py-1.5" disabled={!(drafts[active.id] ?? active.prompt).trim()} onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}>{job?.phase === 'error' ? 'Retry' : 'Explain'}</button>
+                  </div>
+                </>
+              )}
             </>
           )}
 
