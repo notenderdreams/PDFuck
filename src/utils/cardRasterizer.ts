@@ -50,8 +50,109 @@ function getEmbeddedStyles(): string {
 }
 
 /**
+ * Trims excess uniform background padding from the bottom of a generated canvas image.
+ */
+function trimExcessBottomPadding(
+  dataUrl: string,
+  dpr: number = 2
+): Promise<{ dataUrl: string; width: number; height: number }> {
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') {
+      resolve({ dataUrl, width: 800, height: 600 });
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+          resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0);
+        const { width, height } = canvas;
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        // Sample background color near top-left inside padding
+        const sampleX = Math.min(20, width - 1);
+        const sampleY = Math.min(20, height - 1);
+        const sampleIdx = (sampleY * width + sampleX) * 4;
+        const bgR = data[sampleIdx];
+        const bgG = data[sampleIdx + 1];
+        const bgB = data[sampleIdx + 2];
+
+        // Scan upwards from bottom to find the bottom-most row with content
+        let bottomContentY = height - 1;
+        const tolerance = 18;
+
+        for (let y = height - 1; y >= 20; y--) {
+          let hasContent = false;
+          const rowOffset = y * width * 4;
+          for (let x = 10; x < width - 10; x += 3) {
+            const idx = rowOffset + x * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const a = data[idx + 3];
+
+            if (
+              a > 10 &&
+              (Math.abs(r - bgR) > tolerance ||
+                Math.abs(g - bgG) > tolerance ||
+                Math.abs(b - bgB) > tolerance)
+            ) {
+              hasContent = true;
+              break;
+            }
+          }
+          if (hasContent) {
+            bottomContentY = y;
+            break;
+          }
+        }
+
+        // Add 14px of breathing room padding at bottom (scaled by dpr)
+        const paddingBottomPx = Math.round(14 * dpr);
+        const trimmedHeight = Math.min(
+          height,
+          Math.max(Math.round(70 * dpr), bottomContentY + paddingBottomPx)
+        );
+
+        if (trimmedHeight < height - 15) {
+          const trimmedCanvas = document.createElement('canvas');
+          trimmedCanvas.width = width;
+          trimmedCanvas.height = trimmedHeight;
+          const tCtx = trimmedCanvas.getContext('2d');
+          if (tCtx) {
+            tCtx.drawImage(canvas, 0, 0, width, trimmedHeight, 0, 0, width, trimmedHeight);
+            resolve({
+              dataUrl: trimmedCanvas.toDataURL('image/png'),
+              width,
+              height: trimmedHeight,
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Trim bottom failed:', err);
+      }
+
+      resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => resolve({ dataUrl, width: 800, height: 600 });
+    img.src = dataUrl;
+  });
+}
+
+/**
  * Main rasterizer entrypoint: captures the rich rendered DOM card (with KaTeX math,
- * formatted markdown, typography, and styling) into a high-DPI PNG image.
+ * formatted markdown, typography, and styling) into a high-DPI PNG image with tight bottom bounds.
  */
 export async function rasterizeResponseCard(
   cardElement: HTMLElement | null,
@@ -61,7 +162,7 @@ export async function rasterizeResponseCard(
 ): Promise<{ dataUrl: string; width: number; height: number }> {
   if (cardElement && typeof document !== 'undefined') {
     try {
-      // 1. Temporarily save styles of cardElement and buttons
+      // 1. Temporarily save styles of cardElement
       const prevPosition = cardElement.style.position;
       const prevLeft = cardElement.style.left;
       const prevTop = cardElement.style.top;
@@ -72,9 +173,23 @@ export async function rasterizeResponseCard(
       const prevOverflow = cardElement.style.overflow;
       const prevHeight = cardElement.style.height;
       const prevWidth = cardElement.style.width;
+      const prevPadding = cardElement.style.padding;
       const prevBoxShadow = cardElement.style.boxShadow;
 
-      // Temporarily hide interactive control buttons
+      // Temporarily hide Question section and Action buttons before measuring height
+      const questionEl = cardElement.querySelector('[data-ai-question="true"], .ai-question-section');
+      const prevQuestionDisplay = questionEl instanceof HTMLElement ? questionEl.style.display : null;
+      if (questionEl instanceof HTMLElement) {
+        questionEl.style.display = 'none';
+      }
+
+      const buttonBar = cardElement.querySelector('.flex.items-center.justify-end');
+      const prevButtonBarDisplay = buttonBar instanceof HTMLElement ? buttonBar.style.display : null;
+      if (buttonBar instanceof HTMLElement) {
+        buttonBar.style.display = 'none';
+      }
+
+      // Hide all buttons
       const buttons = cardElement.querySelectorAll('button, .btn-icon, .btn-ghost, .btn-primary, .btn-secondary');
       const prevDisplayMap = new Map<HTMLElement, string>();
       buttons.forEach((btn) => {
@@ -85,7 +200,9 @@ export async function rasterizeResponseCard(
       });
 
       // Ensure nested math/scroll containers don't clip
-      const nestedScrolls = cardElement.querySelectorAll('.katex-display, pre, table, .overflow-auto, .overflow-x-auto');
+      const nestedScrolls = cardElement.querySelectorAll(
+        '.katex-display, pre, table, .overflow-auto, .overflow-x-auto'
+      );
       const prevScrollStyles = new Map<HTMLElement, { overflow: string; maxWidth: string }>();
       nestedScrolls.forEach((node) => {
         if (node instanceof HTMLElement) {
@@ -98,7 +215,7 @@ export async function rasterizeResponseCard(
         }
       });
 
-      // Temporarily reset coordinate offsets so element renders at (0, 0)
+      // Temporarily reset coordinate offsets and apply clean compact padding
       cardElement.style.position = 'relative';
       cardElement.style.left = '0px';
       cardElement.style.top = '0px';
@@ -108,15 +225,16 @@ export async function rasterizeResponseCard(
       cardElement.style.maxHeight = 'none';
       cardElement.style.overflow = 'visible';
       cardElement.style.height = 'auto';
+      cardElement.style.padding = '14px 16px 14px 16px';
       cardElement.style.boxShadow = 'none';
 
-      // Measure actual rendered bounding box
-      const targetWidth = Math.max(380, Math.ceil(cardElement.offsetWidth || cardElement.scrollWidth || 440));
-      const targetHeight = Math.max(120, Math.ceil(cardElement.scrollHeight || cardElement.offsetHeight || 300));
+      // Measure actual rendered bounding box with Question/Buttons hidden
+      const targetWidth = Math.max(360, Math.ceil(cardElement.offsetWidth || cardElement.scrollWidth || 440));
+      const targetHeight = Math.max(80, Math.ceil(cardElement.scrollHeight || cardElement.offsetHeight || 200));
 
       const embeddedStyles = getEmbeddedStyles();
 
-      const dataUrl = await toPng(cardElement, {
+      const rawDataUrl = await toPng(cardElement, {
         pixelRatio: 2,
         width: targetWidth,
         height: targetHeight,
@@ -162,12 +280,20 @@ export async function rasterizeResponseCard(
           transform: 'none',
           maxHeight: 'none',
           height: 'auto',
+          padding: '14px 16px 14px 16px',
           overflow: 'visible',
           boxShadow: 'none',
         },
       });
 
-      // Restore all element styles
+      // Restore all element styles immediately
+      if (questionEl instanceof HTMLElement && prevQuestionDisplay !== null) {
+        questionEl.style.display = prevQuestionDisplay;
+      }
+      if (buttonBar instanceof HTMLElement && prevButtonBarDisplay !== null) {
+        buttonBar.style.display = prevButtonBarDisplay;
+      }
+
       nestedScrolls.forEach((node) => {
         if (node instanceof HTMLElement) {
           const prev = prevScrollStyles.get(node);
@@ -194,14 +320,12 @@ export async function rasterizeResponseCard(
       cardElement.style.overflow = prevOverflow;
       cardElement.style.height = prevHeight;
       cardElement.style.width = prevWidth;
+      cardElement.style.padding = prevPadding;
       cardElement.style.boxShadow = prevBoxShadow;
 
-      if (dataUrl && dataUrl.length > 200 && dataUrl.startsWith('data:image/png;base64,')) {
-        return {
-          dataUrl,
-          width: targetWidth * 2,
-          height: targetHeight * 2,
-        };
+      if (rawDataUrl && rawDataUrl.length > 200 && rawDataUrl.startsWith('data:image/png;base64,')) {
+        // Auto-trim any excess blank space from bottom
+        return await trimExcessBottomPadding(rawDataUrl, 2);
       }
     } catch (err) {
       console.warn('Direct html-to-image capture failed, using canvas fallback:', err);
@@ -345,7 +469,7 @@ export function renderAiExplanationCardToCanvas(
   isDark: boolean = false
 ): { dataUrl: string; width: number; height: number } {
   const cardWidth = 520;
-  const padding = 24;
+  const padding = 20;
   const contentWidth = cardWidth - padding * 2;
   const dpr = 2;
 
@@ -354,10 +478,7 @@ export function renderAiExplanationCardToCanvas(
   const textPrimary = isDark ? '#f4f4f7' : '#18181b';
   const textSecondary = isDark ? '#9e9ea8' : '#64748b';
   const accentBlue = isDark ? '#60a5fa' : '#2563eb';
-  const questionBg = isDark ? '#24242e' : '#f8fafc';
-  const questionBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
   const codeBg = isDark ? '#121216' : '#f1f5f9';
-  const divider = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 
   const measureCanvas = document.createElement('canvas');
   const mctx = measureCanvas.getContext('2d')!;
@@ -394,7 +515,7 @@ export function renderAiExplanationCardToCanvas(
   }
 
   totalHeight += padding;
-  const cardHeight = Math.max(160, totalHeight);
+  const cardHeight = Math.max(120, totalHeight);
 
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(cardWidth * dpr);
