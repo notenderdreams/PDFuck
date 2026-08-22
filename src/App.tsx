@@ -451,43 +451,66 @@ export function App() {
             )}
 
             {/* Primary PDF Canvas Viewport */}
-            <PDFViewer
-              pdfDoc={pdfDoc}
-              rawPdfBytes={rawPdfBytes}
-              currentPage={currentPage}
-              numPages={pdfDoc?.numPages || 0}
-              zoom={zoom}
-              viewMode={viewMode}
-              currentTheme={themeSettings.theme}
-              filterClass={getPageFilterClass()}
-              customFilterStyle={getCustomFilterStyle()}
-              activeTool={activeTool}
-              selectedColor={selectedColor}
-              strokeWidth={strokeWidth}
-              opacity={opacity}
-              annotations={annotations}
-              selectedAnnotationId={selectedAnnotationId}
-              onPageChange={(p) => changePage(p)}
-              onSelectAnnotation={(id) => setSelectedAnnotationId(id)}
-              onAddAnnotation={(ann) => addAnnotation(ann)}
-              onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
-              onDeleteAnnotation={(id) => deleteAnnotation(id)}
-              onImageDrop={handleImageDropOnPage}
-              onCursorMove={(page, x, y) => {
-                cursorPosRef.current = { pageNumber: page, x, y };
-              }}
-              onPdfFileDrop={(file) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  if (reader.result instanceof ArrayBuffer) {
-                    loadPdf(new Uint8Array(reader.result), file.name);
-                  }
-                };
-                reader.readAsArrayBuffer(file);
-              }}
-              onOpenPdfClick={handleOpenPdf}
-              onChangeZoom={(newZoom) => setZoom(newZoom)}
-            />
+            <div className="flex-1 min-w-0 relative overflow-hidden flex">
+              <PDFViewer
+                pdfDoc={pdfDoc}
+                rawPdfBytes={rawPdfBytes}
+                currentPage={currentPage}
+                numPages={pdfDoc?.numPages || 0}
+                zoom={zoom}
+                viewMode={viewMode}
+                currentTheme={themeSettings.theme}
+                filterClass={getPageFilterClass()}
+                customFilterStyle={getCustomFilterStyle()}
+                activeTool={activeTool}
+                selectedColor={selectedColor}
+                strokeWidth={strokeWidth}
+                opacity={opacity}
+                annotations={annotations}
+                selectedAnnotationId={selectedAnnotationId}
+                onPageChange={(p) => changePage(p)}
+                onSelectAnnotation={(id) => setSelectedAnnotationId(id)}
+                onAddAnnotation={(ann) => addAnnotation(ann)}
+                onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
+                onDeleteAnnotation={(id) => deleteAnnotation(id)}
+                onImageDrop={handleImageDropOnPage}
+                onCursorMove={(page, x, y) => {
+                  cursorPosRef.current = { pageNumber: page, x, y };
+                }}
+                onPdfFileDrop={(file) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (reader.result instanceof ArrayBuffer) {
+                      loadPdf(new Uint8Array(reader.result), file.name);
+                    }
+                  };
+                  reader.readAsArrayBuffer(file);
+                }}
+                onOpenPdfClick={handleOpenPdf}
+                onChangeZoom={(newZoom) => setZoom(newZoom)}
+              />
+
+              {pdfDoc && (
+                <div
+                  className="reader-progress"
+                  role="progressbar"
+                  aria-label="Reading progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round((currentPage / pdfDoc.numPages) * 100)}
+                >
+                  <div className="reader-progress-label">
+                    {Math.round((currentPage / pdfDoc.numPages) * 100)}% read
+                  </div>
+                  <div className="reader-progress-track">
+                    <div
+                      className="reader-progress-value"
+                      style={{ width: `${(currentPage / pdfDoc.numPages) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Floating Tool Dock */}

@@ -71,7 +71,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
-  const highlightBlendMode = isInvertedColorMode ? 'screen' : 'multiply';
+  const highlightBlendMode = 'multiply';
   const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
