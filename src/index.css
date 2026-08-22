@@ -2,12 +2,12 @@
 
 @layer base {
   :root {
-    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
 
-    /* macOS materials: quiet, layered, and close in value in light appearance. */
-    --background: #f2f2f7;
-    --workspace: #f7f7fa;
+    /* macOS Tahoe Light Theme (System Materials & Hierarchy) */
+    --background: #f5f5f7;
+    --workspace: #ebebef;
     --foreground: #1d1d1f;
     --card: #ffffff;
     --card-foreground: #1d1d1f;
@@ -16,23 +16,23 @@
     --primary: #007aff;
     --primary-hover: #0066d6;
     --primary-foreground: #ffffff;
-    --secondary: #f2f2f7;
+    --secondary: #e8e8ed;
     --secondary-foreground: #3a3a3c;
-    --muted: #e5e5ea;
+    --muted: #dcdce2;
     --muted-foreground: #6e6e73;
     --subtle-foreground: #8e8e93;
     --accent: #007aff;
     --accent-foreground: #ffffff;
-    --destructive: #ef4444;
+    --destructive: #ff3b30;
     --destructive-foreground: #ffffff;
-    --border: rgba(60, 60, 67, 0.18);
-    --border-subtle: rgba(60, 60, 67, 0.13);
+    --border: rgba(0, 0, 0, 0.09);
+    --border-subtle: rgba(0, 0, 0, 0.05);
     --input: #ffffff;
-    --hover: rgba(60, 60, 67, 0.08);
+    --hover: rgba(0, 0, 0, 0.05);
     --active: #007aff;
     --ring: #007aff;
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05), 0 3px 10px rgba(0, 0, 0, 0.06);
-    --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.09), 0 14px 34px rgba(0, 0, 0, 0.12);
+    --shadow-soft: 0 0 0 0.5px rgba(0,0,0,0.05), 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --shadow-float: 0 0 0 0.5px rgba(0,0,0,0.08), 0 4px 16px rgba(0, 0, 0, 0.08), 0 16px 36px rgba(0, 0, 0, 0.12);
   }
 
   * {
@@ -47,37 +47,39 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-font-smoothing: antialiased;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.012em;
   }
 }
 
 /* App chrome theme -------------------------------------------------------- */
 [data-ui-theme='dark'] {
-  --background: #1c1c1e;
-  --workspace: #161618;
+  --background: #1e1e22;
+  --workspace: #141418;
   --foreground: #f5f5f7;
-  --card: #2c2c2e;
+  --card: #28282e;
   --card-foreground: #f5f5f7;
-  --popover: #303033;
+  --popover: #2c2c34;
   --popover-foreground: #f5f5f7;
   --primary: #0a84ff;
   --primary-hover: #409cff;
   --primary-foreground: #ffffff;
-  --secondary: #3a3a3c;
+  --secondary: #303038;
   --secondary-foreground: #f2f2f7;
-  --muted: #48484a;
+  --muted: #40404a;
   --muted-foreground: #98989d;
   --subtle-foreground: #636366;
   --accent: #0a84ff;
   --accent-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.11);
-  --border-subtle: rgba(255, 255, 255, 0.10);
-  --input: #3a3a3c;
-  --hover: rgba(255, 255, 255, 0.10);
+  --destructive: #ff453a;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --input: #32323a;
+  --hover: rgba(255, 255, 255, 0.08);
   --active: #0a84ff;
   --ring: #0a84ff;
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.26), 0 5px 14px rgba(0, 0, 0, 0.22);
-  --shadow-float: 0 2px 9px rgba(0, 0, 0, 0.30), 0 18px 40px rgba(0, 0, 0, 0.36);
+  --shadow-soft: 0 0 0 0.5px rgba(255,255,255,0.06), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 0 0 0.5px rgba(255,255,255,0.10), 0 8px 30px rgba(0, 0, 0, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
 
@@ -85,15 +87,14 @@
   color-scheme: light;
 }
 
-/* Semantic remap for legacy utility tokens. This lets every existing screen
-   share the same light/dark design system without changing document colors. */
+/* Semantic remap for legacy utility tokens */
 [data-ui-theme] [class~="bg-[#1e1e24]"],
 [data-ui-theme][class~="bg-[#1e1e24]"] { background-color: var(--background) !important; }
 [data-ui-theme] [class~="bg-[#1c1c22]"] { background-color: var(--workspace) !important; }
 [data-ui-theme] [class~="bg-[#222228]"],
 [data-ui-theme] [class~="bg-[#24242b]"],
 [data-ui-theme] [class~="bg-[#2d2d38]"] { background-color: var(--card) !important; }
-[data-ui-theme] [class~="bg-[#24242b]/95"] { background-color: color-mix(in srgb, var(--card) 88%, transparent) !important; }
+[data-ui-theme] [class~="bg-[#24242b]/95"] { background-color: color-mix(in srgb, var(--card) 90%, transparent) !important; }
 [data-ui-theme] [class~="bg-[#26262e]/95"] { background-color: color-mix(in srgb, var(--popover) 92%, transparent) !important; }
 [data-ui-theme] [class~="bg-[#141418]/95"],
 [data-ui-theme] [class~="bg-[#26262d]"] { background-color: var(--popover) !important; }
@@ -125,7 +126,7 @@
 [data-ui-theme] [class~="placeholder-zinc-500"] { color: var(--subtle-foreground) !important; }
 [data-ui-theme] [class~="text-[#18181f]"] { color: var(--primary-foreground) !important; }
 
-/* Blue surfaces always use a white foreground, including explicitly-colored icons. */
+/* Blue surfaces always use white foreground */
 [data-ui-theme] .btn-primary,
 [data-ui-theme] .btn-primary *,
 [data-ui-theme] [class~="bg-[#30303c]"],
@@ -220,7 +221,7 @@
 .ai-response-markdown code:not(pre code) {
   padding: 0.08rem 0.3rem;
   border: 1px solid var(--border-subtle);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--secondary);
   font-family: var(--font-mono);
   font-size: 0.92em;
@@ -231,7 +232,7 @@
   padding: 0.7rem;
   overflow-x: auto;
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--workspace);
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -262,18 +263,10 @@
 }
 .ai-response-markdown .katex { font-size: 1.04em; }
 
-/* Compact desktop geometry: enough softness without turning every control into a pill. */
-[data-ui-theme] .rounded-md { border-radius: 0.5rem !important; }
-[data-ui-theme] .rounded-lg { border-radius: 0.625rem !important; }
-[data-ui-theme] .rounded-xl { border-radius: 0.875rem !important; }
-[data-ui-theme] .shadow-md { box-shadow: var(--shadow-soft) !important; }
-[data-ui-theme] .shadow-lg,
-[data-ui-theme] .shadow-xl,
-[data-ui-theme] .shadow-2xl { box-shadow: var(--shadow-float) !important; }
 [data-ui-theme] input,
 [data-ui-theme] select,
 [data-ui-theme] textarea { caret-color: var(--primary); }
-[data-ui-theme] :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+[data-ui-theme] :focus-visible { outline: 2px solid var(--ring); outline-offset: 1.5px; }
 
 /* macOS window materials -------------------------------------------------- */
 .macos-window {
@@ -282,32 +275,31 @@
 
 .macos-titlebar {
   min-height: 3rem;
-  background: color-mix(in srgb, var(--background) 82%, transparent);
-  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+  border-bottom: 0.5px solid var(--border);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--card) 48%, transparent) inset;
-  backdrop-filter: blur(24px) saturate(1.15);
-  -webkit-backdrop-filter: blur(24px) saturate(1.15);
 }
 
 .macos-window-controls-spacer {
-  width: 4.25rem;
+  width: 4.5rem;
   height: 1px;
 }
 
 .macos-titlebar-surface,
 .macos-segmented-control {
-  background: color-mix(in srgb, var(--card) 72%, transparent);
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+  background: color-mix(in srgb, var(--card) 76%, transparent);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
 }
 
 .macos-titlebar-surface:hover {
-  background: color-mix(in srgb, var(--card) 92%, transparent);
+  background: color-mix(in srgb, var(--card) 95%, transparent);
   border-color: var(--border);
 }
 
 .macos-app-title {
-  min-width: 8.5rem;
+  min-width: 7.5rem;
 }
 
 .macos-document-title {
@@ -346,9 +338,10 @@
 .reader-document-title > div { max-width: min(17rem, 100%); }
 .reader-titlebar-center .macos-page-control {
   flex: 0 0 auto;
-  border-color: var(--border-subtle);
-  background: color-mix(in srgb, var(--card) 78%, transparent);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+  border: 0.5px solid var(--border);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   overflow: hidden;
 }
 
@@ -356,62 +349,61 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 7px;
   color: var(--muted-foreground);
-  transition: color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: color 150ms ease, background-color 150ms ease, transform 100ms ease;
 }
 
 .macos-topbar-icon:hover {
   color: var(--foreground);
   background: var(--hover);
-  transform: scale(1.06);
 }
 
-.macos-topbar-icon:active { transform: scale(0.94); }
+.macos-topbar-icon:active { transform: scale(0.95); }
 
-/* Reader controls live directly on the title material; groups communicate affinity through spacing. */
+/* Reader toolbar groups */
 .reader-titlebar .macos-toolbar-group:not(.macos-page-control) {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
+  border: 0.5px solid var(--border);
+  background: color-mix(in srgb, var(--card) 76%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
 }
 
 .reader-titlebar .macos-toolbar-group-action,
 .reader-titlebar .macos-toolbar-group-icon {
-  border-radius: 999px;
+  border-radius: 6px;
 }
 
 .macos-sidebar-collapse-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.875rem;
-  height: 1.875rem;
-  border-radius: 999px;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 7px;
   color: var(--muted-foreground);
-  transition: color 150ms ease, background-color 150ms ease, transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: color 150ms ease, background-color 150ms ease, transform 100ms ease;
 }
 
 .macos-sidebar-collapse-control:hover {
   color: var(--foreground);
   background: var(--hover);
-  transform: scale(1.06);
 }
 
-.macos-sidebar-collapse-control:active { transform: scale(0.94); }
+.macos-sidebar-collapse-control:active { transform: scale(0.95); }
 
 .canvas-sidebar-toggle {
   position: absolute;
   top: 0.5rem;
   left: 0.75rem;
   z-index: 40;
-  background: color-mix(in srgb, var(--card) 82%, transparent);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
 }
 
 .reader-progress {
@@ -427,14 +419,12 @@
   position: absolute;
   right: 0.75rem;
   bottom: 0.625rem;
-  padding: 0.1875rem 0.4375rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  border: 0.5px solid var(--border);
+  border-radius: 6px;
   color: var(--muted-foreground);
-  background: color-mix(in srgb, var(--card) 84%, transparent);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   font-family: var(--font-mono);
   font-size: 0.625rem;
   font-variant-numeric: tabular-nums;
@@ -453,28 +443,30 @@
   transition: width 180ms ease-out;
 }
 
+/* Floating Annotation Toolbar (Tahoe Pill Floating Dock) */
 .macos-annotation-toolbar {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(226, 231, 239, 0.52));
-  border: 1px solid rgba(255, 255, 255, 0.74);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.78), 0 0 0 0.5px rgba(60, 60, 67, 0.12), 0 5px 18px rgba(0, 0, 0, 0.16), 0 14px 34px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(32px) saturate(1.8);
-  -webkit-backdrop-filter: blur(32px) saturate(1.8);
+  background: color-mix(in srgb, var(--popover) 92%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 0.5px solid var(--border);
+  border-radius: 9999px !important;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.06), 0 4px 16px rgba(0, 0, 0, 0.12), 0 16px 36px rgba(0, 0, 0, 0.14);
 }
 
 [data-ui-theme='dark'] .macos-annotation-toolbar {
-  background: linear-gradient(135deg, rgba(68, 68, 73, 0.82), rgba(32, 32, 35, 0.58));
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.14), 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 6px 20px rgba(0, 0, 0, 0.36), 0 16px 38px rgba(0, 0, 0, 0.28);
+  background: color-mix(in srgb, var(--popover) 88%, transparent);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 0 0.5px rgba(255,255,255,0.08), 0 6px 20px rgba(0, 0, 0, 0.40), 0 16px 40px rgba(0, 0, 0, 0.30);
 }
 
 .macos-toolbar-group {
   display: inline-flex;
   align-items: center;
   min-height: 2rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.375rem;
-  background: color-mix(in srgb, var(--card) 70%, transparent);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   overflow: hidden;
 }
 
@@ -486,11 +478,11 @@
   min-width: 1.875rem;
   height: 1.875rem;
   padding: 0 0.5rem;
-  border-radius: 0.25rem;
+  border-radius: 6px;
   color: var(--muted-foreground);
   font-size: 0.75rem;
   font-weight: 500;
-  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
 
 .macos-toolbar-group-icon { width: 1.875rem; padding: 0; }
@@ -502,26 +494,26 @@
   width: 1px;
   height: 0.875rem;
   margin: 0 0.125rem;
-  background: var(--border-subtle);
+  background: var(--border);
 }
 
 .reader-toolbar-divider {
   width: 1px;
   height: 1.125rem;
   margin: 0 0.125rem;
-  background: var(--border-subtle);
+  background: var(--border);
 }
 
-/* Reader toolbar: every interactive item shares one 32px control rhythm. */
+/* Reader toolbar: Tahoe 30px control rhythm */
 .macos-reader-control,
 .macos-reader-icon-control {
-  min-height: 2rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.375rem;
-  background: color-mix(in srgb, var(--card) 72%, transparent);
+  min-height: 1.875rem;
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
   color: var(--secondary-foreground);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
-  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
 
 .macos-reader-control:hover,
@@ -538,7 +530,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
+  width: 1.875rem;
   padding: 0;
 }
 
@@ -557,63 +549,88 @@
   justify-content: center;
   gap: 0.375rem;
   padding: 0 0.75rem;
-  border-color: color-mix(in srgb, var(--primary) 82%, #000);
+  border-color: color-mix(in srgb, var(--primary) 85%, #000);
   background: var(--primary);
   color: var(--primary-foreground);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 550;
+  border-radius: 8px;
 }
 
 .macos-reader-primary:hover {
   border-color: var(--primary-hover);
   background: var(--primary-hover);
   color: var(--primary-foreground);
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 24%, transparent);
 }
 
-.macos-reader-segmented { gap: 0.125rem; padding: 0.125rem; }
+.macos-reader-segmented {
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  min-height: 2.125rem;
+  align-items: center;
+}
 .macos-reader-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.5rem;
+  padding: 0 4px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+.macos-reader-segmented button:hover { color: var(--foreground); background: var(--hover); }
+.macos-reader-segmented button:active { transform: scale(0.96); }
+.macos-reader-segmented button[class*='bg-[#34343f]'] {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
+}
+
+.reader-view-mode-active {
+  color: var(--primary) !important;
+  background: var(--card) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+}
+
+.macos-page-control {
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  border-radius: 8px;
+  padding: 3px 8px;
+  gap: 6px;
+  min-height: 2.125rem;
+}
+.macos-page-control input { background: transparent !important; color: var(--foreground) !important; padding: 2px 4px; }
+.macos-reader-inline-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.625rem;
   height: 1.5rem;
-  border-radius: 0.25rem;
+  border-radius: 6px;
   color: var(--muted-foreground);
-  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
-.macos-reader-segmented button:hover { color: var(--foreground); background: var(--hover); }
-.macos-reader-segmented button[class*='bg-[#34343f]'] {
-  background: var(--card) !important;
-  color: var(--foreground) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
+.macos-reader-inline-action:hover { color: var(--foreground); background: var(--hover); }
+.macos-reader-inline-action:active { transform: scale(0.95); }
 
-.reader-view-mode-active {
-  color: var(--primary) !important;
-  background: transparent !important;
-  box-shadow: none !important;
+.macos-reader-zoom {
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  min-height: 2.125rem;
+  align-items: center;
 }
-
-.macos-page-control { background: color-mix(in srgb, var(--card) 78%, transparent); }
-.macos-page-control input { background: transparent !important; color: var(--foreground) !important; }
-.macos-reader-inline-action {
+.macos-reader-zoom button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.375rem;
-  height: 1.375rem;
-  border-radius: 0.25rem;
-  color: var(--muted-foreground);
-  transition: background-color 150ms ease, color 150ms ease;
-}
-.macos-reader-inline-action:hover { color: var(--foreground); background: var(--hover); }
-
-.macos-reader-zoom { gap: 0.125rem; }
-.macos-reader-zoom button {
-  width: 1.25rem;
+  min-width: 1.5rem;
   height: 1.5rem;
-  border-radius: 0.25rem;
+  border-radius: 6px;
   color: var(--muted-foreground);
   transition: background-color 150ms ease, color 150ms ease;
 }
@@ -623,21 +640,28 @@
   .reader-titlebar { grid-template-columns: minmax(8rem, 1fr) auto minmax(8rem, 1fr); }
 }
 
+/* Tahoe input field */
+.control-field {
+  min-height: 2rem;
+  background: var(--secondary) !important;
+  border: 0.5px solid var(--border) !important;
+  border-radius: 8px !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
 
-.macos-titlebar-field {
-  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.025);
+.control-field:focus-within {
+  background: var(--card) !important;
+  border-color: var(--ring) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 25%, transparent) !important;
 }
 
 .macos-search-field {
-  border-radius: 0.625rem !important;
+  border-radius: 8px !important;
 }
 
 .macos-sidebar {
-  background: color-mix(in srgb, var(--workspace) 88%, transparent);
-  border-right: 1px solid var(--border-subtle);
-  backdrop-filter: blur(20px) saturate(1.1);
-  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  background: color-mix(in srgb, var(--background) 96%, transparent);
+  border-right: 0.5px solid var(--border);
 }
 
 .macos-content {
@@ -645,28 +669,28 @@
 }
 
 .macos-segmented-control button {
-  border-radius: 0.3125rem;
+  border-radius: 6px;
 }
 
 .macos-segmented-control button[class*='bg-[#34343f]'] {
   background: var(--card) !important;
   color: var(--foreground) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
 }
 
 .macos-table {
-  border: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+  border: 0.5px solid var(--border);
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-soft);
 }
 
-/* Shadcn-inspired table primitives, adapted to the app's macOS materials. */
 .data-table-shell {
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.625rem;
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
 }
 
 .data-table {
@@ -677,77 +701,47 @@
   font-size: 0.75rem;
 }
 
-.data-table-header { background: color-mix(in srgb, var(--secondary) 78%, transparent); }
+.data-table-header { background: color-mix(in srgb, var(--secondary) 70%, transparent); }
 .data-table-head {
   height: 2.25rem;
   padding: 0 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 0.5px solid var(--border);
   color: var(--muted-foreground);
   font-size: 0.625rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   vertical-align: middle;
 }
 .data-table-cell { height: 3.5rem; padding: 0.5rem 0.75rem; vertical-align: middle; }
-.data-table-body .data-table-row + .data-table-row .data-table-cell { border-top: 1px solid var(--border-subtle); }
-.data-table-body .data-table-row { transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+.data-table-body .data-table-row + .data-table-row .data-table-cell { border-top: 0.5px solid var(--border-subtle); }
+.data-table-body .data-table-row { transition: background-color 150ms ease; }
 .data-table-body .data-table-row:hover { background: var(--hover); }
 .data-table-body .data-table-row:hover .macos-table-open { color: var(--primary); }
 
-.macos-table thead {
-  background: color-mix(in srgb, var(--secondary) 78%, transparent);
-}
-
-.macos-table th {
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.macos-table-row {
-  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.macos-table-row + .macos-table-row td {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.macos-table-row:hover {
-  background: var(--hover);
-}
-
-.macos-table-row:hover .macos-table-open {
-  color: var(--primary);
-}
-
-.macos-table-favorite {
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  transition: color 150ms ease, background-color 150ms ease, transform 100ms ease;
-}
-
-.macos-table-favorite:hover {
-  background: color-mix(in srgb, #ff9f0a 12%, transparent);
-}
-
-/* Finder-like library rows: direct, light, and deliberately not a table. */
+/* Tahoe Finder Library Document List */
 .library-document-list {
-  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .library-document-list-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  min-height: 4.5rem;
-  padding: 0.75rem 0.5rem;
-  border-bottom: 1px solid var(--border-subtle);
+  min-height: 4rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 10px;
+  border: 0.5px solid transparent;
   cursor: pointer;
   outline: none;
-  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
 }
 
 .library-document-list-item:hover {
   background: var(--hover);
+  border-color: var(--border-subtle);
 }
 
 .library-document-list-item:active {
@@ -755,7 +749,7 @@
 }
 
 .library-document-list-item:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--ring);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .library-document-list-icon {
@@ -766,7 +760,7 @@
   height: 2.25rem;
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, transparent);
-  border-radius: 0.45rem;
+  border-radius: 8px;
 }
 
 .library-document-list-favorite {
@@ -776,7 +770,7 @@
   width: 1.875rem;
   height: 1.875rem;
   color: var(--muted-foreground);
-  border-radius: 0.375rem;
+  border-radius: 6px;
   opacity: 0;
   transition: color 150ms ease, background-color 150ms ease, opacity 150ms ease, transform 100ms ease;
 }
@@ -800,7 +794,7 @@
   color: var(--muted-foreground);
   opacity: 0;
   transform: translateX(-0.2rem);
-  transition: color 150ms ease, opacity 150ms ease, transform 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: color 150ms ease, opacity 150ms ease, transform 150ms ease;
 }
 
 .library-document-list-item:hover .library-document-list-arrow,
@@ -818,37 +812,23 @@
   height: 1.75rem;
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--primary) 16%, transparent);
-  border-radius: 0.375rem;
+  border: 0.5px solid color-mix(in srgb, var(--primary) 16%, transparent);
+  border-radius: 6px;
 }
 
 .macos-annotation-count {
-  padding: 0.125rem 0.375rem;
-  color: #a05a00;
-  background: color-mix(in srgb, #ff9f0a 15%, transparent);
-  border: 1px solid color-mix(in srgb, #ff9f0a 22%, transparent);
+  padding: 0.125rem 0.4375rem;
+  color: #007aff;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--primary) 22%, transparent);
   border-radius: 999px;
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 550;
   white-space: nowrap;
 }
 
 [data-ui-theme='dark'] .macos-annotation-count {
-  color: #ffd60a;
-}
-
-.control-field {
-  min-height: 1.875rem;
-  background: var(--secondary) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 0.5rem !important;
-  transition: border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.control-field:focus-within {
-  background: var(--card) !important;
-  border-color: var(--ring) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 16%, transparent);
+  color: #60a5fa;
 }
 
 [data-ui-theme] input[type='range'] {
@@ -864,9 +844,9 @@
   width: 0.875rem;
   height: 0.875rem;
   border-radius: 50%;
-  border: 2px solid var(--card);
+  border: 1.5px solid var(--card);
   background: var(--primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: pointer;
 }
 
@@ -890,7 +870,7 @@
   background: var(--muted-foreground);
 }
 
-/* Shadcn Neutral Button & Control Utility Classes */
+/* macOS Tahoe Button & Control Utility Classes */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -899,19 +879,19 @@
   background-color: var(--primary);
   color: var(--primary-foreground);
   min-height: 1.875rem;
-  font-weight: 600;
+  font-weight: 550;
   font-size: 0.75rem;
   line-height: 1rem;
   padding: 0.375rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--primary) 82%, #000000);
-  border-radius: 0.375rem;
-  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+  border: 0.5px solid color-mix(in srgb, var(--primary) 85%, #000000);
+  border-radius: 8px;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
   box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .btn-primary:hover {
   background-color: var(--primary-hover);
   border-color: var(--primary-hover);
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 .btn-primary:active {
   transform: scale(0.98);
@@ -929,14 +909,14 @@
   font-size: 0.75rem;
   line-height: 1rem;
   padding: 0.375rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
-  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+  border-radius: 8px;
+  border: 0.5px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
 .btn-secondary:hover {
   background-color: var(--hover);
-  border-color: var(--border-subtle);
+  border-color: var(--border);
 }
 .btn-secondary:active {
   transform: scale(0.98);
@@ -953,7 +933,7 @@
   line-height: 1rem;
   padding: 0.375rem 0.5rem;
   min-height: 1.875rem;
-  border-radius: 0.375rem;
+  border-radius: 7px;
   transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 .btn-ghost:hover {
@@ -970,10 +950,10 @@
   justify-content: center;
   width: 1.875rem;
   height: 1.875rem;
-  border-radius: 0.375rem;
+  border-radius: 7px;
   color: var(--muted-foreground);
   background-color: transparent;
-  border: 1px solid transparent;
+  border: 0.5px solid transparent;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 .btn-icon:hover {
@@ -989,7 +969,7 @@
 .btn-secondary:disabled,
 .btn-ghost:disabled,
 .btn-icon:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;

@@ -102,15 +102,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   if (!isOpen) return null;
 
   return (
-    <aside className="macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-xl">
-      {/* Tab Header Strip */}
-      <div className="p-2 border-b border-[#30303a] flex items-center justify-between bg-[#202026]">
-        <div className="flex items-center gap-0.5 bg-[#1a1a20] p-0.5 rounded-md border border-[#2e2e38]">
+    <aside className="macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-xl border-r border-[var(--border)]">
+      {/* Tab Header Strip (Tahoe Segmented Navigation) */}
+      <div className="p-2.5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
+        <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)]">
           <button
             onClick={() => setActiveTab('thumbnails')}
-            className={`p-1.5 rounded text-xs transition-all ${
+            className={`p-1.5 rounded-md text-xs transition-all ${
               activeTab === 'thumbnails'
-                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
+                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Thumbnails"
@@ -119,9 +119,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('outline')}
-            className={`p-1.5 rounded text-xs transition-all ${
+            className={`p-1.5 rounded-md text-xs transition-all ${
               activeTab === 'outline'
-                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
+                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Table of Contents"
@@ -130,9 +130,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('annotations')}
-            className={`p-1.5 rounded text-xs transition-all ${
+            className={`p-1.5 rounded-md text-xs transition-all ${
               activeTab === 'annotations'
-                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
+                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title={`Annotations (${annotations.length})`}
@@ -141,23 +141,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('snippets')}
-            className={`p-1.5 rounded text-xs transition-all relative ${
+            className={`p-1.5 rounded-md text-xs transition-all relative ${
               activeTab === 'snippets'
-                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
+                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title={`AI Snippet Compactor (${snippets.length})`}
           >
             <Crop className="w-3.5 h-3.5" />
             {snippets.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#1a1a20]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[var(--card)]" />
             )}
           </button>
           <button
             onClick={() => setActiveTab('info')}
-            className={`p-1.5 rounded text-xs transition-all ${
+            className={`p-1.5 rounded-md text-xs transition-all ${
               activeTab === 'info'
-                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
+                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Document Details"
@@ -176,10 +176,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Tab Content Area */}
-      <div className={`flex-1 min-h-0 flex flex-col ${activeTab === 'snippets' ? 'overflow-hidden p-0' : 'overflow-y-auto p-2.5'}`}>
+      <div className={`flex-1 min-h-0 flex flex-col ${activeTab === 'snippets' ? 'overflow-hidden p-0' : 'overflow-y-auto p-3'}`}>
         {/* TAB 1: THUMBNAILS (Theme-Aware Inversion) */}
         {activeTab === 'thumbnails' && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
               <ThumbnailItem
                 key={pageNum}
@@ -197,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* TAB 2: OUTLINE / TABLE OF CONTENTS */}
         {activeTab === 'outline' && (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1">
             {outline.length === 0 ? (
               <div className="text-[11px] text-zinc-500 text-center py-6">
                 No Table of Contents found.
@@ -207,10 +207,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={idx}
                   onClick={() => onPageSelect(item.pageNumber)}
-                  className="flex items-center justify-between p-1.5 rounded text-left text-xs text-zinc-300 hover:text-white hover:bg-[#2a2a34] transition-all group"
+                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs text-zinc-300 hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all group"
                 >
-                  <span className="truncate pr-2">{item.title}</span>
-                  <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-200">
+                  <span className="truncate pr-2 font-medium">{item.title}</span>
+                  <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-300">
                     p.{item.pageNumber}
                   </span>
                 </button>
@@ -231,14 +231,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div
                   key={ann.id}
                   onClick={() => onPageSelect(ann.pageNumber)}
-                  className="p-2 rounded bg-[#272730]/60 hover:bg-[#2c2c36] border border-[#343440] flex items-center justify-between gap-2 cursor-pointer transition-all group text-xs"
+                  className="p-2 rounded-lg bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] flex items-center justify-between gap-2 cursor-pointer transition-all group text-xs shadow-xs"
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     {ann.type === 'image' ? (
                       <ImageIcon className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                     ) : (
                       <span
-                        className="w-2 h-2 rounded-full shrink-0 border border-white/20"
+                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 shadow-xs"
                         style={{ backgroundColor: (ann as { color?: string }).color || '#facc15' }}
                       />
                     )}
@@ -246,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span className="font-medium text-zinc-200 capitalize truncate">
                         {ann.type.replace('-', ' ')}
                       </span>
-                      <span className="text-[10px] font-mono text-zinc-500">
+                      <span className="text-[10px] font-mono text-zinc-400">
                         Page {ann.pageNumber}
                       </span>
                     </div>
@@ -257,7 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       e.stopPropagation();
                       onDeleteAnnotation(ann.id);
                     }}
-                    className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Delete Annotation"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -293,9 +293,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* TAB 5: DOCUMENT INFO */}
         {activeTab === 'info' && (
-          <div className="flex flex-col gap-2 text-xs">
-            <div className="p-2.5 rounded-lg bg-[#272730]/60 border border-[#343440] flex flex-col gap-1.5">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+          <div className="flex flex-col gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] flex flex-col gap-2 shadow-xs">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
                 Document Details
               </span>
               <div className="flex justify-between">
@@ -306,7 +306,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-400">Total Pages:</span>
-                <span className="text-zinc-200 font-mono">{numPages}</span>
+                <span className="text-zinc-200 font-mono font-medium">{numPages}</span>
               </div>
               {docInfo?.fileSize && (
                 <div className="flex justify-between">
@@ -318,8 +318,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
 
-            <div className="p-2.5 rounded-lg bg-[#272730]/60 border border-[#343440] flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+            <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] flex flex-col gap-1.5 shadow-xs">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
                 Session Stats
               </span>
               <div className="flex justify-between">
@@ -428,12 +428,12 @@ const ThumbnailItem: React.FC<{
     <div
       ref={thumbnailRef}
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 p-1.5 cursor-pointer transition-transform hover:scale-[1.01]"
+      className="flex flex-col items-center gap-1.5 p-1 cursor-pointer transition-transform hover:scale-[1.02]"
     >
       {/* Thumbnail Paper Container with matching Theme Background & Filter */}
       <div
-        className={`w-full aspect-[1/1.4] rounded-xs overflow-hidden flex items-center justify-center transition-all duration-200 shadow-xs border border-white/10 ${
-          isActive ? 'ring-2 ring-[var(--primary)]' : ''
+        className={`w-full aspect-[1/1.4] rounded-md overflow-hidden flex items-center justify-center transition-all duration-150 shadow-xs border border-[var(--border)] ${
+          isActive ? 'ring-2 ring-[var(--primary)] ring-offset-1 ring-offset-[var(--background)]' : ''
         } ${filterClass}`}
         style={{
           ...customFilterStyle,

@@ -32,7 +32,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         particleCount: 50,
         spread: 45,
         origin: { y: 0.7 },
-        colors: ['#ffffff', '#a1a1aa', '#71717a'],
+        colors: ['#007aff', '#a1a1aa', '#71717a'],
       });
     } catch {}
   };
@@ -116,13 +116,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
-      <div className="w-full max-w-md bg-[#24242b] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
+      <div className="w-full max-w-md bg-[var(--popover)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
             <h3 className="text-sm font-semibold text-zinc-100 tracking-tight flex items-center gap-1.5">
-              <Download className="w-4 h-4 text-zinc-400" />
+              <Download className="w-4 h-4 text-blue-500" />
               <span>Save & Export Document</span>
             </h3>
             <p className="text-[11px] text-zinc-400">
@@ -140,8 +140,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* Success Alert */}
         {successMessage && (
-          <div className="p-2.5 rounded-lg bg-[#1e1e24] border border-zinc-600 text-zinc-200 flex items-center gap-2 animate-slide-down">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center gap-2 animate-slide-down">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span className="font-medium">{successMessage}</span>
           </div>
         )}
@@ -152,25 +152,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <button
             onClick={handleExportBakedPdf}
             disabled={isExporting || !rawPdfBytes}
-            className="p-3 rounded-lg border border-zinc-600 bg-[#2d2d38] hover:bg-[#343442] text-left flex items-center justify-between group transition-all disabled:opacity-50"
+            className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/15 text-left flex items-center justify-between group transition-all disabled:opacity-50"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded bg-[#1e1e24] border border-[#3a3a46] flex items-center justify-center text-zinc-200">
+            <div className="flex items-center gap-3">
+              <div className="w-8.5 h-8.5 rounded-lg bg-[var(--card)] border border-[var(--border)] flex items-center justify-center text-blue-500 shadow-xs">
                 <FileText className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
                 <span className="font-semibold text-zinc-100 group-hover:text-white text-xs">
                   Save Modified PDF Document
                 </span>
-                <span className="text-[10px] text-zinc-400 leading-tight">
+                <span className="text-[10.5px] text-zinc-400 leading-tight">
                   Bakes {annotations.length} highlights, images & drawings permanently
                 </span>
               </div>
             </div>
             {isExporting ? (
-              <Loader2 className="w-4 h-4 text-zinc-300 animate-spin" />
+              <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
             ) : (
-              <Download className="w-4 h-4 text-zinc-400 group-hover:text-white transition-colors" />
+              <Download className="w-4 h-4 text-zinc-400 group-hover:text-blue-400 transition-colors" />
             )}
           </button>
 
@@ -178,17 +178,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <button
             onClick={handleExportJson}
             disabled={isExporting}
-            className="p-3 rounded-lg border border-[#363644] bg-[#1e1e24] hover:bg-[#2a2a34] text-left flex items-center justify-between group transition-all"
+            className="p-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--card)] text-left flex items-center justify-between group transition-all"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded bg-[#282832] border border-[#383848] flex items-center justify-center text-zinc-400">
+            <div className="flex items-center gap-3">
+              <div className="w-8.5 h-8.5 rounded-lg bg-[var(--card)] border border-[var(--border)] flex items-center justify-center text-zinc-400 shadow-xs">
                 <Code2 className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="font-medium text-zinc-300 group-hover:text-zinc-100 text-xs">
+                <span className="font-medium text-zinc-200 group-hover:text-zinc-100 text-xs">
                   Save Annotations Session (.json)
                 </span>
-                <span className="text-[10px] text-zinc-400 leading-tight">
+                <span className="text-[10.5px] text-zinc-400 leading-tight">
                   Editable backup manifest to reload later
                 </span>
               </div>
@@ -200,17 +200,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <button
             onClick={handleExportPagePng}
             disabled={isExporting}
-            className="p-3 rounded-lg border border-[#363644] bg-[#1e1e24] hover:bg-[#2a2a34] text-left flex items-center justify-between group transition-all"
+            className="p-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--card)] text-left flex items-center justify-between group transition-all"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded bg-[#282832] border border-[#383848] flex items-center justify-center text-zinc-400">
+            <div className="flex items-center gap-3">
+              <div className="w-8.5 h-8.5 rounded-lg bg-[var(--card)] border border-[var(--border)] flex items-center justify-center text-zinc-400 shadow-xs">
                 <ImageIcon className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="font-medium text-zinc-300 group-hover:text-zinc-100 text-xs">
+                <span className="font-medium text-zinc-200 group-hover:text-zinc-100 text-xs">
                   Export Page {currentPage} as PNG Image
                 </span>
-                <span className="text-[10px] text-zinc-400 leading-tight">
+                <span className="text-[10.5px] text-zinc-400 leading-tight">
                   High-res raster snapshot of active page
                 </span>
               </div>

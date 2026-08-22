@@ -73,8 +73,8 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
-      <div className="w-full max-w-md bg-[#24242b] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
+      <div className="w-full max-w-md bg-[var(--popover)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
@@ -101,10 +101,10 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
               <button
                 key={t.id}
                 onClick={() => onSelectTheme(t.id)}
-                className={`p-2.5 rounded-lg border text-left flex flex-col gap-1 transition-all ${
+                className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
                   isSelected
-                    ? 'border-zinc-400 bg-[#2f2f3a] ring-1 ring-zinc-400 shadow-xs'
-                    : 'border-[#363644] bg-[#1e1e24] hover:bg-[#2c2c36] hover:border-[#444456]'
+                    ? 'border-blue-500/80 bg-blue-500/10 ring-1 ring-blue-500 shadow-xs'
+                    : 'border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--card)]'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -116,7 +116,7 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
                       {t.name}
                     </span>
                   </div>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-zinc-200" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-blue-500" />}
                 </div>
                 <p className="text-[10px] text-zinc-400 leading-tight">
                   {t.desc}
@@ -127,7 +127,7 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
         </div>
 
         {/* Brightness & Contrast Sliders */}
-        <div className="p-3 rounded-lg bg-[#1e1e24] border border-[#343440] flex flex-col gap-2.5">
+        <div className="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] flex flex-col gap-3">
           <div className="flex items-center justify-between font-medium text-zinc-300">
             <span>Document Brightness</span>
             <span className="font-mono text-zinc-400 text-[11px]">{settings.brightness}%</span>
@@ -138,7 +138,7 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
             max="140"
             value={settings.brightness}
             onChange={(e) => onUpdateSetting('brightness', parseInt(e.target.value, 10))}
-            className="w-full accent-zinc-200 cursor-pointer h-1"
+            className="w-full accent-blue-500 cursor-pointer h-1"
           />
 
           <div className="flex items-center justify-between font-medium text-zinc-300 mt-1">
@@ -151,7 +151,7 @@ export const ColorThemeModal: React.FC<ColorThemeModalProps> = ({
             max="150"
             value={settings.contrast}
             onChange={(e) => onUpdateSetting('contrast', parseInt(e.target.value, 10))}
-            className="w-full accent-zinc-200 cursor-pointer h-1"
+            className="w-full accent-blue-500 cursor-pointer h-1"
           />
         </div>
 

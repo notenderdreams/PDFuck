@@ -9,10 +9,8 @@ import {
   RefreshCw,
   Trash2,
   BookOpen,
-  Sparkles,
   ArrowRight,
   HardDrive,
-  CheckCircle2,
   Folder,
   Layers,
   Moon,
@@ -319,23 +317,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
-      {/* Top Studio App Header */}
-      <header className="macos-titlebar h-12 flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
-        {/* Left branding */}
-        <div className="flex items-center gap-2 app-no-drag">
-          <div className="macos-window-controls-spacer hidden sm:block" />
+      {/* Top Studio App Header (macOS Tahoe Window Bar) */}
+      <header className="macos-titlebar h-12 flex items-center justify-between px-3.5 z-30 select-none app-drag-region text-xs">
+        {/* Left window chrome / branding */}
+        <div className="flex items-center gap-2.5 app-no-drag">
+          {/* Spacer for native macOS traffic lights on desktop */}
+          {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" />}
+
           <div className="macos-app-title flex items-center gap-2 text-zinc-200 tracking-tight">
-            <Layers className="w-4 h-4 text-zinc-300" />
+            <Layers className="w-4 h-4 text-blue-500" />
             <div className="leading-tight">
-              <span className="block text-[12px] font-semibold">PDFuck Studio</span>
-              <span className="block text-[10px] text-zinc-500">Library</span>
+              <span className="block text-[12px] font-semibold text-zinc-100">PDFuck</span>
+              <span className="block text-[9.5px] text-zinc-400 font-medium">Library</span>
             </div>
           </div>
         </div>
 
-        {/* Center Search Input */}
+        {/* Center Search Input (Tahoe 8px radius input field) */}
         <div className="flex items-center gap-2 app-no-drag w-full max-w-md">
-          <div className="control-field macos-search-field w-full flex items-center gap-1.5 px-2.5 py-1 rounded-md">
+          <div className="control-field macos-search-field w-full flex items-center gap-2 px-2.5 py-1 rounded-lg">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
               type="text"
@@ -347,7 +347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-zinc-500 hover:text-zinc-300 text-[10px]"
+                className="text-zinc-500 hover:text-zinc-300 text-[10px] px-1"
               >
                 Clear
               </button>
@@ -363,7 +363,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             title={isDarkTheme ? 'Use light appearance' : 'Use dark appearance'}
             aria-label={isDarkTheme ? 'Use light appearance' : 'Use dark appearance'}
           >
-            {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-zinc-600" />}
           </button>
 
           <button
@@ -399,74 +399,76 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Main Studio Body: Sidebar Navigation + Document Grid */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Library Navigator */}
+        {/* Left Library Navigator (Tahoe macOS Sidebar) */}
         <aside className="macos-sidebar w-60 flex flex-col p-3 gap-3 overflow-y-auto select-none">
           {/* Quick Categories */}
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 px-2 py-1">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 px-2 py-1">
               Library Views
             </span>
 
             <button
               onClick={() => setActiveFilter('all')}
-              className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 activeFilter === 'all'
-                  ? 'bg-[#32323e] text-zinc-100 shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
+                  ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <div className="flex items-center gap-2">
-                <FileText className="w-3.5 h-3.5 text-zinc-400" />
+                <FileText className={`w-3.5 h-3.5 ${activeFilter === 'all' ? 'text-blue-500' : 'text-zinc-400'}`} />
                 <span>All Documents</span>
               </div>
-              <span className="font-mono text-[10px] text-zinc-500">{totalPdfsCount}</span>
+              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'all' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                {totalPdfsCount}
+              </span>
             </button>
 
             <button
               onClick={() => setActiveFilter('recent')}
-              className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 activeFilter === 'recent'
-                  ? 'bg-[#32323e] text-zinc-100 shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
+                  ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                <Clock className={`w-3.5 h-3.5 ${activeFilter === 'recent' ? 'text-blue-500' : 'text-zinc-400'}`} />
                 <span>Recent Reads</span>
               </div>
-              <span className="font-mono text-[10px] text-zinc-500">
+              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'recent' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
                 {recentDocs.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveFilter('favorites')}
-              className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 activeFilter === 'favorites'
-                  ? 'bg-[#32323e] text-zinc-100 shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
+                  ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <div className="flex items-center gap-2">
-                <Star className="w-3.5 h-3.5 text-amber-400" />
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                 <span>Favorites</span>
               </div>
-              <span className="font-mono text-[10px] text-zinc-500">
+              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'favorites' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
                 {favoriteIds.length}
               </span>
             </button>
           </div>
 
           {/* Saved Directories List */}
-          <div className="flex flex-col gap-1 pt-2 border-t border-[#30303a]">
+          <div className="flex flex-col gap-1 pt-2 border-t border-[var(--border)]">
             <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-                Saved Directories
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                Folders
               </span>
               <button
                 onClick={() => scanAllDirectories(directories)}
                 disabled={isScanning}
-                className="text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
+                className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                 title="Rescan directories"
               >
                 <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
@@ -475,21 +477,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {directories.length === 0 ? (
               <div className="px-2 py-3 text-[11px] text-zinc-500 text-center">
-                No directories added yet. Click &quot;Add Folder&quot; above.
+                No folders added yet. Click &quot;Add Folder&quot; above.
               </div>
             ) : (
               directories.map((dir) => (
                 <div
                   key={dir.id}
                   onClick={() => setActiveFilter(dir.id)}
-                  className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs cursor-pointer group transition-all ${
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer group transition-all ${
                     activeFilter === dir.id
-                      ? 'bg-[#32323e] text-zinc-100'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
+                      ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
-                    <Folder className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <Folder className={`w-3.5 h-3.5 shrink-0 ${activeFilter === dir.id ? 'text-blue-500' : 'text-zinc-400'}`} />
                     <span className="truncate font-medium">{dir.name}</span>
                   </div>
 
@@ -499,7 +501,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </span>
                     <button
                       onClick={(e) => handleRemoveDirectory(dir.id, e)}
-                      className="p-1 rounded text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 rounded-md text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Remove folder from library"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -514,7 +516,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Main Document Library Content */}
         <main className="macos-content flex-1 p-6 overflow-y-auto flex flex-col gap-5">
           {/* Controls Bar: Title, Count, Layout, Sorting */}
-          <div className="flex items-center justify-between border-b border-[#343440] pb-3">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-zinc-100 tracking-tight capitalize">
                 {activeFilter === 'all'
@@ -525,40 +527,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   ? 'Favorite Documents'
                   : directories.find((d) => d.id === activeFilter)?.name || 'Directory Documents'}
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-[#2a2a34] text-[10px] font-mono text-zinc-400 border border-[#383846]">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--secondary)] text-[10.5px] font-mono text-zinc-400 border border-[var(--border)]">
                 {filteredItems.length} {filteredItems.length === 1 ? 'file' : 'files'}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Styled Sort Selector */}
+              {/* Tahoe Styled Sort Selector */}
               <div ref={sortMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setIsSortOpen((open) => !open)}
-                  className={`flex items-center gap-2 min-w-42 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-2 min-w-40 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                     isSortOpen
-                      ? 'bg-[#34343f] border-[#484856] text-white shadow-md'
-                      : 'bg-[#24242b] border-[#343440] text-zinc-300 hover:bg-[#2a2a34]'
+                      ? 'bg-[var(--card)] border-[var(--ring)] text-white shadow-md'
+                      : 'bg-[var(--secondary)] border-[var(--border)] text-zinc-300 hover:bg-[var(--card)]'
                   }`}
                   aria-haspopup="menu"
                   aria-expanded={isSortOpen}
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
+                  <ArrowUpDown className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                   <span className="flex-1 text-left">
                     {SORT_OPTIONS.find((option) => option.value === sortBy)?.label}
                   </span>
                   <ChevronDown
-                    className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortOpen ? 'rotate-180' : ''}`}
+                    className={`w-3.5 h-3.5 shrink-0 text-zinc-400 transition-transform ${isSortOpen ? 'rotate-180' : ''}`}
                   />
                 </button>
 
                 {isSortOpen && (
                   <div
                     role="menu"
-                    className="absolute top-full right-0 z-50 mt-2 w-48 p-1.5 rounded-lg bg-[#26262d] border border-[#3a3a46] shadow-2xl backdrop-blur-xl animate-slide-down"
+                    className="absolute top-full right-0 z-50 mt-1.5 w-48 p-1.5 rounded-xl bg-[var(--popover)] border border-[var(--border)] shadow-2xl backdrop-blur-xl animate-slide-down"
                   >
-                    <div className="px-2.5 pt-1 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                    <div className="px-2.5 pt-1 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                       Sort documents
                     </div>
                     {SORT_OPTIONS.map((option) => {
@@ -574,10 +576,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             setSortBy(option.value);
                             setIsSortOpen(false);
                           }}
-                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs transition-colors ${
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                             isSelected
-                              ? 'bg-[#34343f] text-white'
-                              : 'text-zinc-300 hover:bg-[#2a2a34] hover:text-zinc-100'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-zinc-300 hover:bg-black/5 dark:hover:bg-white/5 hover:text-zinc-100'
                           }`}
                         >
                           <OptionIcon className="w-3.5 h-3.5 shrink-0" />
@@ -595,7 +597,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Empty State */}
           {filteredItems.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#24242b] border border-[#383846] flex items-center justify-center text-zinc-400">
+              <div className="w-14 h-14 rounded-2xl bg-[var(--secondary)] border border-[var(--border)] flex items-center justify-center text-zinc-400 shadow-sm">
                 <HardDrive className="w-6 h-6" />
               </div>
               <div className="flex flex-col gap-1 max-w-sm">

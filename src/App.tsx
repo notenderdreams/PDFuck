@@ -5,7 +5,6 @@ import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
 import { Dashboard } from './components/Dashboard';
 import { ColorThemeModal } from './components/ColorThemeModal';
-import { StampPickerModal } from './components/StampPickerModal';
 import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ExportModal } from './components/ExportModal';
@@ -48,7 +47,6 @@ export function App() {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
-  const [isStampPickerOpen, setIsStampPickerOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
@@ -720,7 +718,6 @@ export function App() {
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
               onAttachImageClick={handleOpenImage}
-              onOpenStampPicker={() => setIsStampPickerOpen(true)}
               onUndo={handleGlobalUndo}
               onRedo={handleGlobalRedo}
               onClearPageAnnotations={() => clearAllAnnotationsForPage(currentPage)}
@@ -747,18 +744,6 @@ export function App() {
             onSelectTheme={setTheme}
             onUpdateSetting={updateThemeSetting}
             onResetFilters={resetThemeFilters}
-          />
-
-          {/* Stamp & Badge Picker Modal */}
-          <StampPickerModal
-            isOpen={isStampPickerOpen}
-            onClose={() => setIsStampPickerOpen(false)}
-            onSelectStamp={async (dataUrl, name) => {
-              const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-              const cursorPos = cursorPosRef.current ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y } : null;
-              await handleAddImage(dataUrl, targetPage, name, cursorPos);
-            }}
-            onAttachCustomImage={handleOpenImage}
           />
 
           {/* Keyboard Shortcuts Reference Modal */}

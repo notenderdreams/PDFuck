@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Trash2, RotateCw, Sun, Moon, Copy, Check } from 'lucide-react';
 import type { AttachedImageAnnotation, ReadingTheme, ToolType } from '../utils/types';
 import { isTauri, tauriCopyTextToClipboard } from '../utils/tauriBridge';
+import { usesInvertedColorSpace } from '../utils/readingTheme';
 
 interface ImageOverlayProps {
   annotation: AttachedImageAnnotation;
@@ -38,29 +39,25 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
   const widthPx = annotation.width * pageWidth;
   const heightPx = annotation.height * pageHeight;
 
-  const isDarkTheme = currentTheme !== 'default' && currentTheme !== 'sepia';
-  const shouldInvertForLight = Boolean(
-    annotation.invertInLightMode ?? annotation.attachedInInvertedMode
-  );
+  const isDarkTheme = usesInvertedColorSpace(currentTheme);
+  const wasAttachedInDark = Boolean(annotation.attachedInInvertedMode);
+  const autoInvertEnabled = annotation.invertInLightMode !== undefined
+    ? annotation.invertInLightMode
+    : true; // Default auto-invert ON for adaptive reading
 
-  // Compute CSS filter for the image
+  // Compute CSS filter for the image so text/diagrams stay readable across both light and dark themes
   let imageFilterStyle: React.CSSProperties = {};
-  let imageClassName = 'w-full h-full object-contain pointer-events-none rounded transition-all duration-300';
-
-  if (shouldInvertForLight) {
-    if (!isDarkTheme) {
-      // In Light/Normal mode: Invert image colors so dark-mode image fits white paper
-      imageFilterStyle = { filter: 'invert(1) hue-rotate(180deg)' };
-    } else {
-      // In Inverted mode: Leave as-is without counter-inversion so it matches dark paper
-      imageClassName += ' no-counter-invert';
-    }
-  } else {
-    // Normal image: counter-invert when page is dark so it retains true photo colors
-    if (isDarkTheme) {
-      imageClassName += ' preserve-image-color';
+  if (autoInvertEnabled) {
+    if (wasAttachedInDark && !isDarkTheme) {
+      // Created in dark mode (light/white text) -> invert for white paper
+      imageFilterStyle = { filter: 'invert(0.92) hue-rotate(180deg)' };
+    } else if (!wasAttachedInDark && isDarkTheme) {
+      // Created in light mode (dark text) -> invert for dark paper
+      imageFilterStyle = { filter: 'invert(0.92) hue-rotate(180deg)' };
     }
   }
+
+  const imageClassName = 'w-full h-full object-contain pointer-events-none rounded transition-all duration-200';
 
   // Handle Dragging
   const handleMouseDownDrag = (e: React.MouseEvent) => {
@@ -251,14 +248,14 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
         <>
           {/* Quick Floating Action Bar on top */}
           <div
-            className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-lg bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
+            className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-xl bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Copy Raw Text (available when rasterized from text region) */}
             {annotation.extractedText && (
               <button
                 onClick={handleCopyRawText}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
                 title="Copy extracted raw text from this region"
               >
                 {copiedText ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3 text-white" />}
@@ -279,28 +276,28 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
               title="Image Opacity"
             />
 
-            {/* Smart Invert in Light Mode Toggle */}
+            {/* Smart Auto-Invert Mode Toggle */}
             <button
               onClick={() =>
-                onUpdate(annotation.id, { invertInLightMode: !shouldInvertForLight })
+                onUpdate(annotation.id, { invertInLightMode: !autoInvertEnabled })
               }
-              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-medium border transition-all ${
-                shouldInvertForLight
-                  ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 shadow-xs'
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-medium border transition-all ${
+                autoInvertEnabled
+                  ? 'bg-blue-500/20 border-blue-500/40 text-blue-300 shadow-xs'
                   : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
               }`}
               title={
-                shouldInvertForLight
-                  ? 'Auto-Invert in Light Mode: ACTIVE (Image will invert for white paper)'
-                  : 'Auto-Invert in Light Mode: OFF (Image will stay original)'
+                autoInvertEnabled
+                  ? 'Auto-Invert: ACTIVE (Image dynamically adapts to light/dark themes)'
+                  : 'Auto-Invert: OFF (Image remains static)'
               }
             >
-              {shouldInvertForLight ? (
-                <Moon className="w-3 h-3 text-purple-400" />
+              {autoInvertEnabled ? (
+                <Moon className="w-3 h-3 text-blue-400" />
               ) : (
                 <Sun className="w-3 h-3 text-zinc-400" />
               )}
-              <span>{shouldInvertForLight ? 'Auto-Invert ON' : 'Auto-Invert OFF'}</span>
+              <span>{autoInvertEnabled ? 'Auto-Invert ON' : 'Auto-Invert OFF'}</span>
             </button>
 
             {/* Rotate */}

@@ -15,6 +15,7 @@ import {
   Columns2,
 } from 'lucide-react';
 import type { DocumentInfo, ReadingTheme, ViewMode } from '../utils/types';
+import { isTauri } from '../utils/tauriBridge';
 
 interface HeaderProps {
   docInfo: DocumentInfo | null;
@@ -50,15 +51,12 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   isZenMode,
   isSearchOpen,
-  annotationCount,
-  saveStatus,
   onOpenDashboard,
   onExportClick,
   onToggleSearch,
   onToggleInvert,
   onOpenThemeModal,
   onToggleZen,
-  onToggleShortcuts,
   onChangeViewMode,
   onChangeZoom,
   onPageChange,
@@ -82,10 +80,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   if (isZenMode) {
     return (
-      <div className="fixed top-3 right-3 z-50 flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+      <div className="fixed top-3 right-3 z-50 flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
         <button
           onClick={onToggleZen}
-          className="btn-secondary px-2.5 py-1.5 shadow-lg"
+          className="btn-secondary px-3 py-1.5 shadow-lg"
           title="Exit Zen Mode (F)"
         >
           <Minimize2 className="w-3.5 h-3.5" />
@@ -98,12 +96,18 @@ export const Header: React.FC<HeaderProps> = ({
   const isInverted = ['invert', 'oled', 'nord', 'matrix'].includes(theme);
 
   return (
-    <header className="macos-titlebar reader-titlebar h-12 px-3 z-30 select-none app-drag-region text-xs">
-      <div className="reader-titlebar-left flex items-center gap-2 app-no-drag min-w-0">
-        <div className="macos-window-controls-spacer hidden sm:block" />
+    <header className="macos-titlebar reader-titlebar h-12 px-3.5 z-30 select-none app-drag-region text-xs">
+      <div className="reader-titlebar-left flex items-center gap-2.5 app-no-drag min-w-0">
+        {/* Spacer for native macOS traffic lights on desktop */}
+        {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" />}
+
         {onOpenDashboard && (
-          <button onClick={onOpenDashboard} className="macos-topbar-icon" title="Back to Library (Cmd+L)">
-            <ArrowLeft className="w-4 h-4" />
+          <button
+            onClick={onOpenDashboard}
+            className="macos-topbar-icon"
+            title="Back to Library (Cmd+L)"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
           </button>
         )}
         {docInfo?.fileName && (
@@ -121,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="reader-titlebar-center app-no-drag min-w-0">
         {numPages > 0 && (
-          <div className="macos-toolbar-group macos-page-control flex items-center gap-1 px-1.5">
+          <div className="macos-toolbar-group macos-page-control flex items-center gap-1.5 px-3 py-1">
             <input
               type="text"
               inputMode="numeric"
@@ -136,46 +140,46 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               onBlur={handlePageInputCommit}
               style={{
-                width: `${Math.max(28, String(pageInputText || numPages).length * 8 + 14)}px`,
+                width: `${Math.max(32, String(pageInputText || numPages).length * 8 + 18)}px`,
               }}
-              className="text-center bg-transparent rounded px-1 py-0.5 text-zinc-200 font-mono text-[11px] font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="text-center bg-transparent rounded-md px-1.5 py-0.5 text-zinc-200 font-mono text-[11px] font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-zinc-500 font-mono text-[11px]">/</span>
-            <span className="font-mono text-zinc-400 text-[11px] pr-1">{numPages}</span>
+            <span className="font-mono text-zinc-400 text-[11px] pr-1.5">{numPages}</span>
             <div className="macos-toolbar-group-separator" />
             <button
               onClick={onCopyPageText}
               className="macos-reader-inline-action"
               title={`Copy all text from Page ${currentPage} (Cmd+Shift+C)`}
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onCopyPageJpg}
               className="macos-reader-inline-action"
               title={`Copy / Save Page ${currentPage} as JPG image (Cmd+Shift+J)`}
             >
-              <Camera className="w-3 h-3" />
+              <Camera className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
       </div>
 
       <div className="reader-titlebar-actions flex items-center gap-1.5 app-no-drag justify-self-end">
-        <div className="reader-display-actions flex items-center gap-2">
+        <div className="reader-display-actions flex items-center gap-1.5">
           <button
             onClick={onToggleSearch}
-            className={`macos-topbar-icon ${isSearchOpen ? 'text-[var(--primary)]' : ''}`}
+            className={`macos-topbar-icon ${isSearchOpen ? 'text-[var(--primary)] bg-black/5 dark:bg-white/10' : ''}`}
             title="Search in PDF (Cmd+F)"
           >
             <Search className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onToggleInvert}
-            className={`macos-topbar-icon ${isInverted ? 'text-[var(--primary)]' : ''}`}
+            className="macos-topbar-icon"
             title={isInverted ? 'Use light appearance (Cmd+I)' : 'Use dark appearance (Cmd+I)'}
           >
-            {isInverted ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            {isInverted ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-zinc-400" />}
           </button>
           <button
             onClick={onOpenThemeModal}
@@ -188,10 +192,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         <span className="reader-toolbar-divider hidden md:block" aria-hidden="true" />
 
-        <div className="macos-toolbar-group macos-reader-segmented hidden md:flex items-center">
+        {/* View Mode Segmented Controls */}
+        <div className="macos-toolbar-group macos-reader-segmented hidden md:flex items-center px-2 py-1 gap-1">
           <button
             onClick={() => onChangeViewMode('continuous')}
-            className={`p-1 rounded transition-all ${
+            className={`p-1 rounded-md transition-all ${
               viewMode === 'continuous'
                 ? 'reader-view-mode-active'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -202,7 +207,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onChangeViewMode('single')}
-            className={`p-1 rounded transition-all ${
+            className={`p-1 rounded-md transition-all ${
               viewMode === 'single'
                 ? 'reader-view-mode-active'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -213,7 +218,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onChangeViewMode('spread')}
-            className={`p-1 rounded transition-all ${
+            className={`p-1 rounded-md transition-all ${
               viewMode === 'spread'
                 ? 'reader-view-mode-active'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -227,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="reader-toolbar-divider hidden sm:block" aria-hidden="true" />
 
         {/* Zoom Controls */}
-        <div className="macos-toolbar-group macos-reader-zoom flex items-center px-1 font-mono text-[11px] text-zinc-300">
+        <div className="macos-toolbar-group macos-reader-zoom flex items-center px-2 py-1 gap-1 font-mono text-[11px] text-zinc-300">
           <button
             onClick={() => onChangeZoom(Math.max(0.4, zoom - 0.15))}
             className="hover:text-white px-1 text-zinc-400"
@@ -260,7 +265,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Primary Save PDF Button */}
         <button
           onClick={onExportClick}
-          className="macos-reader-control macos-reader-primary"
+          className="btn-primary ml-0.5"
           title="Save Modified PDF (Cmd+S)"
         >
           <Download className="w-3.5 h-3.5" />

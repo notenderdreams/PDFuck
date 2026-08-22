@@ -342,11 +342,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         </div>
       )}
 
-      {/* Infinite-Feel 2D Canvas Workspace Wrapper (allows 360° sidewise and vertical panning) */}
-      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-center px-[35vw] py-12 box-border">
+      {/* 2D Canvas Workspace Wrapper with balanced horizontal side breathing room */}
+      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-start px-12 sm:px-20 md:px-28 lg:px-36 py-6 box-border">
         {/* CONTINUOUS VIEW MODE */}
         {viewMode === 'continuous' && (
-          <div className="flex flex-col items-center gap-1 pb-32">
+          <div className="flex flex-col items-center gap-3 py-2 pb-28">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
               <PDFPage
                 key={pageNum}

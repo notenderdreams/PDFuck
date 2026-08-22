@@ -47,8 +47,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   return (
-    <div className="fixed top-13 right-4 z-40 flex items-center gap-1.5 p-1 rounded-lg bg-[#24242b] border border-[#383846] shadow-2xl animate-slide-down text-xs">
-      <div className="control-field flex items-center gap-1.5 px-2 py-1 bg-[#1c1c22] rounded border border-[#343440]">
+    <div className="fixed top-13 right-4 z-40 flex items-center gap-2 p-1.5 rounded-2xl bg-[var(--popover)] border border-[var(--border)] shadow-2xl animate-slide-down text-xs">
+      <div className="control-field flex items-center gap-2 px-2.5 py-1 bg-[var(--secondary)] rounded-lg border border-[var(--border)]">
         <Search className="w-3.5 h-3.5 text-zinc-400" />
         <input
           ref={inputRef}
@@ -60,13 +60,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Find in document..."
-          className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none w-40 font-sans"
+          className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none w-44 font-sans"
         />
         {isSearching && <Loader2 className="w-3 h-3 text-zinc-400 animate-spin" />}
       </div>
 
       {searchResults.length > 0 ? (
-        <span className="text-[11px] font-mono text-zinc-300 px-1">
+        <span className="text-[11px] font-mono text-zinc-300 px-1 font-medium">
           {currentMatchIndex + 1}/{searchResults.length}
         </span>
       ) : query ? (
@@ -77,7 +77,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           onClick={onPrev}
           disabled={searchResults.length === 0}
-          className="btn-icon w-6 h-6 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="btn-icon w-6.5 h-6.5 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Previous match (Shift+Enter)"
         >
           <ChevronUp className="w-3.5 h-3.5" />
@@ -85,14 +85,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           onClick={onNext}
           disabled={searchResults.length === 0}
-          className="btn-icon w-6 h-6 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="btn-icon w-6.5 h-6.5 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Next match (Enter)"
         >
           <ChevronDown className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={onClose}
-          className="btn-icon w-6 h-6 ml-0.5"
+          className="btn-icon w-6.5 h-6.5 ml-0.5"
           title="Close search (Esc)"
         >
           <X className="w-3.5 h-3.5" />

@@ -120,6 +120,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         name: `AI Explanation: ${targetAnnotation.prompt.slice(0, 30)}`,
         createdAt: Date.now(),
         extractedText: targetAnnotation.response,
+        attachedInInvertedMode: isDark,
+        invertInLightMode: true,
       };
 
       onAddAnnotation(imageAnnotation);
