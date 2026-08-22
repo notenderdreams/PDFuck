@@ -32,6 +32,7 @@ interface PDFPageProps {
   onDeleteAnnotation: (id: string) => void;
   onImageDrop: (pageNumber: number, file: File) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
+  onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
   isFlush?: boolean;
 }
 
@@ -54,6 +55,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onDeleteAnnotation,
   onImageDrop,
   onCursorMove,
+  onCaptureSnippet,
   isFlush = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -251,6 +253,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         annotations={annotations}
         onAddAnnotation={onAddAnnotation}
         onDeleteAnnotation={onDeleteAnnotation}
+        onCaptureSnippet={onCaptureSnippet}
       />
 
       {/* Attached Images Layer */}

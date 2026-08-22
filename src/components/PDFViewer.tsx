@@ -30,6 +30,7 @@ interface PDFViewerProps {
   onOpenPdfClick: () => void;
   onChangeZoom: (newZoom: number) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
+  onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -57,6 +58,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onOpenPdfClick,
   onChangeZoom,
   onCursorMove,
+  onCaptureSnippet,
 }) => {
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const [isViewerDraggingFile, setIsViewerDraggingFile] = useState(false);
@@ -354,6 +356,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onDeleteAnnotation={onDeleteAnnotation}
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
+                onCaptureSnippet={onCaptureSnippet}
                 isFlush
               />
             ))}
@@ -382,6 +385,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               onDeleteAnnotation={onDeleteAnnotation}
               onImageDrop={onImageDrop}
               onCursorMove={onCursorMove}
+              onCaptureSnippet={onCaptureSnippet}
             />
 
             {/* Floating Next/Prev Page Buttons */}
@@ -433,6 +437,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onDeleteAnnotation={onDeleteAnnotation}
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
+                onCaptureSnippet={onCaptureSnippet}
               />
 
               {/* Right Page (if exists) */}
@@ -456,6 +461,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onDeleteAnnotation={onDeleteAnnotation}
                   onImageDrop={onImageDrop}
                   onCursorMove={onCursorMove}
+                  onCaptureSnippet={onCaptureSnippet}
                 />
               )}
             </div>

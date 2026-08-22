@@ -101,8 +101,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case 'p':
             options.onSelectTool('pen');
             break;
+          case 'c':
           case 'i':
-            options.onSelectTool('image');
+            options.onSelectTool('snip');
             break;
           case 't':
             options.onSelectTool('text');

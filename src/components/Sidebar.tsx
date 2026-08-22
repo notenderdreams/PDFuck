@@ -7,13 +7,19 @@ import {
   Info,
   Sidebar as SidebarIcon,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Crop,
 } from 'lucide-react';
-import type { Annotation, DocumentInfo, PDFOutlineItem } from '../utils/types';
+import type { Annotation, DocumentInfo, PDFOutlineItem, SnippetDividerEntry, SnippetEntry, StitchOptions } from '../utils/types';
 import { ThumbnailRenderQueue } from '../utils/thumbnailRenderQueue';
+import { SnippetPanel } from './SnippetPanel';
+
+export type SidebarTabType = 'thumbnails' | 'outline' | 'annotations' | 'snippets' | 'info';
 
 interface SidebarProps {
   isOpen: boolean;
+  activeTab?: SidebarTabType;
+  onTabChange?: (tab: SidebarTabType) => void;
   pdfDoc: PDFDocumentProxy | null;
   docInfo: DocumentInfo | null;
   outline: PDFOutlineItem[];
@@ -25,12 +31,25 @@ interface SidebarProps {
   onClose: () => void;
   onPageSelect: (pageNumber: number) => void;
   onDeleteAnnotation: (id: string) => void;
+  // Snippets props
+  snippets?: SnippetEntry[];
+  isSnipActive?: boolean;
+  onToggleSnipTool?: () => void;
+  onAddDivider?: (afterId?: string, label?: string) => void;
+  onRemoveSnippetEntry?: (id: string) => void;
+  onMoveSnippetEntry?: (id: string, direction: 'up' | 'down') => void;
+  onUpdateDivider?: (id: string, updates: Partial<SnippetDividerEntry>) => void;
+  onUpdateSnippetLabel?: (id: string, label: string) => void;
+  onClearAllSnippets?: () => void;
+  onCopyStitchedImage?: (options?: StitchOptions) => Promise<boolean>;
+  onDownloadStitchedImage?: (options?: StitchOptions) => Promise<boolean>;
+  showToast?: (text: string, isError?: boolean) => void;
 }
-
-type TabType = 'thumbnails' | 'outline' | 'annotations' | 'info';
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
+  activeTab: controlledTab,
+  onTabChange,
   pdfDoc,
   docInfo,
   outline,
@@ -42,8 +61,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   onPageSelect,
   onDeleteAnnotation,
+  snippets = [],
+  isSnipActive = false,
+  onToggleSnipTool,
+  onAddDivider,
+  onRemoveSnippetEntry,
+  onMoveSnippetEntry,
+  onUpdateDivider,
+  onUpdateSnippetLabel,
+  onClearAllSnippets,
+  onCopyStitchedImage,
+  onDownloadStitchedImage,
+  showToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('thumbnails');
+  const [internalTab, setInternalTab] = useState<SidebarTabType>('thumbnails');
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = (tab: SidebarTabType) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setInternalTab(tab);
+    }
+  };
+
   const thumbnailQueueRef = useRef<ThumbnailRenderQueue | null>(null);
 
   if (!thumbnailQueueRef.current) {
@@ -92,6 +132,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Highlighter className="w-3.5 h-3.5" />
           </button>
           <button
+            onClick={() => setActiveTab('snippets')}
+            className={`p-1.5 rounded text-xs transition-all relative ${
+              activeTab === 'snippets'
+                ? 'bg-[#32323e] text-zinc-100 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+            title={`AI Snippet Compactor (${snippets.length})`}
+          >
+            <Crop className="w-3.5 h-3.5" />
+            {snippets.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#1a1a20]" />
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('info')}
             className={`p-1.5 rounded text-xs transition-all ${
               activeTab === 'info'
@@ -114,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Tab Content Area */}
-      <div className="flex-1 overflow-y-auto p-2.5">
+      <div className={`flex-1 min-h-0 flex flex-col ${activeTab === 'snippets' ? 'overflow-hidden p-0' : 'overflow-y-auto p-2.5'}`}>
         {/* TAB 1: THUMBNAILS (Theme-Aware Inversion) */}
         {activeTab === 'thumbnails' && (
           <div className="grid grid-cols-2 gap-2">
@@ -206,7 +260,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* TAB 4: DOCUMENT INFO */}
+        {/* TAB 4: AI SNIPPET COMPACTOR */}
+        {activeTab === 'snippets' && (
+          <SnippetPanel
+            snippets={snippets}
+            isSnipActive={isSnipActive}
+            onToggleSnipTool={onToggleSnipTool || (() => {})}
+            onAddDivider={onAddDivider || (() => {})}
+            onRemoveEntry={onRemoveSnippetEntry || (() => {})}
+            onMoveEntry={onMoveSnippetEntry || (() => {})}
+            onUpdateDivider={onUpdateDivider || (() => {})}
+            onUpdateSnippetLabel={onUpdateSnippetLabel || (() => {})}
+            onClearAll={onClearAllSnippets || (() => {})}
+            onJumpToPage={onPageSelect}
+            onCopyStitchedImage={onCopyStitchedImage || (async () => false)}
+            onDownloadStitchedImage={onDownloadStitchedImage || (async () => false)}
+            showToast={showToast || (() => {})}
+          />
+        )}
+
+        {/* TAB 5: DOCUMENT INFO */}
         {activeTab === 'info' && (
           <div className="flex flex-col gap-2 text-xs">
             <div className="p-2.5 rounded-lg bg-[#272730]/60 border border-[#343440] flex flex-col gap-1.5">

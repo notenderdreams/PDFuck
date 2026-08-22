@@ -24,7 +24,7 @@ const SHORTCUT_GROUPS = [
       { keys: ['H'], desc: 'Freehand Highlighter Pen' },
       { keys: ['R'], desc: 'Area Highlight Box' },
       { keys: ['P'], desc: 'Freehand Pen' },
-      { keys: ['I'], desc: 'Attach Image / Stamp' },
+      { keys: ['C'], desc: 'Snip & Compact for AI' },
       { keys: ['T'], desc: 'Sticky Text Note Tool' },
       { keys: ['E'], desc: 'Eraser (Sweep / Click)' },
       { keys: ['V'], desc: 'Select / Pointer Tool' },

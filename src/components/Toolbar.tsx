@@ -5,7 +5,7 @@ import {
   PenLine,
   Square,
   PenTool,
-  Image as ImageIcon,
+  Crop,
   Type,
   Eraser,
   Stamp,
@@ -24,7 +24,7 @@ interface ToolbarProps {
   onSelectColor: (color: string) => void;
   onChangeStrokeWidth: (width: number) => void;
   onChangeOpacity: (opacity: number) => void;
-  onAttachImageClick: () => void;
+  onAttachImageClick?: () => void;
   onOpenStampPicker: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -63,18 +63,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { id: 'highlight-pen', icon: Highlighter, label: 'Freehand Highlighter (H)', shortcut: 'H' },
     { id: 'highlight-rect', icon: Square, label: 'Area Box (R)', shortcut: 'R' },
     { id: 'pen', icon: PenTool, label: 'Pen Tool (P)', shortcut: 'P' },
-    { id: 'image', icon: ImageIcon, label: 'Attach Image (I)', shortcut: 'I' },
+    { id: 'snip', icon: Crop, label: 'Snip & Compact for AI (C)', shortcut: 'C' },
     { id: 'text', icon: Type, label: 'Text Note (T)', shortcut: 'T' },
     { id: 'eraser', icon: Eraser, label: 'Eraser (E)', shortcut: 'E' },
   ];
 
   const handleToolClick = (toolId: ToolType) => {
-    if (toolId === 'image') {
-      onSelectTool('image');
-      onAttachImageClick();
-    } else {
-      onSelectTool(toolId);
-    }
+    onSelectTool(toolId);
   };
 
   return (

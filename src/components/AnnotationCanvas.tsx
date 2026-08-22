@@ -21,6 +21,7 @@ interface AnnotationCanvasProps {
   annotations: Annotation[];
   onAddAnnotation: (ann: Annotation) => void;
   onDeleteAnnotation: (id: string) => void;
+  onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
 }
 
 // Distance from point to line segment helper
@@ -48,6 +49,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   annotations,
   onAddAnnotation,
   onDeleteAnnotation,
+  onCaptureSnippet,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -61,6 +63,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   // Rectangle Area Highlight State
   const [rectStart, setRectStart] = useState<StrokePoint | null>(null);
   const [rectCurrent, setRectCurrent] = useState<StrokePoint | null>(null);
+
+  // Snippet / Crop Rectangle State
+  const [snipStart, setSnipStart] = useState<StrokePoint | null>(null);
+  const [snipCurrent, setSnipCurrent] = useState<StrokePoint | null>(null);
 
   // Text Note Input Popup State
   const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
@@ -76,8 +82,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
 
-  // Convert mouse event coordinates to normalized 0..1 coordinates relative to page dimensions
-  const getNormalizedCoords = (e: React.MouseEvent<HTMLDivElement>): { x: number; y: number; px: number; py: number } => {
+  // Flash feedback state after capturing a snippet
+  const [capturedFlashRect, setCapturedFlashRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Convert pointer event coordinates to normalized 0..1 coordinates relative to page dimensions
+  const getNormalizedCoords = (e: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>): { x: number; y: number; px: number; py: number } => {
     if (!containerRef.current) return { x: 0, y: 0, px: 0, py: 0 };
     const rect = containerRef.current.getBoundingClientRect();
     const px = Math.max(0, Math.min(e.clientX - rect.left, pageWidth));
@@ -141,9 +150,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
     if (activeTool === 'select' || activeTool === 'image') return;
     isMouseDownRef.current = true;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
 
     const { x, y, px, py } = getNormalizedCoords(e);
 
@@ -160,13 +174,17 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       isInteractingRef.current = true;
       setRectStart({ x, y });
       setRectCurrent({ x, y });
+    } else if (activeTool === 'snip') {
+      isInteractingRef.current = true;
+      setSnipStart({ x, y });
+      setSnipCurrent({ x, y });
     } else if (activeTool === 'text') {
       setTextInputPos({ x, y });
       setTextInputValue('');
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const { x, y, px, py } = getNormalizedCoords(e);
 
     if (activeTool === 'eraser') {
@@ -193,10 +211,18 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       setCurrentStroke((prev) => (prev ? [...prev, { x, y }] : [{ x, y }]));
     } else if (activeTool === 'highlight-rect') {
       setRectCurrent({ x, y });
+    } else if (activeTool === 'snip') {
+      setSnipCurrent({ x, y });
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+
     isMouseDownRef.current = false;
     if (activeTool === 'eraser') return;
 
@@ -268,15 +294,38 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       }
       setRectStart(null);
       setRectCurrent(null);
+    } else if (activeTool === 'snip' && snipStart && snipCurrent) {
+      const x = Math.min(snipStart.x, snipCurrent.x);
+      const y = Math.min(snipStart.y, snipCurrent.y);
+      const width = Math.abs(snipCurrent.x - snipStart.x);
+      const height = Math.abs(snipCurrent.y - snipStart.y);
+
+      if (width * pageWidth > 6 && height * pageHeight > 6) {
+        const captureRect = { x, y, width, height };
+        setCapturedFlashRect(captureRect);
+        setTimeout(() => setCapturedFlashRect(null), 800);
+        onCaptureSnippet?.(pageNumber, captureRect);
+      }
+      setSnipStart(null);
+      setSnipCurrent(null);
     }
   };
 
-  const handleMouseLeave = () => {
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
     isMouseDownRef.current = false;
-    setEraserCursorPos(null);
-    if (isInteractingRef.current) {
-      handleMouseUp();
-    }
+    isInteractingRef.current = false;
+    setSnipStart(null);
+    setSnipCurrent(null);
+    setRectStart(null);
+    setRectCurrent(null);
+    setCurrentStroke(null);
+    setLineStart(null);
+    setLineCurrent(null);
   };
 
   const handleSaveTextNote = () => {
@@ -308,11 +357,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      className={`absolute inset-0 z-20 select-none ${
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      className={`absolute inset-0 z-20 select-none touch-none ${
         activeTool === 'select' || activeTool === 'image'
           ? 'pointer-events-none'
           : activeTool === 'eraser'
@@ -454,7 +503,68 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
+
+        {/* Active Snip Rectangle in progress */}
+        {activeTool === 'snip' && snipStart && snipCurrent && (
+          <g>
+            <rect
+              x={Math.min(snipStart.x, snipCurrent.x) * pageWidth}
+              y={Math.min(snipStart.y, snipCurrent.y) * pageHeight}
+              width={Math.abs(snipCurrent.x - snipStart.x) * pageWidth}
+              height={Math.abs(snipCurrent.y - snipStart.y) * pageHeight}
+              fill="rgba(59, 130, 246, 0.15)"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              strokeDasharray="6 3"
+              rx={3}
+            />
+          </g>
+        )}
+
+        {/* Captured Flash Effect on Snippet Release */}
+        {capturedFlashRect && (
+          <rect
+            x={capturedFlashRect.x * pageWidth}
+            y={capturedFlashRect.y * pageHeight}
+            width={capturedFlashRect.width * pageWidth}
+            height={capturedFlashRect.height * pageHeight}
+            fill="rgba(59, 130, 246, 0.25)"
+            stroke="#60a5fa"
+            strokeWidth={2}
+            rx={3}
+            className="animate-pulse"
+          />
+        )}
       </svg>
+
+      {/* Floating Snip Dimensions Badge while dragging */}
+      {activeTool === 'snip' && snipStart && snipCurrent && (
+        <div
+          style={{
+            left: `${Math.min(snipStart.x, snipCurrent.x) * pageWidth + 6}px`,
+            top: `${Math.max(4, Math.min(snipStart.y, snipCurrent.y) * pageHeight - 24)}px`,
+          }}
+          className="absolute z-50 px-2 py-0.5 rounded-md bg-blue-600/95 text-white font-mono text-[10px] shadow-lg pointer-events-none flex items-center gap-1.5 backdrop-blur-xs animate-fade-in whitespace-nowrap"
+        >
+          <span className="font-semibold text-blue-100">Snip P.{pageNumber}</span>
+          <span className="text-white/80">
+            {Math.round(Math.abs(snipCurrent.x - snipStart.x) * pageWidth)} × {Math.round(Math.abs(snipCurrent.y - snipStart.y) * pageHeight)}px
+          </span>
+        </div>
+      )}
+
+      {/* Momentary Captured Confirmation Pill */}
+      {capturedFlashRect && (
+        <div
+          style={{
+            left: `${capturedFlashRect.x * pageWidth + 6}px`,
+            top: `${Math.max(4, capturedFlashRect.y * pageHeight - 24)}px`,
+          }}
+          className="absolute z-50 px-2.5 py-1 rounded-md bg-emerald-600 text-white font-medium text-[11px] shadow-xl pointer-events-none flex items-center gap-1.5 backdrop-blur-xs animate-fade-in whitespace-nowrap ring-1 ring-emerald-400"
+        >
+          <span>✓ Added to Snippets</span>
+        </div>
+      )}
 
       {/* Active Text Note Creation Popup */}
       {textInputPos && (

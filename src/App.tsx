@@ -13,6 +13,7 @@ import { Check, Info, Sidebar as SidebarIcon } from 'lucide-react';
 
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
+import { useSnippets } from './hooks/useSnippets';
 import { useColorTheme } from './hooks/useColorTheme';
 import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
@@ -26,7 +27,13 @@ import {
   downloadPageAsJpg,
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
-import type { AppScreen, ToolType, ViewMode } from './utils/types';
+import {
+  cropCanvasRegion,
+  copyStitchedSnippetsToClipboard,
+  downloadStitchedSnippets,
+} from './utils/snippetExtractor';
+import type { AppScreen, ToolType, ViewMode, StitchOptions } from './utils/types';
+import type { SidebarTabType } from './components/Sidebar';
 
 export function App() {
   // Screen Routing: 'dashboard' (Library view) | 'reader' (PDF reader & annotation studio)
@@ -36,6 +43,7 @@ export function App() {
   const [zoom, setZoom] = useState<number>(1.15);
   const [viewMode, setViewMode] = useState<ViewMode>(() => loadViewMode());
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTabType>('thumbnails');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
@@ -98,6 +106,17 @@ export function App() {
     canUndo,
     canRedo,
   } = useAnnotations(docKey, docInfo);
+
+  const {
+    snippets,
+    addSnippet,
+    addDivider,
+    removeEntry: removeSnippetEntry,
+    moveEntry: moveSnippetEntry,
+    updateDivider,
+    updateSnippetLabel,
+    clearAll: clearAllSnippets,
+  } = useSnippets(docKey);
 
   const {
     settings: themeSettings,
@@ -258,6 +277,49 @@ export function App() {
     reader.readAsDataURL(file);
   };
 
+  // Tool selection handler that syncs sidebar when snip tool is selected
+  const handleSelectTool = useCallback((tool: ToolType) => {
+    setActiveTool(tool);
+    if (tool === 'snip') {
+      setIsSidebarOpen(true);
+      setSidebarTab('snippets');
+    }
+  }, []);
+
+  // Snippet capture handler from canvas
+  const handleCaptureSnippet = useCallback(
+    async (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => {
+      try {
+        const entry = await cropCanvasRegion(pageNumber, rect, pdfDoc);
+        if (entry) {
+          addSnippet(entry);
+          setIsSidebarOpen(true);
+          setSidebarTab('snippets');
+          showToast(`Captured snippet from Page ${pageNumber}!`);
+        }
+      } catch (err) {
+        console.error('Failed to capture snippet:', err);
+        showToast('Failed to capture snippet', true);
+      }
+    },
+    [pdfDoc, addSnippet, showToast]
+  );
+
+  const handleCopyStitchedSnippets = useCallback(
+    async (options?: StitchOptions) => {
+      return await copyStitchedSnippetsToClipboard(snippets, options);
+    },
+    [snippets]
+  );
+
+  const handleDownloadStitchedSnippets = useCallback(
+    async (options?: StitchOptions) => {
+      const baseName = docInfo?.fileName || 'document';
+      return await downloadStitchedSnippets(snippets, baseName, options);
+    },
+    [snippets, docInfo]
+  );
+
   // Extract and Copy all text from a page
   const handleCopyPageText = useCallback(
     async (pageParam?: number | unknown) => {
@@ -343,7 +405,7 @@ export function App() {
     onSaveJson: () => setIsExportModalOpen(true),
     onToggleInvert: toggleInvert,
     onToggleSearch: () => setIsSearchOpen((prev) => !prev),
-    onSelectTool: (t) => setActiveTool(t),
+    onSelectTool: handleSelectTool,
     onUndo: undo,
     onRedo: redo,
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
@@ -439,6 +501,8 @@ export function App() {
             {/* Navigation Sidebar */}
             <Sidebar
               isOpen={isSidebarOpen && !isZenMode}
+              activeTab={sidebarTab}
+              onTabChange={setSidebarTab}
               pdfDoc={pdfDoc}
               docInfo={docInfo}
               outline={outline}
@@ -450,6 +514,18 @@ export function App() {
               onClose={() => setIsSidebarOpen(false)}
               onPageSelect={(p) => changePage(p)}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
+              snippets={snippets}
+              isSnipActive={activeTool === 'snip'}
+              onToggleSnipTool={() => handleSelectTool(activeTool === 'snip' ? 'select' : 'snip')}
+              onAddDivider={addDivider}
+              onRemoveSnippetEntry={removeSnippetEntry}
+              onMoveSnippetEntry={moveSnippetEntry}
+              onUpdateDivider={updateDivider}
+              onUpdateSnippetLabel={updateSnippetLabel}
+              onClearAllSnippets={clearAllSnippets}
+              onCopyStitchedImage={handleCopyStitchedSnippets}
+              onDownloadStitchedImage={handleDownloadStitchedSnippets}
+              showToast={showToast}
             />
 
             {!isSidebarOpen && !isZenMode && (
@@ -489,6 +565,7 @@ export function App() {
                 onCursorMove={(page, x, y) => {
                   cursorPosRef.current = { pageNumber: page, x, y };
                 }}
+                onCaptureSnippet={handleCaptureSnippet}
                 onPdfFileDrop={(file) => {
                   const reader = new FileReader();
                   reader.onload = () => {
@@ -535,7 +612,7 @@ export function App() {
               opacity={opacity}
               canUndo={canUndo}
               canRedo={canRedo}
-              onSelectTool={(tool) => setActiveTool(tool)}
+              onSelectTool={handleSelectTool}
               onSelectColor={(c) => setSelectedColor(c)}
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
