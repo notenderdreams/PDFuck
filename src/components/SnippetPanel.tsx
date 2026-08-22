@@ -336,7 +336,7 @@ export const SnippetPanel: React.FC<SnippetPanelProps> = ({
             <button
               onClick={onClearAll}
               className="btn-icon w-7.5 h-7.5 text-red-400 hover:text-red-300 hover:bg-red-500/20"
-              title="Clear All Snippets"
+              title="Dump / Clear All Snippets (Cmd+Shift+X / Cmd+Alt+X)"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -348,6 +348,7 @@ export const SnippetPanel: React.FC<SnippetPanelProps> = ({
               onClick={handleCopy}
               disabled={isCopying}
               className="flex-1 btn-primary py-2 text-xs flex items-center justify-center gap-1.5 font-medium shadow-md active:scale-98"
+              title="Copy Stitched Image (Cmd+Shift+S / Cmd+Alt+C)"
             >
               {isCopying ? (
                 <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

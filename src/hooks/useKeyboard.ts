@@ -20,6 +20,8 @@ interface KeyboardShortcutOptions {
   onToggleLibrary?: () => void;
   onCopyPageText?: () => void;
   onCopyPageJpg?: () => void;
+  onCopyStitchedSnippets?: () => void;
+  onClearSnippets?: () => void;
 }
 
 export function useKeyboard(options: KeyboardShortcutOptions) {
@@ -44,7 +46,22 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (cmdOrCtrl) {
-        if (e.key.toLowerCase() === 'l') {
+        if (e.altKey && e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          options.onCopyStitchedSnippets?.();
+        } else if (e.shiftKey && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          options.onCopyStitchedSnippets?.();
+        } else if (e.shiftKey && e.key.toLowerCase() === 'x') {
+          e.preventDefault();
+          options.onClearSnippets?.();
+        } else if (e.altKey && e.key.toLowerCase() === 'x') {
+          e.preventDefault();
+          options.onClearSnippets?.();
+        } else if (e.shiftKey && (e.key === 'Backspace' || e.key === 'Delete')) {
+          e.preventDefault();
+          options.onClearSnippets?.();
+        } else if (e.key.toLowerCase() === 'l') {
           e.preventDefault();
           options.onToggleLibrary?.();
         } else if (e.shiftKey && e.key.toLowerCase() === 'c') {
@@ -58,11 +75,7 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           options.onOpenPdf();
         } else if (e.key.toLowerCase() === 's') {
           e.preventDefault();
-          if (e.shiftKey) {
-            options.onSaveJson();
-          } else {
-            options.onSavePdf();
-          }
+          options.onSavePdf();
         } else if (e.key.toLowerCase() === 'i') {
           e.preventDefault();
           options.onToggleInvert();

@@ -320,6 +320,31 @@ export function App() {
     [snippets, docInfo]
   );
 
+  // Quick keyboard shortcut handler to copy stitched snippets
+  const handleQuickCopyStitched = useCallback(async () => {
+    if (snippets.length === 0) {
+      showToast('No snippets to copy. Snip an area with C first.', true);
+      return;
+    }
+    const ok = await copyStitchedSnippetsToClipboard(snippets);
+    if (ok) {
+      showToast(`Copied ${snippets.length} stitched snippets to clipboard!`);
+    } else {
+      showToast('Failed to copy stitched image', true);
+    }
+  }, [snippets, showToast]);
+
+  // Quick keyboard shortcut handler to dump all snippets
+  const handleQuickDumpSnippets = useCallback(() => {
+    if (snippets.length === 0) {
+      showToast('Snippet compactor is already empty.');
+      return;
+    }
+    const count = snippets.length;
+    clearAllSnippets();
+    showToast(`Dumped all ${count} snippets from compactor.`);
+  }, [snippets.length, clearAllSnippets, showToast]);
+
   // Extract and Copy all text from a page
   const handleCopyPageText = useCallback(
     async (pageParam?: number | unknown) => {
@@ -419,6 +444,8 @@ export function App() {
       setCurrentScreen((prev) => (prev === 'dashboard' ? 'reader' : 'dashboard')),
     onCopyPageText: () => handleCopyPageText(currentPage),
     onCopyPageJpg: () => handleCopyPageJpg(currentPage),
+    onCopyStitchedSnippets: handleQuickCopyStitched,
+    onClearSnippets: handleQuickDumpSnippets,
   });
 
   return (
