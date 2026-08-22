@@ -78,7 +78,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <nav
       aria-label="Annotation Tools"
-      className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-0.5 p-1 rounded-lg bg-[#24242b]/95 border border-[#383846] backdrop-blur-xl shadow-xl select-none animate-slide-up"
+      className="macos-annotation-toolbar fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-0.5 p-1 rounded-lg select-none animate-slide-up"
     >
       {/* Tool Buttons */}
       {tools.map((tool) => {

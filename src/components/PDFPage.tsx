@@ -31,6 +31,7 @@ interface PDFPageProps {
   onDeleteAnnotation: (id: string) => void;
   onImageDrop: (pageNumber: number, file: File) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
+  isFlush?: boolean;
 }
 
 export const PDFPage: React.FC<PDFPageProps> = ({
@@ -52,6 +53,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onDeleteAnnotation,
   onImageDrop,
   onCursorMove,
+  isFlush = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
@@ -201,14 +203,16 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
       }}
-      className={`relative mx-auto my-6 bg-white shadow-[0_6px_28px_rgba(0,0,0,0.6),0_1px_3px_rgba(0,0,0,0.3)] rounded-xs transition-all duration-150 group ${
+      className={`relative mx-auto ${isFlush ? 'my-0' : 'my-6'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group ${
         isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
       {/* Visual Page Number Badge in Margin */}
-      <div className="absolute -top-5 left-1 text-[10px] font-mono text-zinc-500 font-medium select-none tracking-wider">
-        PAGE {pageNumber}
-      </div>
+      {!isFlush && (
+        <div className="absolute -top-5 left-1 text-[10px] font-mono text-zinc-500 font-medium select-none tracking-wider">
+          PAGE {pageNumber}
+        </div>
+      )}
 
       {/* Filtered Container for PDF Canvas & Color Inversion */}
       <div

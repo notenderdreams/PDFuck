@@ -5,7 +5,7 @@ import {
   ListTree,
   Highlighter,
   Info,
-  X,
+  Sidebar as SidebarIcon,
   Trash2,
   Image as ImageIcon
 } from 'lucide-react';
@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   if (!isOpen) return null;
 
   return (
-    <aside className="w-68 sm:w-72 h-[calc(100vh-2.75rem)] bg-[#222228] border-r border-[#343440] flex flex-col z-30 select-none shadow-xl transition-all">
+    <aside className="macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-xl">
       {/* Tab Header Strip */}
       <div className="p-2 border-b border-[#30303a] flex items-center justify-between bg-[#202026]">
         <div className="flex items-center gap-0.5 bg-[#1a1a20] p-0.5 rounded-md border border-[#2e2e38]">
@@ -99,10 +99,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={onClose}
-          className="btn-icon w-7 h-7"
-          title="Close Sidebar"
+          className="macos-sidebar-collapse-control"
+          title="Hide Sidebar"
         >
-          <X className="w-3.5 h-3.5" />
+          <SidebarIcon className="w-3.5 h-3.5" />
         </button>
       </div>
 

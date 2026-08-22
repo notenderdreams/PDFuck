@@ -5,34 +5,34 @@
     --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 
-    /* Roommate-inspired light palette. Dark values are scoped below. */
-    --background: #e3e4e5;
-    --workspace: #eaebec;
-    --foreground: #18191c;
-    --card: #f8f8f8;
-    --card-foreground: #18191c;
-    --popover: #f8f8f8;
-    --popover-foreground: #18191c;
-    --primary: #2e97ef;
-    --primary-hover: #2189e2;
+    /* macOS materials: quiet, layered, and close in value in light appearance. */
+    --background: #f2f2f7;
+    --workspace: #f7f7fa;
+    --foreground: #1d1d1f;
+    --card: #ffffff;
+    --card-foreground: #1d1d1f;
+    --popover: #ffffff;
+    --popover-foreground: #1d1d1f;
+    --primary: #007aff;
+    --primary-hover: #0066d6;
     --primary-foreground: #ffffff;
-    --secondary: #f0f1f2;
-    --secondary-foreground: #36383d;
-    --muted: #d9dade;
-    --muted-foreground: #6c6e73;
-    --subtle-foreground: #929399;
-    --accent: #2e97ef;
+    --secondary: #f2f2f7;
+    --secondary-foreground: #3a3a3c;
+    --muted: #e5e5ea;
+    --muted-foreground: #6e6e73;
+    --subtle-foreground: #8e8e93;
+    --accent: #007aff;
     --accent-foreground: #ffffff;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
-    --border: #d3d5d8;
-    --border-subtle: #cdd0d4;
-    --input: #d8dade;
-    --hover: #e8eaec;
-    --active: #2e97ef;
-    --ring: #2e97ef;
-    --shadow-soft: 0 3px 10px rgba(39, 40, 43, 0.08), 0 1px 2px rgba(39, 40, 43, 0.05);
-    --shadow-float: 0 12px 30px rgba(39, 40, 43, 0.16), 0 2px 6px rgba(39, 40, 43, 0.08);
+    --border: rgba(60, 60, 67, 0.18);
+    --border-subtle: rgba(60, 60, 67, 0.13);
+    --input: #ffffff;
+    --hover: rgba(60, 60, 67, 0.08);
+    --active: #007aff;
+    --ring: #007aff;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05), 0 3px 10px rgba(0, 0, 0, 0.06);
+    --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.09), 0 14px 34px rgba(0, 0, 0, 0.12);
   }
 
   * {
@@ -53,31 +53,31 @@
 
 /* App chrome theme -------------------------------------------------------- */
 [data-ui-theme='dark'] {
-  --background: #181a1e;
-  --workspace: #14161a;
-  --foreground: #f5f6f7;
-  --card: #24272c;
-  --card-foreground: #f5f6f7;
-  --popover: #292c32;
-  --popover-foreground: #f5f6f7;
-  --primary: #267fc5;
-  --primary-hover: #318ed4;
+  --background: #1c1c1e;
+  --workspace: #161618;
+  --foreground: #f5f5f7;
+  --card: #2c2c2e;
+  --card-foreground: #f5f5f7;
+  --popover: #303033;
+  --popover-foreground: #f5f5f7;
+  --primary: #0a84ff;
+  --primary-hover: #409cff;
   --primary-foreground: #ffffff;
-  --secondary: #2c3036;
-  --secondary-foreground: #eef0f2;
-  --muted: #34383f;
-  --muted-foreground: #aeb2b8;
-  --subtle-foreground: #7f858d;
-  --accent: #267fc5;
+  --secondary: #3a3a3c;
+  --secondary-foreground: #f2f2f7;
+  --muted: #48484a;
+  --muted-foreground: #98989d;
+  --subtle-foreground: #636366;
+  --accent: #0a84ff;
   --accent-foreground: #ffffff;
   --border: rgba(255, 255, 255, 0.11);
-  --border-subtle: #393e46;
-  --input: #30343a;
-  --hover: #30343b;
-  --active: #236fa9;
-  --ring: #348fd1;
-  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.20);
-  --shadow-float: 0 14px 34px rgba(0, 0, 0, 0.38), 0 2px 8px rgba(0, 0, 0, 0.24);
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --input: #3a3a3c;
+  --hover: rgba(255, 255, 255, 0.10);
+  --active: #0a84ff;
+  --ring: #0a84ff;
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.26), 0 5px 14px rgba(0, 0, 0, 0.22);
+  --shadow-float: 0 2px 9px rgba(0, 0, 0, 0.30), 0 18px 40px rgba(0, 0, 0, 0.36);
   color-scheme: dark;
 }
 
@@ -192,12 +192,458 @@
 [data-ui-theme] textarea { caret-color: var(--primary); }
 [data-ui-theme] :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
+/* macOS window materials -------------------------------------------------- */
+.macos-window {
+  background: var(--background);
+}
+
+.macos-titlebar {
+  min-height: 3rem;
+  background: color-mix(in srgb, var(--background) 82%, transparent);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--card) 48%, transparent) inset;
+  backdrop-filter: blur(24px) saturate(1.15);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15);
+}
+
+.macos-window-controls-spacer {
+  width: 4.25rem;
+  height: 1px;
+}
+
+.macos-titlebar-surface,
+.macos-segmented-control {
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+}
+
+.macos-titlebar-surface:hover {
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border-color: var(--border);
+}
+
+.macos-app-title {
+  min-width: 8.5rem;
+}
+
+.macos-document-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.125rem 0.5rem;
+  color: var(--foreground);
+}
+
+.reader-titlebar {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 22rem) minmax(12rem, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+}
+
+.reader-titlebar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  justify-self: center;
+}
+
+.reader-titlebar-actions { min-width: 0; }
+
+.reader-document-title {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding-inline: 0.25rem;
+}
+
+.reader-document-title > div { max-width: min(17rem, 100%); }
+.reader-titlebar-center .macos-page-control {
+  flex: 0 0 auto;
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+  overflow: hidden;
+}
+
+.macos-topbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  transition: color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.macos-topbar-icon:hover {
+  color: var(--foreground);
+  background: var(--hover);
+  transform: scale(1.06);
+}
+
+.macos-topbar-icon:active { transform: scale(0.94); }
+
+/* Reader controls live directly on the title material; groups communicate affinity through spacing. */
+.reader-titlebar .macos-toolbar-group:not(.macos-page-control) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.reader-titlebar .macos-toolbar-group-action,
+.reader-titlebar .macos-toolbar-group-icon {
+  border-radius: 999px;
+}
+
+.macos-sidebar-collapse-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  transition: color 150ms ease, background-color 150ms ease, transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.macos-sidebar-collapse-control:hover {
+  color: var(--foreground);
+  background: var(--hover);
+  transform: scale(1.06);
+}
+
+.macos-sidebar-collapse-control:active { transform: scale(0.94); }
+
+.canvas-sidebar-toggle {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  z-index: 40;
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.macos-annotation-toolbar {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(226, 231, 239, 0.52));
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.78), 0 0 0 0.5px rgba(60, 60, 67, 0.12), 0 5px 18px rgba(0, 0, 0, 0.16), 0 14px 34px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(32px) saturate(1.8);
+  -webkit-backdrop-filter: blur(32px) saturate(1.8);
+}
+
+[data-ui-theme='dark'] .macos-annotation-toolbar {
+  background: linear-gradient(135deg, rgba(68, 68, 73, 0.82), rgba(32, 32, 35, 0.58));
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.14), 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 6px 20px rgba(0, 0, 0, 0.36), 0 16px 38px rgba(0, 0, 0, 0.28);
+}
+
+.macos-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+  overflow: hidden;
+}
+
+.macos-toolbar-group-action,
+.macos-toolbar-group-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  padding: 0 0.5rem;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+}
+
+.macos-toolbar-group-icon { width: 1.875rem; padding: 0; }
+.macos-toolbar-group-action:hover,
+.macos-toolbar-group-icon:hover { background: var(--hover); color: var(--foreground); }
+.macos-toolbar-group-action:active,
+.macos-toolbar-group-icon:active { transform: scale(0.95); }
+.macos-toolbar-group-separator {
+  width: 1px;
+  height: 0.875rem;
+  margin: 0 0.125rem;
+  background: var(--border-subtle);
+}
+
+.reader-toolbar-divider {
+  width: 1px;
+  height: 1.125rem;
+  margin: 0 0.125rem;
+  background: var(--border-subtle);
+}
+
+/* Reader toolbar: every interactive item shares one 32px control rhythm. */
+.macos-reader-control,
+.macos-reader-icon-control {
+  min-height: 2rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  color: var(--secondary-foreground);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.035);
+  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
+}
+
+.macos-reader-control:hover,
+.macos-reader-icon-control:hover {
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.macos-reader-control:active,
+.macos-reader-icon-control:active { transform: scale(0.97); }
+
+.macos-reader-icon-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  padding: 0;
+}
+
+.macos-reader-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.macos-reader-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  border-color: color-mix(in srgb, var(--primary) 82%, #000);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.macos-reader-primary:hover {
+  border-color: var(--primary-hover);
+  background: var(--primary-hover);
+  color: var(--primary-foreground);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.macos-reader-segmented { gap: 0.125rem; padding: 0.125rem; }
+.macos-reader-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.625rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.macos-reader-segmented button:hover { color: var(--foreground); background: var(--hover); }
+.macos-reader-segmented button[class*='bg-[#34343f]'] {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.reader-view-mode-active {
+  color: var(--primary) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.macos-page-control { background: color-mix(in srgb, var(--card) 78%, transparent); }
+.macos-page-control input { background: transparent !important; color: var(--foreground) !important; }
+.macos-reader-inline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.macos-reader-inline-action:hover { color: var(--foreground); background: var(--hover); }
+
+.macos-reader-zoom { gap: 0.125rem; }
+.macos-reader-zoom button {
+  width: 1.25rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.macos-reader-zoom button:hover { color: var(--foreground); background: var(--hover); }
+
+@media (max-width: 1100px) {
+  .reader-titlebar { grid-template-columns: minmax(11rem, 1fr) minmax(8rem, 16rem) minmax(11rem, 1fr); }
+  .reader-document-title > div { max-width: 12rem; }
+}
+
+@media (max-width: 1450px) {
+  .reader-secondary-actions { display: none !important; }
+}
+
+.macos-titlebar-field {
+  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.025);
+}
+
+.macos-search-field {
+  border-radius: 0.625rem !important;
+}
+
+.macos-sidebar {
+  background: color-mix(in srgb, var(--workspace) 88%, transparent);
+  border-right: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+}
+
+.macos-content {
+  background: var(--workspace);
+}
+
+.macos-segmented-control button {
+  border-radius: 0.3125rem;
+}
+
+.macos-segmented-control button[class*='bg-[#34343f]'] {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.macos-table {
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+}
+
+/* Shadcn-inspired table primitives, adapted to the app's macOS materials. */
+.data-table-shell {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+}
+
+.data-table {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: separate;
+  caption-side: bottom;
+  font-size: 0.75rem;
+}
+
+.data-table-header { background: color-mix(in srgb, var(--secondary) 78%, transparent); }
+.data-table-head {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.data-table-cell { height: 3.5rem; padding: 0.5rem 0.75rem; vertical-align: middle; }
+.data-table-body .data-table-row + .data-table-row .data-table-cell { border-top: 1px solid var(--border-subtle); }
+.data-table-body .data-table-row { transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+.data-table-body .data-table-row:hover { background: var(--hover); }
+.data-table-body .data-table-row:hover .macos-table-open { color: var(--primary); }
+
+.macos-table thead {
+  background: color-mix(in srgb, var(--secondary) 78%, transparent);
+}
+
+.macos-table th {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.macos-table-row {
+  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.macos-table-row + .macos-table-row td {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.macos-table-row:hover {
+  background: var(--hover);
+}
+
+.macos-table-row:hover .macos-table-open {
+  color: var(--primary);
+}
+
+.macos-table-favorite {
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: color 150ms ease, background-color 150ms ease, transform 100ms ease;
+}
+
+.macos-table-favorite:hover {
+  background: color-mix(in srgb, #ff9f0a 12%, transparent);
+}
+
+.macos-document-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, transparent);
+  border-radius: 0.375rem;
+}
+
+.macos-annotation-count {
+  padding: 0.125rem 0.375rem;
+  color: #a05a00;
+  background: color-mix(in srgb, #ff9f0a 15%, transparent);
+  border: 1px solid color-mix(in srgb, #ff9f0a 22%, transparent);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-ui-theme='dark'] .macos-annotation-count {
+  color: #ffd60a;
+}
+
 .control-field {
   min-height: 1.875rem;
   background: var(--secondary) !important;
   border: 1px solid var(--border) !important;
   border-radius: 0.5rem !important;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  transition: border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .control-field:focus-within {
@@ -259,8 +705,8 @@
   line-height: 1rem;
   padding: 0.375rem 0.75rem;
   border: 1px solid color-mix(in srgb, var(--primary) 82%, #000000);
-  border-radius: 0.5rem;
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  border-radius: 0.375rem;
+  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
   box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .btn-primary:hover {
@@ -284,10 +730,10 @@
   font-size: 0.75rem;
   line-height: 1rem;
   padding: 0.375rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   border: 1px solid var(--border);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 100ms ease;
 }
 .btn-secondary:hover {
   background-color: var(--hover);
@@ -308,7 +754,7 @@
   line-height: 1rem;
   padding: 0.375rem 0.5rem;
   min-height: 1.875rem;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 .btn-ghost:hover {
@@ -325,7 +771,7 @@
   justify-content: center;
   width: 1.875rem;
   height: 1.875rem;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   color: var(--muted-foreground);
   background-color: transparent;
   border: 1px solid transparent;
@@ -352,32 +798,41 @@
 
 /* Document Reading Theme Filters */
 .page-theme-default {
-  filter: none;
+  --pdf-page-theme-filter: brightness(1);
 }
 
 .page-theme-invert {
-  filter: invert(0.92) hue-rotate(180deg) contrast(0.95) brightness(0.95);
+  --pdf-page-theme-filter: invert(0.92) hue-rotate(180deg) contrast(0.95) brightness(0.95);
   background-color: #1a1a20 !important;
 }
 
 .page-theme-oled {
-  filter: invert(1) contrast(1.15) brightness(0.88);
+  --pdf-page-theme-filter: invert(1) contrast(1.15) brightness(0.88);
   background-color: #0c0c0e !important;
 }
 
 .page-theme-sepia {
-  filter: sepia(0.55) contrast(0.92) brightness(0.96) hue-rotate(-15deg);
+  --pdf-page-theme-filter: sepia(0.55) contrast(0.92) brightness(0.96) hue-rotate(-15deg);
   background-color: #f7efe2 !important;
 }
 
 .page-theme-nord {
-  filter: invert(0.9) hue-rotate(190deg) contrast(0.9) brightness(0.85) saturate(1.2);
+  --pdf-page-theme-filter: invert(0.9) hue-rotate(190deg) contrast(0.9) brightness(0.85) saturate(1.2);
   background-color: #2e3440 !important;
 }
 
 .page-theme-matrix {
-  filter: invert(0.95) hue-rotate(90deg) contrast(1.1) brightness(0.85) saturate(1.4);
+  --pdf-page-theme-filter: invert(0.95) hue-rotate(90deg) contrast(1.1) brightness(0.85) saturate(1.4);
   background-color: #0f1a0f !important;
+}
+
+.page-theme-default,
+.page-theme-invert,
+.page-theme-oled,
+.page-theme-sepia,
+.page-theme-nord,
+.page-theme-matrix {
+  filter: var(--pdf-page-theme-filter) var(--pdf-page-adjustment-filter, brightness(1));
 }
 
 .page-theme-invert .preserve-image-color,

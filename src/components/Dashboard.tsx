@@ -41,6 +41,14 @@ import {
   toggleFavorite as toggleStorageFavorite,
 } from '../utils/storage';
 import { pdfjsLib } from '../utils/pdfWorker';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from './ui/DataTable';
 
 interface DashboardProps {
   onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => void;
@@ -444,21 +452,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const totalPdfsCount = combinedItems.length;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
+    <div className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
       {/* Top Studio App Header */}
-      <header className="h-11 bg-[#24242b] border-b border-[#363642] flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
+      <header className="macos-titlebar h-12 flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
         {/* Left branding */}
         <div className="flex items-center gap-2 app-no-drag">
-          <div className="w-16 hidden sm:block" />
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d23] border border-[#343440] text-zinc-200 font-semibold tracking-tight">
+          <div className="macos-window-controls-spacer hidden sm:block" />
+          <div className="macos-app-title flex items-center gap-2 text-zinc-200 tracking-tight">
             <Layers className="w-4 h-4 text-zinc-300" />
-            <span>PDFuck Studio</span>
+            <div className="leading-tight">
+              <span className="block text-[12px] font-semibold">PDFuck Studio</span>
+              <span className="block text-[10px] text-zinc-500">Library</span>
+            </div>
           </div>
         </div>
 
         {/* Center Search Input */}
         <div className="flex items-center gap-2 app-no-drag w-full max-w-md">
-          <div className="control-field w-full flex items-center gap-1.5 px-2.5 py-1 bg-[#1d1d23] rounded-md border border-[#343440]">
+          <div className="control-field macos-search-field w-full flex items-center gap-1.5 px-2.5 py-1 rounded-md">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
               type="text"
@@ -523,7 +534,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Main Studio Body: Sidebar Navigation + Document Grid */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Library Navigator */}
-        <aside className="w-60 bg-[#222228] border-r border-[#343440] flex flex-col p-3 gap-3 overflow-y-auto select-none">
+        <aside className="macos-sidebar w-60 flex flex-col p-3 gap-3 overflow-y-auto select-none">
           {/* Quick Categories */}
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 px-2 py-1">
@@ -635,7 +646,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </aside>
 
         {/* Main Document Grid / List Content */}
-        <main className="flex-1 bg-[#1c1c22] p-6 overflow-y-auto flex flex-col gap-5">
+        <main className="macos-content flex-1 p-6 overflow-y-auto flex flex-col gap-5">
           {/* Controls Bar: Title, Count, Layout, Sorting */}
           <div className="flex items-center justify-between border-b border-[#343440] pb-3">
             <div className="flex items-center gap-2">
@@ -714,7 +725,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {/* View Layout Toggle */}
-              <div className="flex items-center bg-[#24242b] border border-[#343440] p-0.5 rounded-md">
+              <div className="macos-segmented-control flex items-center p-0.5 rounded-md">
                 <button
                   onClick={() => setViewLayout('grid')}
                   className={`p-1 rounded transition-all ${
@@ -821,29 +832,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           ) : (
             /* TABLE LIST VIEW */
-            <div className="rounded-xl border border-[#383846] bg-[#24242b] overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-[#343440] bg-[#1d1d23] text-zinc-400 text-[11px] font-medium">
-                    <th className="py-2.5 px-3 w-8"></th>
-                    <th className="py-2.5 px-3">Document Name</th>
-                    <th className="py-2.5 px-3 hidden md:table-cell">Path / Directory</th>
-                    <th className="py-2.5 px-3 w-24">Size</th>
-                    <th className="py-2.5 px-3 w-32 hidden sm:table-cell">Last Modified</th>
-                    <th className="py-2.5 px-3 w-20 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#32323e]">
+            <DataTable aria-label="PDF library documents">
+                <DataTableHeader>
+                  <DataTableRow>
+                    <DataTableHead className="w-9"></DataTableHead>
+                    <DataTableHead>Name</DataTableHead>
+                    <DataTableHead className="hidden md:table-cell">Location</DataTableHead>
+                    <DataTableHead className="w-24">Size</DataTableHead>
+                    <DataTableHead className="w-30 hidden sm:table-cell">Modified</DataTableHead>
+                    <DataTableHead className="w-20 text-right"><span className="sr-only">Open</span></DataTableHead>
+                  </DataTableRow>
+                </DataTableHeader>
+                <DataTableBody>
                   {filteredItems.map((item) => (
-                    <tr
+                    <DataTableRow
                       key={item.filePath || item.id}
                       onClick={() => handleOpenItem(item)}
-                      className="hover:bg-[#2a2a34] cursor-pointer group transition-colors"
+                      className="cursor-pointer group"
                     >
-                      <td className="py-2 px-3 text-center">
+                      <DataTableCell className="text-center">
                         <button
                           onClick={(e) => handleToggleFavorite(item.id || item.filePath, e)}
-                          className="text-zinc-500 hover:text-amber-400"
+                          className="macos-table-favorite text-zinc-500 hover:text-amber-400"
+                          title={item.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
                         >
                           <Star
                             className={`w-3.5 h-3.5 ${
@@ -851,39 +862,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             }`}
                           />
                         </button>
-                      </td>
-                      <td className="py-2 px-3 font-medium text-zinc-200 group-hover:text-white truncate max-w-[200px]">
+                      </DataTableCell>
+                      <DataTableCell className="font-medium text-zinc-200 max-w-[260px]">
                         <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span className="truncate">{item.fileName}</span>
+                          <div className="macos-document-icon shrink-0">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block truncate text-[12px] text-zinc-200 group-hover:text-white">{item.fileName}</span>
+                            {item.lastReadPage && (
+                              <span className="block text-[10px] text-zinc-500">Last read · Page {item.lastReadPage}</span>
+                            )}
+                          </div>
                           {item.annotationCount !== undefined && item.annotationCount > 0 && (
-                            <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-mono shrink-0">
-                              ✏️ {item.annotationCount}
+                            <span className="macos-annotation-count shrink-0">
+                              {item.annotationCount} note{item.annotationCount === 1 ? '' : 's'}
                             </span>
                           )}
                         </div>
-                      </td>
-                      <td className="py-2 px-3 text-zinc-400 font-mono text-[10.5px] truncate max-w-[250px] hidden md:table-cell">
-                        {item.filePath}
-                      </td>
-                      <td className="py-2 px-3 text-zinc-400 font-mono text-[11px]">
+                      </DataTableCell>
+                      <DataTableCell className="text-zinc-400 text-[11px] truncate max-w-[260px] hidden md:table-cell">
+                        <span className="block truncate">{item.directoryPath || item.filePath}</span>
+                      </DataTableCell>
+                      <DataTableCell className="text-zinc-400 tabular-nums text-[11px]">
                         {item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(2)} MB` : '-'}
-                      </td>
-                      <td className="py-2 px-3 text-zinc-500 text-[11px] hidden sm:table-cell">
+                      </DataTableCell>
+                      <DataTableCell className="text-zinc-500 tabular-nums text-[11px] hidden sm:table-cell">
                         {item.modifiedTimestamp
                           ? new Date(item.modifiedTimestamp).toLocaleDateString()
                           : '-'}
-                      </td>
-                      <td className="py-2 px-3 text-right">
-                        <span className="text-zinc-400 group-hover:text-white inline-flex items-center gap-1 font-medium text-[11px]">
-                          Open <ArrowRight className="w-3 h-3" />
+                      </DataTableCell>
+                      <DataTableCell className="text-right">
+                        <span className="macos-table-open text-zinc-400 inline-flex items-center gap-1 font-medium text-[11px]">
+                          Open <ArrowRight className="w-3.5 h-3.5" />
                         </span>
-                      </td>
-                    </tr>
+                      </DataTableCell>
+                    </DataTableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </DataTableBody>
+            </DataTable>
           )}
         </main>
       </div>

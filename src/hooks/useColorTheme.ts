@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import type { ReadingTheme, ThemeSettings } from '../utils/types';
 import { loadThemeSettings, saveThemeSettings } from '../utils/storage';
 
@@ -63,7 +64,8 @@ export function useColorTheme() {
     }
   }, [settings.theme]);
 
-  // Dynamic filter for custom brightness/contrast adjustments
+  // Keep adjustments in a CSS variable so they compose with the selected
+  // reading-theme filter instead of replacing it through an inline `filter`.
   const getCustomFilterStyle = useCallback(() => {
     const filters: string[] = [];
     if (settings.brightness !== 100) {
@@ -75,7 +77,9 @@ export function useColorTheme() {
     if (settings.grayscale > 0) {
       filters.push(`grayscale(${settings.grayscale}%)`);
     }
-    return filters.length > 0 ? { filter: filters.join(' ') } : {};
+    return filters.length > 0
+      ? ({ '--pdf-page-adjustment-filter': filters.join(' ') } as CSSProperties)
+      : {};
   }, [settings.brightness, settings.contrast, settings.grayscale]);
 
   return {

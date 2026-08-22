@@ -9,7 +9,7 @@ import { StampPickerModal } from './components/StampPickerModal';
 import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ExportModal } from './components/ExportModal';
-import { Check, Info } from 'lucide-react';
+import { Check, Info, Sidebar as SidebarIcon } from 'lucide-react';
 
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
@@ -349,7 +349,7 @@ export function App() {
   return (
     <div
       data-ui-theme={isDarkTheme ? 'dark' : 'light'}
-      className="h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none transition-colors duration-200"
+      className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none transition-colors duration-200"
     >
       {/* Hidden File Inputs for Browser Fallback */}
       <input
@@ -404,14 +404,11 @@ export function App() {
             viewMode={viewMode}
             theme={themeSettings.theme}
             isZenMode={isZenMode}
-            isSidebarOpen={isSidebarOpen}
             isSearchOpen={isSearchOpen}
             annotationCount={annotations.length}
             saveStatus={saveStatus}
             onOpenDashboard={() => setCurrentScreen('dashboard')}
-            onOpenPdf={handleOpenPdf}
             onExportClick={() => setIsExportModalOpen(true)}
-            onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
             onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
             onToggleInvert={toggleInvert}
             onOpenThemeModal={() => setIsThemeModalOpen(true)}
@@ -441,6 +438,16 @@ export function App() {
               onPageSelect={(p) => changePage(p)}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
             />
+
+            {!isSidebarOpen && !isZenMode && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="macos-sidebar-collapse-control canvas-sidebar-toggle"
+                title="Show Sidebar"
+              >
+                <SidebarIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             {/* Primary PDF Canvas Viewport */}
             <PDFViewer

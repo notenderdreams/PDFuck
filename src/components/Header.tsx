@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  FolderOpen,
+  ArrowLeft,
   Download,
   Moon,
   Sun,
@@ -9,14 +9,12 @@ import {
   Minimize2,
   FileText,
   SlidersHorizontal,
-  Sidebar as SidebarIcon,
   HelpCircle,
   Copy,
   Camera,
   Rows,
   Square,
   Columns2,
-  Layers,
 } from 'lucide-react';
 import type { DocumentInfo, ReadingTheme, ViewMode } from '../utils/types';
 
@@ -28,14 +26,11 @@ interface HeaderProps {
   viewMode: ViewMode;
   theme: ReadingTheme;
   isZenMode: boolean;
-  isSidebarOpen: boolean;
   isSearchOpen: boolean;
   annotationCount?: number;
   saveStatus?: 'saved' | 'saving';
   onOpenDashboard?: () => void;
-  onOpenPdf: () => void;
   onExportClick: () => void;
-  onToggleSidebar: () => void;
   onToggleSearch: () => void;
   onToggleInvert: () => void;
   onOpenThemeModal: () => void;
@@ -56,14 +51,11 @@ export const Header: React.FC<HeaderProps> = ({
   viewMode,
   theme,
   isZenMode,
-  isSidebarOpen,
   isSearchOpen,
   annotationCount,
   saveStatus,
   onOpenDashboard,
-  onOpenPdf,
   onExportClick,
-  onToggleSidebar,
   onToggleSearch,
   onToggleInvert,
   onOpenThemeModal,
@@ -108,77 +100,35 @@ export const Header: React.FC<HeaderProps> = ({
   const isInverted = ['invert', 'oled', 'nord', 'matrix'].includes(theme);
 
   return (
-    <header className="h-11 bg-[#24242b] border-b border-[#363642] flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
-      {/* Left Section: macOS spacer, Library / Dashboard button, Sidebar toggle, Open file */}
-      <div className="flex items-center gap-1.5 app-no-drag">
-        {/* Window control spacer */}
-        <div className="w-16 hidden sm:block" />
-
-        {/* Back to Library Dashboard */}
+    <header className="macos-titlebar reader-titlebar h-12 px-3 z-30 select-none app-drag-region text-xs">
+      <div className="reader-titlebar-left flex items-center gap-2 app-no-drag min-w-0">
+        <div className="macos-window-controls-spacer hidden sm:block" />
         {onOpenDashboard && (
-          <button
-            onClick={onOpenDashboard}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d23] hover:bg-[#2e2e38] border border-[#343440] text-zinc-200 font-semibold transition-all"
-            title="Open PDF Library Dashboard"
-          >
-            <Layers className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Library</span>
+          <button onClick={onOpenDashboard} className="macos-topbar-icon" title="Back to Library">
+            <ArrowLeft className="w-4 h-4" />
           </button>
         )}
-
-        {/* Sidebar Toggle */}
-        <button
-          onClick={onToggleSidebar}
-          className={`btn-icon ${
-            isSidebarOpen
-              ? 'bg-[#34343f] text-zinc-100'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-          title="Toggle Navigation Sidebar"
-        >
-          <SidebarIcon className="w-3.5 h-3.5" />
-        </button>
-
-        {/* Open PDF */}
-        <button
-          onClick={onOpenPdf}
-          className="btn-secondary"
-          title="Open Document (Cmd+O)"
-        >
-          <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
-          <span>Open</span>
-        </button>
       </div>
 
-      {/* Center Section: Document Title, Page Stepper & Page Quick Copy Actions */}
-      <div className="flex items-center gap-2 app-no-drag max-w-[45%]">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1d1d23] border border-[#343440] text-zinc-300">
-          <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-          <span
-            className="font-medium truncate max-w-[120px] sm:max-w-[170px]"
-            title={docInfo?.fileName || 'No Document'}
-          >
-            {docInfo?.fileName || 'No Document'}
-          </span>
-          {annotationCount !== undefined && annotationCount > 0 && (
+      <div className="reader-titlebar-center app-no-drag min-w-0">
+        <div className="macos-document-title reader-document-title min-w-0">
+          <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
+          <div className="min-w-0 leading-tight">
             <span
-              className="text-[9.5px] px-1.5 py-0.5 rounded bg-[#282832] text-zinc-400 font-mono tracking-tight shrink-0 flex items-center gap-1"
-              title={`${annotationCount} active annotations saved`}
+              className="block font-semibold truncate text-[12px]"
+              title={docInfo?.fileName || 'No Document'}
             >
-              {saveStatus === 'saving' ? (
-                <span className="text-amber-400">Saving…</span>
-              ) : (
-                <>
-                  <span className="text-emerald-400">✓</span>
-                  <span>{annotationCount}</span>
-                </>
-              )}
+              {docInfo?.fileName || 'No Document'}
             </span>
-          )}
+            <span className="block truncate text-[10px] text-zinc-500">
+              {numPages > 0 ? `Page ${currentPage} of ${numPages}` : 'Ready to read'}
+              {annotationCount !== undefined && annotationCount > 0 &&
+                ` · ${saveStatus === 'saving' ? 'Saving notes…' : `${annotationCount} note${annotationCount === 1 ? '' : 's'}`}`}
+            </span>
+          </div>
         </div>
-
         {numPages > 0 && (
-          <div className="control-field flex items-center gap-1 bg-[#1d1d23] px-2 py-0.5 rounded-md border border-[#343440]">
+          <div className="macos-toolbar-group macos-page-control flex items-center gap-1 px-1.5">
             <input
               type="text"
               inputMode="numeric"
@@ -195,27 +145,21 @@ export const Header: React.FC<HeaderProps> = ({
               style={{
                 width: `${Math.max(28, String(pageInputText || numPages).length * 8 + 14)}px`,
               }}
-              className="text-center bg-[#2a2a33] rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px] font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="text-center bg-transparent rounded px-1 py-0.5 text-zinc-200 font-mono text-[11px] font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-zinc-500 font-mono text-[11px]">/</span>
             <span className="font-mono text-zinc-400 text-[11px] pr-1">{numPages}</span>
-
-            {/* Quick Page Extract Action Buttons */}
-            <div className="w-[1px] h-3 bg-[#343440] mx-0.5" />
-
-            {/* Copy All Page Text */}
+            <div className="macos-toolbar-group-separator" />
             <button
               onClick={onCopyPageText}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-[#2c2c36] transition-all"
+              className="macos-reader-inline-action"
               title={`Copy all text from Page ${currentPage} (Cmd+Shift+C)`}
             >
               <Copy className="w-3 h-3" />
             </button>
-
-            {/* Copy / Save Page as JPG */}
             <button
               onClick={onCopyPageJpg}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-[#2c2c36] transition-all"
+              className="macos-reader-inline-action"
               title={`Copy / Save Page ${currentPage} as JPG image (Cmd+Shift+J)`}
             >
               <Camera className="w-3 h-3" />
@@ -224,49 +168,39 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Right Section: Invert, View Modes, Zoom, Search, Save */}
-      <div className="flex items-center gap-1 app-no-drag">
-        {/* Search */}
-        <button
-          onClick={onToggleSearch}
-          className={`btn-icon ${
-            isSearchOpen
-              ? 'bg-[#34343f] text-zinc-100'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-          title="Search in PDF (Cmd+F)"
-        >
-          <Search className="w-3.5 h-3.5" />
-        </button>
+      <div className="reader-titlebar-actions flex items-center gap-1.5 app-no-drag justify-self-end">
+        <div className="reader-display-actions flex items-center gap-2">
+          <button
+            onClick={onToggleSearch}
+            className={`macos-topbar-icon ${isSearchOpen ? 'text-[var(--primary)]' : ''}`}
+            title="Search in PDF (Cmd+F)"
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onToggleInvert}
+            className={`macos-topbar-icon ${isInverted ? 'text-[var(--primary)]' : ''}`}
+            title={isInverted ? 'Use light appearance (Cmd+I)' : 'Use dark appearance (Cmd+I)'}
+          >
+            {isInverted ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={onOpenThemeModal}
+            className="macos-topbar-icon"
+            title="Display Themes & Filters"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
-        {/* Invert / Dark Mode */}
-        <button
-          onClick={onToggleInvert}
-          className={`btn-secondary ${
-            isInverted ? 'bg-[#34343f] text-zinc-100 border-[#484856]' : 'text-zinc-400'
-          }`}
-          title={isInverted ? 'Use light appearance (Cmd+I)' : 'Use dark appearance (Cmd+I)'}
-        >
-          {isInverted ? <Sun className="w-3.5 h-3.5 text-zinc-300" /> : <Moon className="w-3.5 h-3.5" />}
-          <span className="hidden lg:inline">{isInverted ? 'Light' : 'Dark'}</span>
-        </button>
+        <span className="reader-toolbar-divider hidden lg:block" aria-hidden="true" />
 
-        {/* Display Settings */}
-        <button
-          onClick={onOpenThemeModal}
-          className="btn-icon"
-          title="Display Themes & Filters"
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-        </button>
-
-        {/* View Mode Segmented Control */}
-        <div className="hidden lg:flex items-center bg-[#1d1d23] border border-[#343440] p-0.5 rounded-md">
+        <div className="macos-toolbar-group macos-reader-segmented hidden lg:flex items-center">
           <button
             onClick={() => onChangeViewMode('continuous')}
             className={`p-1 rounded transition-all ${
               viewMode === 'continuous'
-                ? 'bg-[#34343f] text-zinc-100 shadow-xs'
+                ? 'reader-view-mode-active'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Continuous Vertical View"
@@ -277,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => onChangeViewMode('single')}
             className={`p-1 rounded transition-all ${
               viewMode === 'single'
-                ? 'bg-[#34343f] text-zinc-100 shadow-xs'
+                ? 'reader-view-mode-active'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Single Page View"
@@ -288,7 +222,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => onChangeViewMode('spread')}
             className={`p-1 rounded transition-all ${
               viewMode === 'spread'
-                ? 'bg-[#34343f] text-zinc-100 shadow-xs'
+                ? 'reader-view-mode-active'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Two-Page Spread"
@@ -297,8 +231,9 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Zoom Stepper */}
-        <div className="hidden xl:flex items-center bg-[#1d1d23] border border-[#343440] px-1.5 py-0.5 rounded-md font-mono text-[11px] text-zinc-300">
+        <span className="reader-toolbar-divider hidden lg:block" aria-hidden="true" />
+
+        <div className="macos-toolbar-group macos-reader-zoom reader-secondary-actions hidden xl:flex items-center px-1 font-mono text-[11px] text-zinc-300">
           <button
             onClick={() => onChangeZoom(Math.max(0.4, zoom - 0.15))}
             className="hover:text-white px-1 text-zinc-400"
@@ -316,28 +251,19 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Zen Mode */}
-        <button
-          onClick={onToggleZen}
-          className="btn-icon"
-          title="Fullscreen Focus (F)"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-        </button>
-
-        {/* Shortcuts */}
-        <button
-          onClick={onToggleShortcuts}
-          className="btn-icon"
-          title="Shortcuts (?)"
-        >
-          <HelpCircle className="w-3.5 h-3.5" />
-        </button>
+        <div className="macos-toolbar-group reader-secondary-actions hidden xl:flex">
+          <button onClick={onToggleZen} className="macos-toolbar-group-icon" title="Fullscreen Focus (F)">
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onToggleShortcuts} className="macos-toolbar-group-icon" title="Shortcuts (?)">
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
         {/* Primary Save PDF Button */}
         <button
           onClick={onExportClick}
-          className="btn-primary ml-1"
+          className="macos-reader-control macos-reader-primary"
           title="Save Modified PDF (Cmd+S)"
         >
           <Download className="w-3.5 h-3.5" />

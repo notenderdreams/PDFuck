@@ -332,7 +332,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-center px-[35vw] py-12 box-border">
         {/* CONTINUOUS VIEW MODE */}
         {viewMode === 'continuous' && (
-          <div className="flex flex-col items-center gap-8 pb-32">
+          <div className="flex flex-col items-center gap-1 pb-32">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
               <PDFPage
                 key={pageNum}
@@ -354,6 +354,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onDeleteAnnotation={onDeleteAnnotation}
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
+                isFlush
               />
             ))}
           </div>
@@ -411,7 +412,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         {/* TWO-PAGE SPREAD VIEW MODE */}
         {viewMode === 'spread' && (
           <div className="flex flex-col items-center justify-center relative pb-24">
-            <div className="flex items-start justify-center gap-6">
+            <div className="flex items-start justify-center gap-1">
               {/* Left Page */}
               <PDFPage
                 pdfDoc={pdfDoc}
