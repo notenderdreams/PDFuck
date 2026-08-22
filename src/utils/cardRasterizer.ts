@@ -20,7 +20,7 @@ function getEmbeddedStyles(): string {
     .ai-response-markdown h2 { font-size: 0.925rem; font-weight: 700; margin: 0.65rem 0 0.35rem; }
     .ai-response-markdown h3 { font-size: 0.85rem; font-weight: 650; margin: 0.55rem 0 0.3rem; }
     .ai-response-markdown code:not(pre code) { background: rgba(128,128,128,0.15); padding: 0.15rem 0.3rem; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
-    .ai-response-markdown pre { background: rgba(0,0,0,0.25); padding: 0.6rem; border-radius: 6px; overflow-x: auto; margin: 0.6rem 0; font-family: monospace; font-size: 0.85em; }
+    .ai-response-markdown pre { background: rgba(0,0,0,0.15); padding: 0.6rem; border-radius: 6px; overflow-x: auto; margin: 0.6rem 0; font-family: monospace; font-size: 0.85em; }
     .ai-response-markdown blockquote { border-left: 3px solid #3b82f6; padding-left: 0.65rem; margin: 0.6rem 0; font-style: italic; opacity: 0.85; }
     .ai-response-markdown table { display: block; max-width: 100%; margin: 0.65rem 0; overflow-x: auto; border-collapse: collapse; }
     .ai-response-markdown th, .ai-response-markdown td { padding: 0.35rem 0.5rem; border: 1px solid rgba(128,128,128,0.3); text-align: left; }
@@ -50,7 +50,7 @@ function getEmbeddedStyles(): string {
 }
 
 /**
- * Trims excess uniform background padding from the bottom of a generated canvas image.
+ * Trims excess bottom padding from the generated canvas image by detecting non-transparent pixels.
  */
 function trimExcessBottomPadding(
   dataUrl: string,
@@ -79,34 +79,15 @@ function trimExcessBottomPadding(
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // Sample background color near top-left inside padding
-        const sampleX = Math.min(20, width - 1);
-        const sampleY = Math.min(20, height - 1);
-        const sampleIdx = (sampleY * width + sampleX) * 4;
-        const bgR = data[sampleIdx];
-        const bgG = data[sampleIdx + 1];
-        const bgB = data[sampleIdx + 2];
-
-        // Scan upwards from bottom to find the bottom-most row with content
+        // Scan upwards from bottom to find the last row with non-transparent content
         let bottomContentY = height - 1;
-        const tolerance = 18;
 
-        for (let y = height - 1; y >= 20; y--) {
+        for (let y = height - 1; y >= 10; y--) {
           let hasContent = false;
           const rowOffset = y * width * 4;
-          for (let x = 10; x < width - 10; x += 3) {
-            const idx = rowOffset + x * 4;
-            const r = data[idx];
-            const g = data[idx + 1];
-            const b = data[idx + 2];
-            const a = data[idx + 3];
-
-            if (
-              a > 10 &&
-              (Math.abs(r - bgR) > tolerance ||
-                Math.abs(g - bgG) > tolerance ||
-                Math.abs(b - bgB) > tolerance)
-            ) {
+          for (let x = 4; x < width - 4; x += 2) {
+            const alpha = data[rowOffset + x * 4 + 3];
+            if (alpha > 15) {
               hasContent = true;
               break;
             }
@@ -117,14 +98,14 @@ function trimExcessBottomPadding(
           }
         }
 
-        // Add 14px of breathing room padding at bottom (scaled by dpr)
-        const paddingBottomPx = Math.round(14 * dpr);
+        // Add 10px breathing room padding at bottom (scaled by dpr)
+        const paddingBottomPx = Math.round(10 * dpr);
         const trimmedHeight = Math.min(
           height,
-          Math.max(Math.round(70 * dpr), bottomContentY + paddingBottomPx)
+          Math.max(Math.round(50 * dpr), bottomContentY + paddingBottomPx)
         );
 
-        if (trimmedHeight < height - 15) {
+        if (trimmedHeight < height - 10) {
           const trimmedCanvas = document.createElement('canvas');
           trimmedCanvas.width = width;
           trimmedCanvas.height = trimmedHeight;
@@ -151,8 +132,8 @@ function trimExcessBottomPadding(
 }
 
 /**
- * Main rasterizer entrypoint: captures the rich rendered DOM card (with KaTeX math,
- * formatted markdown, typography, and styling) into a high-DPI PNG image with tight bottom bounds.
+ * Main rasterizer entrypoint: captures the rendered AI explanation content
+ * with a transparent background and no outer card border/stroke.
  */
 export async function rasterizeResponseCard(
   cardElement: HTMLElement | null,
@@ -174,6 +155,9 @@ export async function rasterizeResponseCard(
       const prevHeight = cardElement.style.height;
       const prevWidth = cardElement.style.width;
       const prevPadding = cardElement.style.padding;
+      const prevBorder = cardElement.style.border;
+      const prevBackground = cardElement.style.background;
+      const prevBackgroundColor = cardElement.style.backgroundColor;
       const prevBoxShadow = cardElement.style.boxShadow;
 
       // Temporarily hide Question section and Action buttons before measuring height
@@ -215,7 +199,7 @@ export async function rasterizeResponseCard(
         }
       });
 
-      // Temporarily reset coordinate offsets and apply clean compact padding
+      // Remove border stroke and card background for clean transparent placement
       cardElement.style.position = 'relative';
       cardElement.style.left = '0px';
       cardElement.style.top = '0px';
@@ -225,12 +209,15 @@ export async function rasterizeResponseCard(
       cardElement.style.maxHeight = 'none';
       cardElement.style.overflow = 'visible';
       cardElement.style.height = 'auto';
-      cardElement.style.padding = '14px 16px 14px 16px';
+      cardElement.style.padding = '8px 12px 8px 12px';
+      cardElement.style.border = 'none';
+      cardElement.style.background = 'transparent';
+      cardElement.style.backgroundColor = 'transparent';
       cardElement.style.boxShadow = 'none';
 
-      // Measure actual rendered bounding box with Question/Buttons hidden
+      // Measure actual rendered bounding box
       const targetWidth = Math.max(360, Math.ceil(cardElement.offsetWidth || cardElement.scrollWidth || 440));
-      const targetHeight = Math.max(80, Math.ceil(cardElement.scrollHeight || cardElement.offsetHeight || 200));
+      const targetHeight = Math.max(60, Math.ceil(cardElement.scrollHeight || cardElement.offsetHeight || 180));
 
       const embeddedStyles = getEmbeddedStyles();
 
@@ -249,7 +236,7 @@ export async function rasterizeResponseCard(
             if (node.classList.contains('katex-mathml')) {
               return false;
             }
-            // Strip out Question/prompt section as requested
+            // Strip out Question/prompt section
             if (
               node.getAttribute('data-ai-question') === 'true' ||
               node.classList.contains('ai-question-section') ||
@@ -271,7 +258,6 @@ export async function rasterizeResponseCard(
           }
           return true;
         },
-        backgroundColor: isDarkTheme ? '#18181b' : '#ffffff',
         style: {
           position: 'static',
           left: '0px',
@@ -280,7 +266,10 @@ export async function rasterizeResponseCard(
           transform: 'none',
           maxHeight: 'none',
           height: 'auto',
-          padding: '14px 16px 14px 16px',
+          padding: '8px 12px 8px 12px',
+          border: 'none',
+          background: 'transparent',
+          backgroundColor: 'transparent',
           overflow: 'visible',
           boxShadow: 'none',
         },
@@ -321,10 +310,12 @@ export async function rasterizeResponseCard(
       cardElement.style.height = prevHeight;
       cardElement.style.width = prevWidth;
       cardElement.style.padding = prevPadding;
+      cardElement.style.border = prevBorder;
+      cardElement.style.background = prevBackground;
+      cardElement.style.backgroundColor = prevBackgroundColor;
       cardElement.style.boxShadow = prevBoxShadow;
 
       if (rawDataUrl && rawDataUrl.length > 200 && rawDataUrl.startsWith('data:image/png;base64,')) {
-        // Auto-trim any excess blank space from bottom
         return await trimExcessBottomPadding(rawDataUrl, 2);
       }
     } catch (err) {
@@ -337,7 +328,7 @@ export async function rasterizeResponseCard(
 }
 
 /**
- * Fallback Canvas Markdown Renderer (pure 2D Canvas)
+ * Fallback Canvas Markdown Renderer (pure 2D Canvas with transparent background)
  */
 interface TextSpan {
   text: string;
@@ -469,16 +460,14 @@ export function renderAiExplanationCardToCanvas(
   isDark: boolean = false
 ): { dataUrl: string; width: number; height: number } {
   const cardWidth = 520;
-  const padding = 20;
+  const padding = 16;
   const contentWidth = cardWidth - padding * 2;
   const dpr = 2;
 
-  const bg = isDark ? '#18181b' : '#ffffff';
-  const border = isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.14)';
   const textPrimary = isDark ? '#f4f4f7' : '#18181b';
   const textSecondary = isDark ? '#9e9ea8' : '#64748b';
   const accentBlue = isDark ? '#60a5fa' : '#2563eb';
-  const codeBg = isDark ? '#121216' : '#f1f5f9';
+  const codeBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
 
   const measureCanvas = document.createElement('canvas');
   const mctx = measureCanvas.getContext('2d')!;
@@ -486,11 +475,11 @@ export function renderAiExplanationCardToCanvas(
   const items = parseMarkdownLines(response);
 
   let totalHeight = padding;
-  totalHeight += 24 + 10;
+  totalHeight += 24 + 8;
 
   for (const item of items) {
     if (item.type === 'spacer') {
-      totalHeight += 10;
+      totalHeight += 8;
     } else if (item.type === 'header') {
       const fontSize = item.level === 1 ? 16 : item.level === 2 ? 14 : 13;
       mctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
@@ -515,7 +504,7 @@ export function renderAiExplanationCardToCanvas(
   }
 
   totalHeight += padding;
-  const cardHeight = Math.max(120, totalHeight);
+  const cardHeight = Math.max(80, totalHeight);
 
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(cardWidth * dpr);
@@ -523,14 +512,8 @@ export function renderAiExplanationCardToCanvas(
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = bg;
-  ctx.beginPath();
-  ctx.roundRect(0, 0, cardWidth, cardHeight, 10);
-  ctx.fill();
-
-  ctx.strokeStyle = border;
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  // Clear to transparent background (no stroke, no solid background fill)
+  ctx.clearRect(0, 0, cardWidth, cardHeight);
 
   let y = padding;
 
@@ -538,11 +521,11 @@ export function renderAiExplanationCardToCanvas(
   ctx.fillStyle = accentBlue;
   ctx.fillText('✦  Codex AI Explanation', padding, y + 14);
 
-  y += 24 + 12;
+  y += 24 + 8;
 
   for (const item of items) {
     if (item.type === 'spacer') {
-      y += 10;
+      y += 8;
     } else if (item.type === 'header') {
       const fontSize = item.level === 1 ? 15 : item.level === 2 ? 13.5 : 12.5;
       ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;

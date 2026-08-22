@@ -80,8 +80,11 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
       const dx = (moveEvt.clientX - dragStartPosRef.current.x) / pageWidth;
       const dy = (moveEvt.clientY - dragStartPosRef.current.y) / pageHeight;
 
-      const newX = Math.max(0, Math.min(initialAnnPosRef.current.x + dx, 1 - annotation.width));
-      const newY = Math.max(0, Math.min(initialAnnPosRef.current.y + dy, 1 - annotation.height));
+      const maxX = Math.max(0, 1 - initialAnnPosRef.current.width);
+      const maxY = Math.max(0, 1 - initialAnnPosRef.current.height);
+
+      const newX = Math.max(0, Math.min(initialAnnPosRef.current.x + dx, maxX));
+      const newY = Math.max(0, Math.min(initialAnnPosRef.current.y + dy, maxY));
 
       onUpdate(annotation.id, { x: newX, y: newY });
     };
@@ -111,15 +114,32 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
     const handleMouseMove = (moveEvt: MouseEvent) => {
       if (!isResizingRef.current) return;
       const dx = (moveEvt.clientX - dragStartPosRef.current.x) / pageWidth;
-      const newWidth = Math.max(0.05, Math.min(initialAnnPosRef.current.width + dx, 1 - annotation.x));
-      const aspectRatio = annotation.aspectRatio || 1.33;
-      const pixelWidth = newWidth * pageWidth;
-      const pixelHeight = pixelWidth / aspectRatio;
-      const newHeight = pixelHeight / pageHeight;
+      const aspectRatio =
+        annotation.aspectRatio ||
+        (initialAnnPosRef.current.width * pageWidth) /
+          (initialAnnPosRef.current.height * pageHeight) ||
+        1.33;
 
-      if (annotation.y + newHeight <= 1) {
-        onUpdate(annotation.id, { width: newWidth, height: newHeight });
-      }
+      // Calculate maximum dimensions permitted by right and bottom page edges
+      const maxAllowedWidth = Math.max(0.04, 1 - initialAnnPosRef.current.x);
+      const maxAllowedHeight = Math.max(0.04, 1 - initialAnnPosRef.current.y);
+
+      // Constrain width by bottom page edge while locking aspect ratio
+      const maxWidthFromBottom = (maxAllowedHeight * pageHeight * aspectRatio) / pageWidth;
+      const upperLimitWidth = Math.min(maxAllowedWidth, maxWidthFromBottom);
+
+      const targetWidth = Math.max(
+        0.04,
+        Math.min(initialAnnPosRef.current.width + dx, upperLimitWidth)
+      );
+      const targetPixelWidth = targetWidth * pageWidth;
+      const targetPixelHeight = targetPixelWidth / aspectRatio;
+      const targetHeight = targetPixelHeight / pageHeight;
+
+      onUpdate(annotation.id, {
+        width: targetWidth,
+        height: targetHeight,
+      });
     };
 
     const handleMouseUp = () => {
@@ -207,15 +227,20 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
               !annotation.aspectRatio ||
               Math.abs(annotation.aspectRatio - actualRatio) > 0.05
             ) {
-              const currentPixelW = annotation.width * pageWidth;
+              const maxAllowedW = Math.max(0.04, 1 - annotation.x);
+              const maxAllowedH = Math.max(0.04, 1 - annotation.y);
+              const maxWidthFromBottom = (maxAllowedH * pageHeight * actualRatio) / pageWidth;
+              const upperLimitW = Math.min(maxAllowedW, maxWidthFromBottom);
+
+              const currentPixelW = Math.min(annotation.width, upperLimitW) * pageWidth;
               const correctedPixelH = currentPixelW / actualRatio;
               const correctedHeight = correctedPixelH / pageHeight;
-              if (annotation.y + correctedHeight <= 1.05) {
-                onUpdate(annotation.id, {
-                  aspectRatio: actualRatio,
-                  height: Math.min(correctedHeight, 0.95),
-                });
-              }
+
+              onUpdate(annotation.id, {
+                aspectRatio: actualRatio,
+                width: currentPixelW / pageWidth,
+                height: correctedHeight,
+              });
             }
           }
         }}
