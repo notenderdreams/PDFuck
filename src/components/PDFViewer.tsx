@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, UploadCloud } from 'lucide-react';
 import type { Annotation, ReadingTheme, ToolType, ViewMode } from '../utils/types';
 import type { AiExplanationAnnotation } from '../utils/types';
 import type { AiJobState } from '../hooks/useAiExplanations';
+import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
 
 interface PDFViewerProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -160,7 +161,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     prevDocRef.current = pdfDoc;
     prevViewModeRef.current = viewMode;
 
-    if (pdfDoc && viewerContainerRef.current) {
+    if (
+      shouldRestoreViewerPosition(Boolean(pdfDoc), isNewDoc, isNewMode) &&
+      viewerContainerRef.current
+    ) {
       const container = viewerContainerRef.current;
       const centerAndRestore = () => {
         const centerScrollLeft = (container.scrollWidth - container.clientWidth) / 2;
