@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { pdfjsLib } from '../utils/pdfWorker';
 import type { DocumentInfo, PDFOutlineItem, SearchMatch } from '../utils/types';
-import { loadLastPageForDoc, saveLastPageForDoc } from '../utils/storage';
+import { loadLastPageForDoc, saveLastPageForDoc, updateRecentDocPageCount } from '../utils/storage';
 
 export function usePDFDocument() {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -50,6 +50,7 @@ export function usePDFDocument() {
 
         const key = documentKeyOverride || `${fileName}_${loadedDoc.numPages}_${bytes.length}`;
         setDocKey(key);
+        updateRecentDocPageCount(filePath || fileName, loadedDoc.numPages);
 
         // Metadata
         const metadata = await loadedDoc.getMetadata().catch(() => ({ info: {} }));

@@ -7,9 +7,39 @@ const STORAGE_KEYS = {
   RECENT_DOCS: 'pdfuck_recent_docs',
   SAVED_DIRS: 'pdfuck_saved_directories',
   FAVORITES: 'pdfuck_favorite_doc_ids',
+  PDF_PAGE_COUNTS: 'pdfuck_pdf_page_counts',
   ANNOTATIONS_PREFIX: 'pdfuck_annotations_',
   LAST_PAGE_PREFIX: 'pdfuck_last_page_',
 };
+
+interface PdfPageCountCacheEntry {
+  modifiedTimestamp: number;
+  numPages: number;
+}
+
+type PdfPageCountCache = Record<string, PdfPageCountCacheEntry>;
+
+export function loadCachedPdfPageCount(filePath: string, modifiedTimestamp: number): number | undefined {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PDF_PAGE_COUNTS);
+    const cache = raw ? (JSON.parse(raw) as PdfPageCountCache) : {};
+    const entry = cache[filePath];
+    return entry?.modifiedTimestamp === modifiedTimestamp ? entry.numPages : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function cachePdfPageCount(filePath: string, modifiedTimestamp: number, numPages: number): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PDF_PAGE_COUNTS);
+    const cache = raw ? (JSON.parse(raw) as PdfPageCountCache) : {};
+    cache[filePath] = { modifiedTimestamp, numPages };
+    localStorage.setItem(STORAGE_KEYS.PDF_PAGE_COUNTS, JSON.stringify(cache));
+  } catch (error) {
+    console.warn('Failed to cache PDF page count', error);
+  }
+}
 
 // --- IndexedDB Engine for Large Annotation Payloads (Images, Stickers, Ink) ---
 const IDB_NAME = 'pdfuck_database';
@@ -365,6 +395,19 @@ export function updateRecentDocLastPage(identifier: string, pageNumber: number):
     const updated = current.map((doc) => {
       if (doc.filePath === identifier || doc.fileName === identifier || doc.id === identifier) {
         return { ...doc, lastReadPage: pageNumber };
+      }
+      return doc;
+    });
+    localStorage.setItem(STORAGE_KEYS.RECENT_DOCS, JSON.stringify(updated));
+  } catch {}
+}
+
+export function updateRecentDocPageCount(identifier: string, numPages: number): void {
+  try {
+    const current = loadRecentDocs();
+    const updated = current.map((doc) => {
+      if (doc.filePath === identifier || doc.fileName === identifier || doc.id === identifier) {
+        return { ...doc, numPages };
       }
       return doc;
     });

@@ -35,7 +35,11 @@ import {
   recordRecentDoc,
   loadFavorites,
   toggleFavorite as toggleStorageFavorite,
+  loadCachedPdfPageCount,
+  cachePdfPageCount,
+  updateRecentDocPageCount,
 } from '../utils/storage';
+import { getPdfPageCount } from '../utils/pdfMetadata';
 
 interface DashboardProps {
   onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => void;
@@ -54,6 +58,70 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: React.FC<{ classNa
   { value: 'name', label: 'File name', icon: FileText },
   { value: 'size', label: 'File size', icon: HardDrive },
 ];
+
+interface LibraryPageCountProps {
+  item: DashboardPdfItem;
+  onResolved: (item: DashboardPdfItem, numPages: number) => void;
+}
+
+const LibraryPageCount: React.FC<LibraryPageCountProps> = ({ item, onResolved }) => {
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const [numPages, setNumPages] = useState(item.numPages);
+
+  useEffect(() => {
+    setNumPages(item.numPages);
+  }, [item.numPages]);
+
+  useEffect(() => {
+    if (numPages !== undefined || !item.filePath || !isTauri()) return;
+
+    let cancelled = false;
+    let started = false;
+    const loadPageCount = async () => {
+      if (started) return;
+      started = true;
+      const file = await tauriReadFile(item.filePath);
+      if (!file || cancelled) return;
+      try {
+        const count = await getPdfPageCount(file.data);
+        if (!cancelled) {
+          setNumPages(count);
+          onResolved(item, count);
+        }
+      } catch (error) {
+        console.warn(`Could not read page count for ${item.fileName}`, error);
+      }
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      void loadPageCount();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        void loadPageCount();
+      }
+    }, { rootMargin: '160px' });
+    if (anchorRef.current) observer.observe(anchorRef.current);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [item, numPages, onResolved]);
+
+  return (
+    <span ref={anchorRef} className="shrink-0 tabular-nums">
+      {numPages === undefined
+        ? isTauri() ? 'Counting pages…' : 'Page count unavailable'
+        : `${numPages} ${numPages === 1 ? 'page' : 'pages'}`}
+    </span>
+  );
+};
 
 export const Dashboard: React.FC<DashboardProps> = ({
   onOpenPdf,
@@ -117,6 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             fileSize: res.file_size,
             modifiedTimestamp: res.modified_timestamp,
             directoryPath: dir.path,
+            numPages: loadCachedPdfPageCount(res.file_path, res.modified_timestamp),
           });
         });
       }
@@ -260,7 +329,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     recentDocs.forEach((rec) => {
       const existing = map.get(rec.filePath);
       if (existing) {
-        map.set(rec.filePath, { ...existing, ...rec });
+        map.set(rec.filePath, {
+          ...existing,
+          ...rec,
+          modifiedTimestamp: existing.modifiedTimestamp,
+        });
       } else {
         map.set(rec.filePath, rec);
       }
@@ -314,6 +387,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [combinedItems, activeFilter, searchQuery, sortBy]);
 
   const totalPdfsCount = combinedItems.length;
+
+  const handlePageCountResolved = useCallback((item: DashboardPdfItem, numPages: number) => {
+    cachePdfPageCount(item.filePath, item.modifiedTimestamp, numPages);
+    updateRecentDocPageCount(item.filePath, numPages);
+    setPdfItems((current) =>
+      current.map((pdf) => (pdf.filePath === item.filePath ? { ...pdf, numPages } : pdf))
+    );
+    setRecentDocs((current) =>
+      current.map((pdf) => (pdf.filePath === item.filePath ? { ...pdf, numPages } : pdf))
+    );
+  }, []);
 
   return (
     <div className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
@@ -635,6 +719,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span className="truncate max-w-[22rem]">{item.directoryPath || item.filePath || 'Local document'}</span>
                       <span aria-hidden="true">·</span>
                       <span className="shrink-0 tabular-nums">{item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}</span>
+                      <span aria-hidden="true">·</span>
+                      <LibraryPageCount item={item} onResolved={handlePageCountResolved} />
                       {item.lastReadPage && <span className="shrink-0">Last read · Page {item.lastReadPage}</span>}
                     </div>
                   </div>
