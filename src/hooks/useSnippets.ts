@@ -181,6 +181,13 @@ export function useSnippets(docKey: string) {
     pushState([]);
   }, [pushState]);
 
+  const replaceSnippets = useCallback((nextEntries: SnippetEntry[]) => {
+    setSnippets(nextEntries);
+    snippetsRef.current = nextEntries;
+    setHistory([nextEntries]);
+    setHistoryIndex(0);
+  }, []);
+
   return {
     snippets,
     addSnippet,
@@ -195,5 +202,6 @@ export function useSnippets(docKey: string) {
     canUndo,
     canRedo,
     setSnippets,
+    replaceSnippets,
   };
 }

@@ -8,6 +8,7 @@ import { ColorThemeModal } from './components/ColorThemeModal';
 import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ExportModal } from './components/ExportModal';
+import { DeletePageConfirmationDialog } from './components/DeletePageConfirmationDialog';
 import { Check, Info, Sidebar as SidebarIcon } from 'lucide-react';
 
 import { usePDFDocument } from './hooks/usePDFDocument';
@@ -25,6 +26,7 @@ import {
   copyTextToClipboard,
   copyPageImageToClipboard,
   deletePageFromPdf,
+  reindexAfterPageDeletion,
   downloadPageAsJpg,
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
@@ -51,6 +53,8 @@ export function App() {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [pagePendingDeletion, setPagePendingDeletion] = useState<number | null>(null);
+  const [isDeletingPage, setIsDeletingPage] = useState<boolean>(false);
 
   // Active Toast Feedback
   const [toastMessage, setToastMessage] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -129,6 +133,7 @@ export function App() {
     redo: redoSnippets,
     canUndo: canUndoSnippets,
     canRedo: canRedoSnippets,
+    replaceSnippets,
   } = useSnippets(docKey);
 
   const {
@@ -494,42 +499,76 @@ export function App() {
     [addAnnotation, aiExplanations.openComposer, pdfDoc]
   );
 
-  const handleDeletePage = useCallback(
-    async (pageNumber: number) => {
+  const requestDeletePage = useCallback(
+    (pageNumber: number) => {
       if (!pdfDoc || !rawPdfBytes || !docInfo) return;
       if (pdfDoc.numPages <= 1) {
         showToast('A PDF must keep at least one page.', true);
         return;
       }
-      if (!window.confirm(`Delete Page ${pageNumber}? This changes the current document.`)) return;
+      setPagePendingDeletion(pageNumber);
+    },
+    [docInfo, pdfDoc, rawPdfBytes, showToast]
+  );
 
+  const handleDeletePage = useCallback(
+    async () => {
+      const pageNumber = pagePendingDeletion;
+      if (pageNumber === null) return;
+      if (!pdfDoc || !rawPdfBytes || !docInfo) return;
+      if (pdfDoc.numPages <= 1) {
+        showToast('A PDF must keep at least one page.', true);
+        setPagePendingDeletion(null);
+        return;
+      }
+
+      setIsDeletingPage(true);
       try {
         const updatedBytes = await deletePageFromPdf(rawPdfBytes, pageNumber);
-        const updatedAnnotations = annotations
-          .filter((annotation) => annotation.pageNumber !== pageNumber)
-          .map((annotation) =>
-            annotation.pageNumber > pageNumber
-              ? ({ ...annotation, pageNumber: annotation.pageNumber - 1 } as Annotation)
-              : annotation
-          );
+        const updatedAnnotations = reindexAfterPageDeletion(annotations, pageNumber);
+        const updatedSnippets = reindexAfterPageDeletion(snippets, pageNumber);
         const nextPage = Math.min(pageNumber, pdfDoc.numPages - 1);
 
-        replaceAnnotations(updatedAnnotations);
-        await loadPdf(
+        const reloaded = await loadPdf(
           updatedBytes,
           docInfo.fileName,
           docInfo.filePath,
           nextPage,
-          docKey
+          docKey,
+          docInfo.fingerprint
         );
+        if (!reloaded) {
+          showToast('Could not reload the PDF after deleting the page.', true);
+          return;
+        }
+
+        replaceAnnotations(updatedAnnotations);
+        replaceSnippets(updatedSnippets);
+        setSelectedAnnotationId(null);
+        cursorPosRef.current = null;
         setPageNavRequest({ page: nextPage, timestamp: Date.now() });
+        setPagePendingDeletion(null);
         showToast(`Deleted Page ${pageNumber}.`);
       } catch (error) {
         console.error('Failed to delete PDF page:', error);
         showToast('Could not delete the page.', true);
+      } finally {
+        setIsDeletingPage(false);
       }
     },
-    [annotations, docInfo, docKey, loadPdf, pdfDoc, rawPdfBytes, replaceAnnotations, showToast]
+    [
+      annotations,
+      docInfo,
+      docKey,
+      loadPdf,
+      pagePendingDeletion,
+      pdfDoc,
+      rawPdfBytes,
+      replaceAnnotations,
+      replaceSnippets,
+      showToast,
+      snippets,
+    ]
   );
 
   // Cursor-aware Clipboard Paste: Pastes image at mouse cursor position on hovered page
@@ -768,7 +807,7 @@ export function App() {
                 onSubmitAi={(annotation, prompt) => void aiExplanations.submit(annotation, prompt)}
                 onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
                 onCloseAi={aiExplanations.close}
-                onDeletePage={(pageNumber) => void handleDeletePage(pageNumber)}
+                onDeletePage={requestDeletePage}
                 onCopyPageText={(pageNumber) => void handleCopyPageText(pageNumber)}
                 onCopyPageImage={(pageNumber) => void handleCopyPageJpg(pageNumber)}
                 onAskAiAboutPage={handleAskAiAboutPage}
@@ -865,6 +904,13 @@ export function App() {
           />
         </>
       )}
+
+      <DeletePageConfirmationDialog
+        pageNumber={pagePendingDeletion}
+        isDeleting={isDeletingPage}
+        onCancel={() => setPagePendingDeletion(null)}
+        onConfirm={() => void handleDeletePage()}
+      />
     </div>
   );
 }

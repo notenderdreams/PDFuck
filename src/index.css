@@ -290,6 +290,145 @@
   background: var(--border);
 }
 
+/* Delete page confirmation ---------------------------------------------- */
+.delete-page-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: deletePageBackdropIn 140ms ease-out;
+}
+
+.delete-page-dialog {
+  display: flex;
+  width: min(380px, 100%);
+  gap: 12px;
+  padding: 18px;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.45) inset,
+    0 8px 24px rgba(0, 0, 0, 0.16),
+    0 28px 64px rgba(0, 0, 0, 0.14);
+  animation: deletePageDialogIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-ui-theme='dark'] .delete-page-dialog {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.07) inset,
+    0 12px 30px rgba(0, 0, 0, 0.42),
+    0 32px 72px rgba(0, 0, 0, 0.34);
+}
+
+.delete-page-dialog__icon {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 11%, transparent);
+  border-radius: 9px;
+}
+
+.delete-page-dialog__icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.8;
+}
+
+.delete-page-dialog__title {
+  margin: 1px 0 0;
+  color: var(--popover-foreground);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 19px;
+  letter-spacing: -0.015em;
+}
+
+.delete-page-dialog__description {
+  margin: 4px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.delete-page-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.delete-page-dialog__confirm {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  color: var(--destructive-foreground);
+  background: var(--destructive);
+  border: 0.5px solid color-mix(in srgb, var(--destructive) 82%, #000000);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--destructive) 22%, transparent);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 16px;
+  transition: filter 120ms ease, transform 100ms ease;
+}
+
+.delete-page-dialog__confirm:hover {
+  filter: brightness(0.94);
+}
+
+.delete-page-dialog__confirm:active {
+  transform: scale(0.98);
+}
+
+.delete-page-dialog__confirm:focus-visible,
+.delete-page-dialog .btn-secondary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.delete-page-dialog__confirm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.delete-page-dialog__confirm svg {
+  width: 14px;
+  height: 14px;
+}
+
+@keyframes deletePageBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes deletePageDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes pageContextMenuIn {
   from {
     opacity: 0;
@@ -302,7 +441,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-context-menu {
+  .page-context-menu,
+  .delete-page-dialog-backdrop,
+  .delete-page-dialog {
     animation: none;
   }
 

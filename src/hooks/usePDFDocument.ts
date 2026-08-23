@@ -27,22 +27,25 @@ export function usePDFDocument() {
       fileName: string = 'document.pdf',
       filePath?: string,
       initialPageNumber?: number,
-      documentKeyOverride?: string
+      documentKeyOverride?: string,
+      documentFingerprintOverride?: string
     ) => {
       setIsLoading(true);
       setError(null);
       try {
-        const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-        setRawPdfBytes(bytes);
+        // PDF.js may transfer its input buffer to the worker. Keep an owned copy
+        // for export and page editing, and give the viewer a separate copy.
+        const bytes = data instanceof Uint8Array ? data.slice() : new Uint8Array(data.slice(0));
 
         const loadingTask = pdfjsLib.getDocument({
-          data: bytes,
+          data: bytes.slice(),
           cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
           cMapPacked: true,
         });
 
         const loadedDoc = await loadingTask.promise;
         activeDocRef.current = loadedDoc;
+        setRawPdfBytes(bytes);
         setPdfDoc(loadedDoc);
 
         const key = documentKeyOverride || `${fileName}_${loadedDoc.numPages}_${bytes.length}`;
@@ -58,7 +61,10 @@ export function usePDFDocument() {
           fileSize: bytes.byteLength,
           title: infoObj.Title || fileName,
           author: infoObj.Author || undefined,
-          fingerprint: (loadedDoc as unknown as { fingerprint?: string }).fingerprint || key,
+          fingerprint:
+            documentFingerprintOverride ||
+            (loadedDoc as unknown as { fingerprint?: string }).fingerprint ||
+            key,
         });
 
         // Outline / Table of Contents
@@ -97,9 +103,14 @@ export function usePDFDocument() {
         const initialPage = savedPage && savedPage <= loadedDoc.numPages ? savedPage : 1;
         setCurrentPage(initialPage);
         saveLastPageForDoc(key, initialPage, fileName, filePath);
+        setSearchResults([]);
+        setCurrentMatchIndex(-1);
+        setIsSearching(false);
+        return true;
       } catch (err: unknown) {
         console.error('Error loading PDF:', err);
         setError(err instanceof Error ? err.message : 'Failed to load PDF');
+        return false;
       } finally {
         setIsLoading(false);
       }

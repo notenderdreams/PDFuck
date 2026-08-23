@@ -115,7 +115,8 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     annotationsRef.current = nextAnnotations;
     setHistory([nextAnnotations]);
     setHistoryIndex(0);
-  }, []);
+    saveAnnotationsForDoc(docKey, nextAnnotations, fallbackKeys);
+  }, [docKey, fallbackKeys]);
 
   const undo = useCallback(() => {
     if (historyIndex > 0) {

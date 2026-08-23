@@ -240,6 +240,20 @@ export async function deletePageFromPdf(
   return document.save();
 }
 
+/** Remove entries attached to a deleted page and shift later ones, preserving unpaged entries. */
+export function reindexAfterPageDeletion<T>(
+  entries: T[],
+  deletedPageNumber: number
+): T[] {
+  return entries.flatMap((entry) => {
+    const pageNumber = (entry as { pageNumber?: unknown }).pageNumber;
+    if (typeof pageNumber !== 'number') return [entry];
+    if (pageNumber === deletedPageNumber) return [];
+    if (pageNumber < deletedPageNumber) return [entry];
+    return [{ ...entry, pageNumber: pageNumber - 1 }];
+  });
+}
+
 /**
  * Download composite page image as high-res JPG (Optional standalone download action)
  */
