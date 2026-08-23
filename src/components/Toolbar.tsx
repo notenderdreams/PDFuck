@@ -51,6 +51,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onChangeStrokeWidth,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
+  const [hoveredTool, setHoveredTool] = useState<ToolType | 'color' | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
 
   // Click-outside and Escape key dismissal for color palette popover
@@ -77,76 +78,99 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   }, [showPalette]);
 
   const tools: { id: ToolType; icon: React.FC<{ className?: string }>; label: string; shortcut: string }[] = [
-    { id: 'select', icon: MousePointer, label: 'Pointer Tool (V)', shortcut: 'V' },
-    { id: 'highlight-line', icon: PenLine, label: 'Straight Line Highlighter (L)', shortcut: 'L' },
-    { id: 'highlight-pen', icon: Highlighter, label: 'Freehand Highlighter (H)', shortcut: 'H' },
-    { id: 'highlight-rect', icon: Square, label: 'Area Box (R)', shortcut: 'R' },
-    { id: 'pen', icon: PenTool, label: 'Pen Tool (P)', shortcut: 'P' },
-    { id: 'snip', icon: Crop, label: 'Snip & Compact for AI (C)', shortcut: 'C' },
-    { id: 'ai-box', icon: ScanSearch, label: 'Explain Region with Codex (A)', shortcut: 'A' },
-    { id: 'text', icon: Type, label: 'Text Note (T)', shortcut: 'T' },
-    { id: 'eraser', icon: Eraser, label: 'Eraser (E)', shortcut: 'E' },
+    { id: 'select', icon: MousePointer, label: 'Pointer', shortcut: 'V' },
+    { id: 'highlight-line', icon: PenLine, label: 'Line Highlight', shortcut: 'L' },
+    { id: 'highlight-pen', icon: Highlighter, label: 'Freehand', shortcut: 'H' },
+    { id: 'highlight-rect', icon: Square, label: 'Area Box', shortcut: 'R' },
+    { id: 'pen', icon: PenTool, label: 'Pen', shortcut: 'P' },
+    { id: 'snip', icon: Crop, label: 'Snip to AI', shortcut: 'C' },
+    { id: 'ai-box', icon: ScanSearch, label: 'Explain Region', shortcut: 'A' },
+    { id: 'text', icon: Type, label: 'Text Note', shortcut: 'T' },
+    { id: 'eraser', icon: Eraser, label: 'Eraser', shortcut: 'E' },
   ];
 
   return (
     <nav
-      aria-label="Annotation Tools"
-      className="macos-annotation-toolbar fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 p-1 rounded-full select-none animate-slide-up"
+      aria-label="Annotation Dock"
+      className="macos-annotation-dock fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center select-none animate-slide-up"
     >
-      {/* Tool Buttons */}
+      {/* Tool Buttons with Mac Dock Magnification & Tooltips */}
       {tools.map((tool) => {
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
+        const isHovered = hoveredTool === tool.id;
+
         return (
-          <button
-            key={tool.id}
-            onClick={() => onSelectTool(tool.id)}
-            className={`flex items-center justify-center w-8 h-8 rounded-full transition-all ${
-              isActive
-                ? 'bg-blue-500 text-white shadow-xs scale-102'
-                : 'text-zinc-400 hover:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/10'
-            }`}
-            title={tool.label}
-          >
-            <Icon className="w-3.5 h-3.5" />
-          </button>
+          <div key={tool.id} className="relative flex items-center justify-center">
+            {/* Glossy Dock Tooltip */}
+            {isHovered && !showPalette && (
+              <div className="macos-dock-tooltip">
+                <span>{tool.label}</span>
+                <span className="macos-dock-badge">{tool.shortcut}</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => onSelectTool(tool.id)}
+              onMouseEnter={() => setHoveredTool(tool.id)}
+              onMouseLeave={() => setHoveredTool(null)}
+              className={`macos-dock-item ${isActive ? 'macos-dock-item-active' : ''}`}
+              aria-label={tool.label}
+              aria-pressed={isActive}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          </div>
         );
       })}
 
-      {/* Subtle Inset Divider */}
-      <div className="w-[1px] h-4 bg-[var(--border)] mx-0.5" />
+      {/* Glossy Etched Glass Divider */}
+      <div className="macos-dock-divider" aria-hidden="true" />
 
-      {/* Color Swatch & Stroke Well */}
-      <div className="relative" ref={paletteRef}>
+      {/* Color Swatch Orb & Floating Palette */}
+      <div className="relative flex items-center justify-center" ref={paletteRef}>
+        {hoveredTool === 'color' && !showPalette && (
+          <div className="macos-dock-tooltip">
+            <span>Color & Stroke</span>
+          </div>
+        )}
+
         <button
-          onClick={() => setShowPalette(!showPalette)}
-          className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-all p-1"
-          title="Color & Stroke"
+          onClick={() => {
+            setShowPalette(!showPalette);
+            setHoveredTool(null);
+          }}
+          onMouseEnter={() => setHoveredTool('color')}
+          onMouseLeave={() => setHoveredTool(null)}
+          className="macos-dock-item"
+          aria-label="Select Color and Stroke Size"
+          aria-expanded={showPalette}
         >
           <span
-            className={`w-4 h-4 rounded-full border border-white/20 shadow-xs ${
+            className={`macos-color-orb ${
               isInvertedColorMode ? 'annotation-color-preview-invert' : ''
             }`}
             style={{ backgroundColor: selectedColor }}
           />
         </button>
 
-        {/* Color & Stroke Popover */}
+        {/* Glossy Frosted Glass Palette Popover */}
         {showPalette && (
-          <div className="absolute bottom-11 left-1/2 -translate-x-1/2 p-3.5 rounded-2xl bg-[var(--popover)] border border-[var(--border)] shadow-2xl flex flex-col gap-3 min-w-[190px] animate-slide-up z-50">
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 p-3.5 rounded-2xl bg-[var(--popover)]/95 border border-white/20 backdrop-blur-2xl shadow-2xl flex flex-col gap-3 min-w-[200px] animate-slide-up z-50">
             <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
               <span>Swatches</span>
               <input
                 type="color"
                 value={selectedColor}
                 onChange={(e) => onSelectColor(e.target.value)}
-                className={`w-4.5 h-4.5 rounded-full border-0 bg-transparent cursor-pointer ${
+                className={`w-5 h-5 rounded-full border-0 bg-transparent cursor-pointer ${
                   isInvertedColorMode ? 'annotation-color-preview-invert' : ''
                 }`}
-                title="Custom Color"
+                title="Custom Color Picker"
               />
             </div>
-            {/* Color Swatch Grid */}
+
+            {/* Color Swatch Grid with Glossy Chips */}
             <div className="grid grid-cols-4 gap-2">
               {COLOR_PRESETS.map((colorHex) => (
                 <button
@@ -159,8 +183,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     isInvertedColorMode ? 'annotation-color-preview-invert' : ''
                   } ${
                     selectedColor.toLowerCase() === colorHex.toLowerCase()
-                      ? 'ring-2 ring-blue-500 scale-105 shadow-xs'
-                      : 'opacity-85 hover:opacity-100 hover:scale-105 border border-black/20'
+                      ? 'ring-2 ring-blue-500 scale-110 shadow-md'
+                      : 'opacity-85 hover:opacity-100 hover:scale-108 border border-black/20'
                   }`}
                   style={{ backgroundColor: colorHex }}
                 />
@@ -171,7 +195,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div className="pt-2.5 border-t border-[var(--border)] flex flex-col gap-1.5">
               <div className="flex justify-between text-[10.5px] text-zinc-400 font-medium">
                 <span>Stroke Size</span>
-                <span className="font-mono text-zinc-200">{strokeWidth}px</span>
+                <span className="font-mono text-zinc-200 font-semibold">{strokeWidth}px</span>
               </div>
               <input
                 type="range"
