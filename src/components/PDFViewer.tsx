@@ -11,6 +11,7 @@ interface PDFViewerProps {
   rawPdfBytes: Uint8Array | null;
   currentPage: number;
   numPages: number;
+  pageNavRequest?: { page: number; timestamp: number } | null;
   zoom: number;
   viewMode: ViewMode;
   currentTheme: ReadingTheme;
@@ -44,6 +45,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   pdfDoc,
   currentPage,
   numPages,
+  pageNavRequest,
   zoom,
   viewMode,
   currentTheme,
@@ -78,6 +80,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
 
+  // Programmatic scroll flags to eliminate feedback loops between scroll events and onPageChange
+  const isProgrammaticScrollRef = useRef(false);
+  const programmaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastReportedPageRef = useRef<number>(currentPage);
+  const lastNavTimestampRef = useRef<number>(0);
+  const prevDocRef = useRef<PDFDocumentProxy | null>(null);
+  const prevViewModeRef = useRef<ViewMode>(viewMode);
+  const prevPropCurrentPageRef = useRef<number>(currentPage);
+
   // Track Spacebar for Space+Drag Panning (Hand Tool mode)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -105,39 +116,88 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     };
   }, []);
 
-  // Initial center scroll position horizontally when document is ready
-  const isInitialCenteredRef = useRef(false);
-  useEffect(() => {
-    isInitialCenteredRef.current = false;
-  }, [pdfDoc]);
+  // Smooth & deterministic scroll-to-page without touching scrollLeft
+  const scrollToPage = useCallback(
+    (targetPage: number, behavior: ScrollBehavior = 'smooth') => {
+      const container = viewerContainerRef.current;
+      if (!container || !pdfDoc || targetPage < 1 || targetPage > numPages) return;
 
+      if (viewMode === 'continuous') {
+        const pageEl = document.getElementById(`pdf-page-${targetPage}`);
+        if (!pageEl) return;
+
+        // Suppress intermediate scroll event page changes during smooth programmatic transition
+        isProgrammaticScrollRef.current = true;
+        if (programmaticScrollTimerRef.current) {
+          clearTimeout(programmaticScrollTimerRef.current);
+        }
+        programmaticScrollTimerRef.current = setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+          lastReportedPageRef.current = targetPage;
+        }, behavior === 'smooth' ? 600 : 80);
+
+        const targetRect = pageEl.getBoundingClientRect();
+        const contRect = container.getBoundingClientRect();
+        const targetScrollTop = container.scrollTop + (targetRect.top - contRect.top) - 16;
+
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior,
+        });
+        lastReportedPageRef.current = targetPage;
+      } else {
+        container.scrollTo({ top: 0, behavior: 'instant' });
+        lastReportedPageRef.current = targetPage;
+      }
+    },
+    [pdfDoc, numPages, viewMode]
+  );
+
+  // Initial horizontal centering & initial page restore on document load or viewMode switch
   useEffect(() => {
+    const isNewDoc = pdfDoc !== prevDocRef.current;
+    const isNewMode = viewMode !== prevViewModeRef.current;
+    prevDocRef.current = pdfDoc;
+    prevViewModeRef.current = viewMode;
+
     if (pdfDoc && viewerContainerRef.current) {
       const container = viewerContainerRef.current;
-      const centerScroll = () => {
-        if (!isInitialCenteredRef.current) {
-          const centerScrollLeft = (container.scrollWidth - container.clientWidth) / 2;
-          if (centerScrollLeft > 0) {
-            container.scrollLeft = centerScrollLeft;
-            isInitialCenteredRef.current = true;
+      const centerAndRestore = () => {
+        const centerScrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+        if (centerScrollLeft > 0) {
+          container.scrollLeft = centerScrollLeft;
+        }
+
+        if (isNewDoc || isNewMode) {
+          if (currentPage > 1) {
+            scrollToPage(currentPage, 'instant');
           }
         }
       };
 
-      requestAnimationFrame(centerScroll);
-      const timer = setTimeout(centerScroll, 100);
-
-      // Scroll to currentPage if not page 1
-      if (currentPage > 1) {
-        const targetEl = document.getElementById(`pdf-page-${currentPage}`);
-        if (targetEl) {
-          targetEl.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
-        }
-      }
-
+      requestAnimationFrame(centerAndRestore);
+      const timer = setTimeout(centerAndRestore, 120);
       return () => clearTimeout(timer);
     }
-  }, [pdfDoc, viewMode]);
+  }, [pdfDoc, viewMode, currentPage, scrollToPage]);
+
+  // Handle explicit page jump requests (from sidebar thumbnail click, outline click, search result click, etc.)
+  useEffect(() => {
+    if (pageNavRequest && pageNavRequest.timestamp !== lastNavTimestampRef.current) {
+      lastNavTimestampRef.current = pageNavRequest.timestamp;
+      scrollToPage(pageNavRequest.page, 'smooth');
+    }
+  }, [pageNavRequest, scrollToPage]);
+
+  // Handle external currentPage prop changes (when not already initiated by user scroll)
+  useEffect(() => {
+    if (currentPage !== prevPropCurrentPageRef.current) {
+      prevPropCurrentPageRef.current = currentPage;
+      if (currentPage !== lastReportedPageRef.current && !isProgrammaticScrollRef.current) {
+        scrollToPage(currentPage, 'smooth');
+      }
+    }
+  }, [currentPage, scrollToPage]);
 
   // Preserve zoom focal position during zoom transitions
   const prevZoomRef = useRef(zoom);
@@ -155,81 +215,109 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     container.scrollTop = currentCenterDocY * zoomRatio - container.clientHeight / 2;
   }, [zoom]);
 
-  // Scroll to page when navigating via stepper or thumbnail
-  const lastTargetPageRef = useRef<number>(currentPage);
-  useEffect(() => {
-    if (viewMode === 'continuous' && pdfDoc && currentPage > 0) {
-      if (lastTargetPageRef.current === currentPage) return;
-      lastTargetPageRef.current = currentPage;
-
-      const pageEl = document.getElementById(`pdf-page-${currentPage}`);
-      const container = viewerContainerRef.current;
-      if (pageEl && container) {
-        const rect = pageEl.getBoundingClientRect();
-        const contRect = container.getBoundingClientRect();
-        if (rect.bottom < contRect.top || rect.top > contRect.bottom) {
-          pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    }
-  }, [currentPage, pdfDoc, viewMode]);
-
-  // Mouse Wheel & Trackpad Pinch-to-Zoom (Ctrl/Cmd + Wheel)
-  useEffect(() => {
-    const container = viewerContainerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      // Pinch on trackpad sets e.ctrlKey=true. Cmd/Ctrl + Mouse Wheel also sets ctrlKey/metaKey.
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const zoomDelta = -e.deltaY * 0.004;
-        const newZoom = Math.min(3.5, Math.max(0.3, zoom + zoomDelta));
-        onChangeZoom(Number(newZoom.toFixed(2)));
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [zoom, onChangeZoom]);
-
-  // Track page scroll in continuous mode using IntersectionObserver
+  // High-performance, jitter-free scroll listener for active page detection
   useEffect(() => {
     if (viewMode !== 'continuous' || !pdfDoc) return;
 
     const container = viewerContainerRef.current;
     if (!container) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let maxRatio = 0;
-        let mostVisiblePage = currentPage;
+    let rafId: number | null = null;
 
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
-            const pageNum = parseInt(entry.target.id.replace('pdf-page-', ''), 10);
-            if (!isNaN(pageNum)) {
-              mostVisiblePage = pageNum;
-            }
+    const handleScroll = () => {
+      if (rafId !== null) return;
+
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (isProgrammaticScrollRef.current || !container) return;
+
+        const containerRect = container.getBoundingClientRect();
+        // Focal line at upper 35% of the viewport where user naturally reads
+        const focalLine = containerRect.top + Math.min(containerRect.height * 0.35, 240);
+
+        const pageElements = container.querySelectorAll<HTMLElement>('[id^="pdf-page-"]');
+        if (pageElements.length === 0) return;
+
+        let focalPage: number | null = null;
+        let maxOverlap = 0;
+        let maxOverlapPage = currentPage;
+
+        for (let i = 0; i < pageElements.length; i++) {
+          const el = pageElements[i];
+          const rect = el.getBoundingClientRect();
+          const pageNum = parseInt(el.id.replace('pdf-page-', ''), 10);
+          if (isNaN(pageNum)) continue;
+
+          // Check if page covers the focal line
+          if (rect.top <= focalLine && rect.bottom > focalLine) {
+            focalPage = pageNum;
+            break;
           }
-        });
 
-        if (mostVisiblePage !== currentPage && maxRatio > 0.3) {
-          onPageChange(mostVisiblePage);
+          // Calculate visible pixel overlap inside container
+          const visibleTop = Math.max(rect.top, containerRect.top);
+          const visibleBottom = Math.min(rect.bottom, containerRect.bottom);
+          const overlap = Math.max(0, visibleBottom - visibleTop);
+
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            maxOverlapPage = pageNum;
+          }
         }
-      },
-      {
-        root: container,
-        threshold: [0.1, 0.3, 0.5, 0.8],
+
+        const activePage = focalPage ?? maxOverlapPage;
+        if (activePage > 0 && activePage !== lastReportedPageRef.current) {
+          lastReportedPageRef.current = activePage;
+          onPageChange(activePage);
+        }
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [viewMode, pdfDoc, onPageChange, currentPage]);
+
+  // Mouse Wheel: Pinch-to-zoom and intuitive single-page turn on boundary scroll
+  useEffect(() => {
+    const container = viewerContainerRef.current;
+    if (!container) return;
+
+    let lastWheelPageTurnTime = 0;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Pinch on trackpad (ctrlKey) or Cmd/Ctrl + Mouse Wheel
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const zoomDelta = -e.deltaY * 0.004;
+        const newZoom = Math.min(3.5, Math.max(0.3, zoom + zoomDelta));
+        onChangeZoom(Number(newZoom.toFixed(2)));
+        return;
       }
-    );
 
-    const pageElements = container.querySelectorAll('[id^="pdf-page-"]');
-    pageElements.forEach((el) => observer.observe(el));
+      // In Single Page Mode, wheel scroll at boundaries turns the page smoothly
+      if (viewMode === 'single' && pdfDoc) {
+        const now = Date.now();
+        if (now - lastWheelPageTurnTime < 350) return;
 
-    return () => observer.disconnect();
-  }, [viewMode, pdfDoc, zoom]);
+        const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+        const isAtTop = container.scrollTop <= 10;
+
+        if (e.deltaY > 40 && isAtBottom && currentPage < numPages) {
+          lastWheelPageTurnTime = now;
+          onPageChange(currentPage + 1);
+        } else if (e.deltaY < -40 && isAtTop && currentPage > 1) {
+          lastWheelPageTurnTime = now;
+          onPageChange(currentPage - 1);
+        }
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [zoom, onChangeZoom, viewMode, pdfDoc, currentPage, numPages, onPageChange]);
 
   // Handle Mouse Down for Panning (Spacebar + Left Click, Middle Click, or Background Canvas Drag)
   const handleStartPan = (e: React.MouseEvent) => {

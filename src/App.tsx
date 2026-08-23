@@ -138,6 +138,16 @@ export function App() {
     getCustomFilterStyle,
   } = useColorTheme();
 
+  const [pageNavRequest, setPageNavRequest] = useState<{ page: number; timestamp: number } | null>(null);
+
+  const handleNavigatePage = useCallback(
+    (page: number) => {
+      changePage(page);
+      setPageNavRequest({ page, timestamp: Date.now() });
+    },
+    [changePage]
+  );
+
   const isDarkTheme = usesInvertedColorSpace(themeSettings.theme);
 
   useEffect(() => {
@@ -498,8 +508,8 @@ export function App() {
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
     onZoomOut: () => setZoom((z) => Math.max(0.3, z - 0.15)),
     onResetZoom: () => setZoom(1.15),
-    onNextPage: () => changePage(currentPage + 1),
-    onPrevPage: () => changePage(currentPage - 1),
+    onNextPage: () => handleNavigatePage(currentPage + 1),
+    onPrevPage: () => handleNavigatePage(currentPage - 1),
     onToggleZen: () => setIsZenMode((prev) => !prev),
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
     onToggleLibrary: () =>
@@ -580,7 +590,7 @@ export function App() {
             onToggleShortcuts={() => setIsShortcutsModalOpen(true)}
             onChangeViewMode={handleChangeViewMode}
             onChangeZoom={(newZoom) => setZoom(newZoom)}
-            onPageChange={(p) => changePage(p)}
+            onPageChange={handleNavigatePage}
             onCopyPageText={() => handleCopyPageText(currentPage)}
             onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
           />
@@ -601,7 +611,7 @@ export function App() {
               filterClass={getPageFilterClass()}
               customFilterStyle={getCustomFilterStyle()}
               onClose={() => setIsSidebarOpen(false)}
-              onPageSelect={(p) => changePage(p)}
+              onPageSelect={handleNavigatePage}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
               snippets={snippets}
               isSnipActive={activeTool === 'snip'}
@@ -642,6 +652,7 @@ export function App() {
                 rawPdfBytes={rawPdfBytes}
                 currentPage={currentPage}
                 numPages={pdfDoc?.numPages || 0}
+                pageNavRequest={pageNavRequest}
                 zoom={zoom}
                 viewMode={viewMode}
                 currentTheme={themeSettings.theme}
