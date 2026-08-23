@@ -1451,28 +1451,7 @@
   filter: invert(0.92) hue-rotate(180deg) contrast(0.95) brightness(0.95);
 }
 
-/* Precision Selectable PDF Text Layer */
-.textLayer {
-  position: absolute;
-  text-align: initial;
-  inset: 0;
-  overflow: hidden;
-  opacity: 1;
-  line-height: 1;
-  text-size-adjust: none;
-  forced-color-adjust: none;
-  transform-origin: 0 0;
-  z-index: 10;
-}
-
-.textLayer :is(span, br) {
-  color: transparent !important;
-  position: absolute;
-  white-space: pre;
-  cursor: text;
-  transform-origin: 0 0;
-}
-
+/* Custom TextLayer Selection Color Overrides (since we imported pdf_viewer.css) */
 .textLayer ::selection {
   background: rgba(255, 255, 255, 0.25) !important;
   color: transparent !important;

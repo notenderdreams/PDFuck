@@ -7,6 +7,7 @@ import { TextNoteOverlay } from './TextNoteOverlay';
 import { AiExplanationOverlay } from './AiExplanationOverlay';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { usesInvertedColorSpace } from '../utils/readingTheme';
+import 'pdfjs-dist/web/pdf_viewer.css';
 import type {
   Annotation,
   AttachedImageAnnotation,
