@@ -26,6 +26,13 @@ interface Props {
 
 const DEFAULT_PROMPT = 'Explain this clearly and concisely';
 
+const QUICK_PROMPTS = [
+  'Explain clearly',
+  'Summarize key points',
+  'Explain formulas & math',
+  'Define technical terms',
+];
+
 export const AiExplanationOverlay: React.FC<Props> = ({
   pageWidth,
   pageHeight,
@@ -42,6 +49,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   const [openId, setOpenId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingResponse, setEditingResponse] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const activeJobId = Object.keys(jobs).find((id) => annotations.some((annotation) => annotation.id === id));
   const activeId = activeJobId || openId;
@@ -134,6 +142,18 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     }
   };
 
+  const handleCopyText = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => {
+        setCopiedId((curr) => (curr === id ? null : curr));
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
   return (
     <div className="absolute inset-0 z-30 pointer-events-none">
       {/* Floating AI Pin Buttons on Canvas */}
@@ -152,7 +172,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
               isRunning ? 'macos-ai-pin-thinking' : ''
             }`}
           >
-            <Sparkles className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
+            <Sparkles className="w-3.5 h-3.5" />
           </button>
         );
       })}
@@ -170,14 +190,12 @@ export const AiExplanationOverlay: React.FC<Props> = ({
           onClick={(event) => event.stopPropagation()}
         >
           {/* Header Bar */}
-          <div className="flex items-center justify-between gap-2 pb-1 border-b border-[var(--border)]">
+          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[var(--border)]">
             <div className="flex items-center gap-2 text-xs font-semibold">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-xs">
-                <Sparkles className={`w-3 h-3 ${job?.phase === 'running' ? 'animate-spin' : ''}`} />
-              </div>
-              <span className="text-zinc-100 font-medium">AI Analysis</span>
+              <Sparkles className="w-4 h-4 text-blue-500" />
+              <span className="text-zinc-100 font-medium tracking-tight">AI Assistant</span>
               {job?.phase === 'running' && (
-                <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
                   Thinking…
                 </span>
@@ -185,18 +203,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             </div>
 
             <div className="flex items-center gap-1">
-              {active.response && !job && (
-                <button
-                  className="btn-icon w-6 h-6"
-                  title="Rasterize explanation into adjustable image card"
-                  onClick={() => void handleRasterizeResponse(active)}
-                  aria-label="Rasterize explanation"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                </button>
-              )}
               <button
-                className="btn-icon w-6 h-6"
+                className="macos-ai-action-btn w-6 h-6 rounded-md"
                 onClick={() => {
                   if (job?.phase === 'running') void onCancel(active.id);
                   if (!active.response) {
@@ -224,23 +232,22 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  {/* Luminous Shimmering Thinking Box */}
-                  <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2">
+                  {/* Clean Text-Driven Shimmer Thinking Box */}
+                  <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2.5">
                     <div className="macos-ai-thinking-shimmer" />
-                    <div className="flex items-center gap-3 relative z-10">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
-                        <Sparkles className="w-4 h-4 animate-spin text-blue-400" />
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
-                          Thinking & Explaining
-                          <span className="inline-flex gap-1 items-center">
-                            <span className="w-1 h-1 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1 h-1 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1 h-1 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </span>
+                    <div className="flex flex-col gap-2 relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className="ai-text-shimmer text-xs">
+                          Thinking & generating explanation…
                         </span>
-                        <span className="text-[11px] text-zinc-400">Reading document context and generating answer</span>
+                        <span className="text-[10px] text-zinc-500 font-mono">Analyzing context</span>
+                      </div>
+
+                      {/* Clean Shimmer Skeleton Lines */}
+                      <div className="flex flex-col gap-1.5 pt-0.5">
+                        <div className="ai-skeleton-line w-full" />
+                        <div className="ai-skeleton-line w-4/5" />
+                        <div className="ai-skeleton-line w-3/5" />
                       </div>
                     </div>
                   </div>
@@ -274,11 +281,27 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                     placeholder="Type your question and press Enter..."
                     className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 leading-relaxed font-sans transition-all"
                   />
+
+                  {/* Quick Preset Prompt Pills */}
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {QUICK_PROMPTS.map((qp) => (
+                      <button
+                        key={qp}
+                        type="button"
+                        onClick={() => setDrafts((current) => ({ ...current, [active.id]: qp }))}
+                        className="text-[10.5px] px-2 py-0.5 rounded-md bg-[var(--secondary)] hover:bg-[var(--hover)] text-zinc-400 hover:text-zinc-200 border border-[var(--border)] transition-colors cursor-pointer"
+                      >
+                        {qp}
+                      </button>
+                    ))}
+                  </div>
+
                   {job?.phase === 'error' && (
                     <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg" role="alert">
                       {job.message}
                     </div>
                   )}
+
                   <div className="flex justify-between items-center gap-1.5 pt-1">
                     <button
                       className="btn-ghost px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
@@ -287,7 +310,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                       Delete
                     </button>
                     <button
-                      className="btn-primary px-3 py-1.5 font-medium shadow-md"
+                      className="btn-primary px-3.5 py-1.5 font-medium shadow-md"
                       disabled={!(drafts[active.id] ?? active.prompt).trim()}
                       onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
                     >
@@ -324,35 +347,41 @@ export const AiExplanationOverlay: React.FC<Props> = ({
               )}
 
               {/* Action Toolbar */}
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
-                <span className="text-[10px] text-zinc-500 font-mono">LaTeX & Markdown formatted</span>
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-end pt-2.5 border-t border-[var(--border)]">
+                <div className="flex items-center gap-1.5">
                   <button
-                    className="btn-icon"
+                    className="macos-ai-action-btn"
                     title="Rasterize explanation into adjustable image"
                     onClick={() => void handleRasterizeResponse(active)}
+                    aria-label="Rasterize as Image"
                   >
                     <ImageIcon className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    className="btn-icon"
-                    title="Copy response"
-                    onClick={() => void navigator.clipboard.writeText(active.response)}
+                    className="macos-ai-action-btn"
+                    title={copiedId === active.id ? 'Copied to clipboard' : 'Copy response'}
+                    onClick={() => void handleCopyText(active.response, active.id)}
+                    aria-label="Copy Response"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    {copiedId === active.id ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
                   </button>
                   <button
-                    className="btn-icon"
+                    className="macos-ai-action-btn"
                     title={editingResponse ? 'Save edit' : 'Edit response'}
                     onClick={() => {
                       if (editingResponse) onUpdate(active.id, { response: drafts[`response_${active.id}`] ?? active.response, updatedAt: Date.now() });
                       setEditingResponse(!editingResponse);
                     }}
+                    aria-label={editingResponse ? 'Save edit' : 'Edit response'}
                   >
-                    {editingResponse ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Pencil className="w-3.5 h-3.5" />}
+                    {editingResponse ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Pencil className="w-3.5 h-3.5" />}
                   </button>
                   <button
-                    className="btn-icon"
+                    className="macos-ai-action-btn"
                     title="Regenerate"
                     onClick={() => {
                       setDrafts((current) => ({ ...current, [active.id]: active.prompt }));
@@ -361,13 +390,15 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                       requestAnimationFrame(() => setOpenId(active.id));
                       onSubmit(active, active.prompt);
                     }}
+                    aria-label="Regenerate"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    className="btn-icon text-red-400 hover:text-red-300"
+                    className="macos-ai-action-btn macos-ai-action-btn-danger"
                     title="Delete"
                     onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}
+                    aria-label="Delete"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
