@@ -18,7 +18,6 @@ import { useColorTheme } from './hooks/useColorTheme';
 import { useAiExplanations } from './hooks/useAiExplanations';
 import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
-import { createSamplePDF } from './utils/samplePdf';
 import { loadViewMode, saveViewMode, recordRecentDoc } from './utils/storage';
 import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf } from './utils/tauriBridge';
 import {
@@ -164,15 +163,6 @@ export function App() {
       delete document.documentElement.dataset.uiTheme;
     };
   }, [isDarkTheme]);
-
-  // Load a demo PDF on initial startup if none is loaded
-  useEffect(() => {
-    const initDemo = async () => {
-      const sampleBytes = await createSamplePDF();
-      loadPdf(sampleBytes, 'Welcome-Document.pdf');
-    };
-    initDemo();
-  }, [loadPdf]);
 
   // Handle View Mode persistence
   const handleChangeViewMode = (mode: ViewMode) => {
