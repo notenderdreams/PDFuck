@@ -5,6 +5,7 @@ import { AnnotationCanvas } from './AnnotationCanvas';
 import { ImageOverlay } from './ImageOverlay';
 import { TextNoteOverlay } from './TextNoteOverlay';
 import { AiExplanationOverlay } from './AiExplanationOverlay';
+import { PageContextMenu } from './PageContextMenu';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { usesInvertedColorSpace } from '../utils/readingTheme';
 import 'pdfjs-dist/web/pdf_viewer.css';
@@ -42,6 +43,10 @@ interface PDFPageProps {
   onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
   onCancelAi: (annotationId: string) => void;
   onCloseAi: (annotationId: string) => void;
+  onDeletePage: (pageNumber: number) => void;
+  onCopyPageText: (pageNumber: number) => void;
+  onCopyPageImage: (pageNumber: number) => void;
+  onAskAiAboutPage: (pageNumber: number) => void;
   isFlush?: boolean;
 }
 
@@ -70,6 +75,10 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onSubmitAi,
   onCancelAi,
   onCloseAi,
+  onDeletePage,
+  onCopyPageText,
+  onCopyPageImage,
+  onAskAiAboutPage,
   isFlush = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -82,6 +91,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   });
   const [isRendered, setIsRendered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const renderTaskRef = useRef<unknown>(null);
 
   useEffect(() => {
@@ -211,6 +221,17 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     (a) => a.pageNumber === pageNumber && a.type === 'ai-explanation'
   ) as AiExplanationAnnotation[];
 
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const menuWidth = 224;
+    const menuHeight = 150;
+    setContextMenuPosition({
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
+    });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -220,6 +241,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onContextMenu={handleContextMenu}
       onClick={() => onSelectAnnotation(null)}
       style={{
         width: `${pageDimensions.width}px`,
@@ -229,6 +251,16 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
+      {contextMenuPosition && (
+        <PageContextMenu
+          position={contextMenuPosition}
+          onClose={() => setContextMenuPosition(null)}
+          onDeletePage={() => onDeletePage(pageNumber)}
+          onCopyPageText={() => onCopyPageText(pageNumber)}
+          onCopyPageImage={() => onCopyPageImage(pageNumber)}
+          onAskAi={() => onAskAiAboutPage(pageNumber)}
+        />
+      )}
       {/* Visual Page Number Badge in Margin */}
       {!isFlush && (
         <div className="absolute -top-5 left-1 text-[10px] font-mono text-zinc-500 font-medium select-none tracking-wider">

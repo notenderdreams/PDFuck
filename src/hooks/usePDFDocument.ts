@@ -26,7 +26,8 @@ export function usePDFDocument() {
       data: Uint8Array | ArrayBuffer,
       fileName: string = 'document.pdf',
       filePath?: string,
-      initialPageNumber?: number
+      initialPageNumber?: number,
+      documentKeyOverride?: string
     ) => {
       setIsLoading(true);
       setError(null);
@@ -44,7 +45,7 @@ export function usePDFDocument() {
         activeDocRef.current = loadedDoc;
         setPdfDoc(loadedDoc);
 
-        const key = `${fileName}_${loadedDoc.numPages}_${bytes.length}`;
+        const key = documentKeyOverride || `${fileName}_${loadedDoc.numPages}_${bytes.length}`;
         setDocKey(key);
 
         // Metadata

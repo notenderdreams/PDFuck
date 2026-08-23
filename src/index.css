@@ -178,6 +178,140 @@
 [data-ui-theme] .group:hover [class~="group-hover:text-zinc-200"],
 [data-ui-theme] .group:hover [class~="group-hover:text-zinc-300"] { color: var(--foreground) !important; }
 
+/* Page context menu ------------------------------------------------------ */
+.page-context-menu {
+  position: fixed;
+  z-index: 80;
+  width: 224px;
+  padding: 5px;
+  overflow: hidden;
+  color: var(--popover-foreground);
+  background: color-mix(in srgb, var(--popover) 88%, transparent);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.48) inset,
+    0 2px 5px rgba(0, 0, 0, 0.08),
+    0 10px 28px rgba(0, 0, 0, 0.16);
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  transform-origin: top left;
+  animation: pageContextMenuIn 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-ui-theme='dark'] .page-context-menu {
+  background: color-mix(in srgb, var(--popover) 86%, transparent);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 3px 8px rgba(0, 0, 0, 0.28),
+    0 14px 34px rgba(0, 0, 0, 0.42);
+}
+
+.page-context-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--popover-foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 450;
+  line-height: 18px;
+  letter-spacing: -0.01em;
+  text-align: left;
+  outline: none;
+  cursor: default;
+  transition:
+    background-color 100ms ease,
+    color 100ms ease,
+    transform 100ms ease;
+}
+
+.page-context-menu__icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  transition: color 100ms ease;
+}
+
+.page-context-menu__icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+}
+
+.page-context-menu__item:hover,
+.page-context-menu__item:focus-visible {
+  color: #ffffff;
+  background: var(--primary);
+}
+
+.page-context-menu__item:hover .page-context-menu__icon,
+.page-context-menu__item:focus-visible .page-context-menu__icon {
+  color: #ffffff;
+}
+
+.page-context-menu__item:active {
+  transform: scale(0.985);
+  background: var(--primary-hover);
+}
+
+.page-context-menu__item--destructive,
+.page-context-menu__item--destructive .page-context-menu__icon {
+  color: var(--destructive);
+}
+
+.page-context-menu__item--destructive:hover,
+.page-context-menu__item--destructive:focus-visible,
+.page-context-menu__item--destructive:active {
+  color: var(--destructive-foreground);
+  background: var(--destructive);
+}
+
+.page-context-menu__item--destructive:hover .page-context-menu__icon,
+.page-context-menu__item--destructive:focus-visible .page-context-menu__icon,
+.page-context-menu__item--destructive:active .page-context-menu__icon {
+  color: var(--destructive-foreground);
+}
+
+.page-context-menu__separator {
+  height: 0.5px;
+  margin: 4px 8px;
+  background: var(--border);
+}
+
+@keyframes pageContextMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-context-menu {
+    animation: none;
+  }
+
+  .page-context-menu__item,
+  .page-context-menu__icon {
+    transition: none;
+  }
+}
+
 /* AI explanation Markdown and math --------------------------------------- */
 .ai-response-markdown {
   min-width: 0;

@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { PDFDocument } from 'pdf-lib';
 import { isTauri, tauriCopyImageToClipboard, tauriCopyTextToClipboard } from './tauriBridge';
 
 /**
@@ -221,6 +222,22 @@ export async function copyPageImageToClipboard(
   }
 
   return false;
+}
+
+/** Remove one page from a PDF and return the updated document bytes. */
+export async function deletePageFromPdf(
+  pdfBytes: Uint8Array,
+  pageNumber: number
+): Promise<Uint8Array> {
+  const document = await PDFDocument.load(pdfBytes);
+  const pageCount = document.getPageCount();
+  if (pageCount <= 1) throw new Error('A PDF must keep at least one page.');
+  if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > pageCount) {
+    throw new Error(`Page ${pageNumber} does not exist.`);
+  }
+
+  document.removePage(pageNumber - 1);
+  return document.save();
 }
 
 /**

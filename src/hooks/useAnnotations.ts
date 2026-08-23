@@ -110,6 +110,13 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     pushState([]);
   }, [pushState]);
 
+  const replaceAnnotations = useCallback((nextAnnotations: Annotation[]) => {
+    setAnnotations(nextAnnotations);
+    annotationsRef.current = nextAnnotations;
+    setHistory([nextAnnotations]);
+    setHistoryIndex(0);
+  }, []);
+
   const undo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
@@ -211,6 +218,6 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     canUndo,
     canRedo,
     addAttachedImage,
-    setAnnotationsDirectly: setAnnotations,
+    replaceAnnotations,
   };
 }

@@ -24,6 +24,7 @@ import {
   extractPageText,
   copyTextToClipboard,
   copyPageImageToClipboard,
+  deletePageFromPdf,
   downloadPageAsJpg,
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
@@ -33,7 +34,7 @@ import {
   copyStitchedSnippetsToClipboard,
   downloadStitchedSnippets,
 } from './utils/snippetExtractor';
-import type { AppScreen, ToolType, ViewMode, StitchOptions } from './utils/types';
+import type { AiExplanationAnnotation, Annotation, AppScreen, ToolType, ViewMode, StitchOptions } from './utils/types';
 import type { SidebarTabType } from './components/Sidebar';
 
 export function App() {
@@ -101,6 +102,7 @@ export function App() {
     updateAnnotation,
     deleteAnnotation,
     clearAllAnnotationsForPage,
+    replaceAnnotations,
     undo: undoAnnotations,
     redo: redoAnnotations,
     canUndo: canUndoAnnotations,
@@ -465,6 +467,71 @@ export function App() {
     [pdfDoc, currentPage, showToast]
   );
 
+  const handleAskAiAboutPage = useCallback(
+    (pageNumber: number) => {
+      if (!pdfDoc) return;
+      const now = Date.now();
+      const annotation: AiExplanationAnnotation = {
+        id: `ai_page_${now}_${Math.random().toString(36).slice(2, 7)}`,
+        pageNumber,
+        type: 'ai-explanation',
+        x: 0.01,
+        y: 0.01,
+        width: 0.98,
+        height: 0.98,
+        prompt: 'Explain this page clearly and concisely',
+        response: '',
+        provider: 'codex',
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      addAnnotation(annotation);
+      aiExplanations.openComposer(annotation.id);
+      setSelectedAnnotationId(annotation.id);
+      setActiveTool('select');
+    },
+    [addAnnotation, aiExplanations.openComposer, pdfDoc]
+  );
+
+  const handleDeletePage = useCallback(
+    async (pageNumber: number) => {
+      if (!pdfDoc || !rawPdfBytes || !docInfo) return;
+      if (pdfDoc.numPages <= 1) {
+        showToast('A PDF must keep at least one page.', true);
+        return;
+      }
+      if (!window.confirm(`Delete Page ${pageNumber}? This changes the current document.`)) return;
+
+      try {
+        const updatedBytes = await deletePageFromPdf(rawPdfBytes, pageNumber);
+        const updatedAnnotations = annotations
+          .filter((annotation) => annotation.pageNumber !== pageNumber)
+          .map((annotation) =>
+            annotation.pageNumber > pageNumber
+              ? ({ ...annotation, pageNumber: annotation.pageNumber - 1 } as Annotation)
+              : annotation
+          );
+        const nextPage = Math.min(pageNumber, pdfDoc.numPages - 1);
+
+        replaceAnnotations(updatedAnnotations);
+        await loadPdf(
+          updatedBytes,
+          docInfo.fileName,
+          docInfo.filePath,
+          nextPage,
+          docKey
+        );
+        setPageNavRequest({ page: nextPage, timestamp: Date.now() });
+        showToast(`Deleted Page ${pageNumber}.`);
+      } catch (error) {
+        console.error('Failed to delete PDF page:', error);
+        showToast('Could not delete the page.', true);
+      }
+    },
+    [annotations, docInfo, docKey, loadPdf, pdfDoc, rawPdfBytes, replaceAnnotations, showToast]
+  );
+
   // Cursor-aware Clipboard Paste: Pastes image at mouse cursor position on hovered page
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -701,6 +768,10 @@ export function App() {
                 onSubmitAi={(annotation, prompt) => void aiExplanations.submit(annotation, prompt)}
                 onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
                 onCloseAi={aiExplanations.close}
+                onDeletePage={(pageNumber) => void handleDeletePage(pageNumber)}
+                onCopyPageText={(pageNumber) => void handleCopyPageText(pageNumber)}
+                onCopyPageImage={(pageNumber) => void handleCopyPageJpg(pageNumber)}
+                onAskAiAboutPage={handleAskAiAboutPage}
                 onPdfFileDrop={(file) => {
                   const reader = new FileReader();
                   reader.onload = () => {
