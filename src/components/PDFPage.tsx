@@ -237,26 +237,28 @@ export const PDFPage: React.FC<PDFPageProps> = ({
 
       {/* Filtered Container for PDF Canvas & Color Inversion */}
       <div
+        data-pdf-canvas-layer
         className={`w-full h-full relative overflow-hidden ${filterClass}`}
         style={customFilterStyle}
       >
         {/* Rendered PDF Raster Canvas */}
         <canvas ref={canvasRef} className="block w-full h-full" />
-
-        {/* Selectable & Copiable Text Layer */}
-        <div
-          ref={textLayerRef}
-          className={`textLayer absolute inset-0 overflow-hidden leading-none z-10 ${
-            activeTool === 'select'
-              ? 'select-text pointer-events-auto cursor-text'
-              : 'select-none pointer-events-none'
-          }`}
-          style={{
-            width: `${pageDimensions.width}px`,
-            height: `${pageDimensions.height}px`,
-          }}
-        />
       </div>
+
+      {/* Keep selection feedback outside page filters so it stays visibly blue in every reading theme. */}
+      <div
+        ref={textLayerRef}
+        data-pdf-text-layer
+        className={`textLayer absolute inset-0 overflow-hidden leading-none z-10 ${
+          activeTool === 'select'
+            ? 'select-text pointer-events-auto cursor-text'
+            : 'select-none pointer-events-none'
+        }`}
+        style={{
+          width: `${pageDimensions.width}px`,
+          height: `${pageDimensions.height}px`,
+        }}
+      />
 
       {/* Annotation Canvas (SVG / Freehand / Highlights / Note Creator) */}
       <AnnotationCanvas

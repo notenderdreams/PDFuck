@@ -1453,12 +1453,12 @@
 
 /* Custom TextLayer Selection Color Overrides (since we imported pdf_viewer.css) */
 .textLayer ::selection {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(0, 122, 255, 0.38) !important;
   color: transparent !important;
 }
 
 .textLayer ::-moz-selection {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(0, 122, 255, 0.38) !important;
   color: transparent !important;
 }
 
