@@ -355,7 +355,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex-1 overflow-y-auto overflow-x-auto bg-[#1c1c22] relative select-none ${cursorStyle}`}
+      className={`pdf-viewer-viewport flex-1 overflow-y-auto overflow-x-auto bg-[#1c1c22] relative select-none ${cursorStyle}`}
     >
       {/* Spacebar Pan Glass Interceptor (captures clicks everywhere over text/layers when space is held) */}
       {isSpacePressed && (
@@ -374,10 +374,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       )}
 
       {/* 2D Canvas Workspace Wrapper with expansive horizontal and vertical panning canvas */}
-      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-start px-[50vw] sm:px-[60vw] py-10 box-border">
+      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-start px-[50vw] sm:px-[60vw] py-6 box-border">
         {/* CONTINUOUS VIEW MODE */}
         {viewMode === 'continuous' && (
-          <div className="canvas-workspace-area flex flex-col items-center gap-3 py-2 pb-28">
+          <div className="canvas-workspace-area flex flex-col items-center gap-3 py-2 pb-6">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
               <PDFPage
                 key={pageNum}
@@ -413,7 +413,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
         {/* SINGLE PAGE VIEW MODE */}
         {viewMode === 'single' && (
-          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-28">
+          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-6">
             <PDFPage
               pdfDoc={pdfDoc}
               pageNumber={currentPage}
@@ -440,35 +440,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               onCancelAi={onCancelAi}
               onCloseAi={onCloseAi}
             />
-
-            {/* Floating Next/Prev Page Buttons */}
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#24242b]/95 backdrop-blur-md px-3 py-1 rounded-md border border-[#383846] text-xs text-zinc-300 z-30 shadow-lg">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => onPageChange(currentPage - 1)}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous Page (Left Arrow / K)"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-mono text-[11px]">
-                {currentPage} / {numPages}
-              </span>
-              <button
-                disabled={currentPage >= numPages}
-                onClick={() => onPageChange(currentPage + 1)}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next Page (Right Arrow / J)"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         )}
 
         {/* TWO-PAGE SPREAD VIEW MODE */}
         {viewMode === 'spread' && (
-          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-28">
+          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-6">
             <div className="flex items-start justify-center gap-1">
               {/* Left Page */}
               <PDFPage
@@ -527,29 +504,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onCloseAi={onCloseAi}
                 />
               )}
-            </div>
-
-            {/* Floating Next/Prev Pair */}
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#24242b]/95 backdrop-blur-md px-3 py-1 rounded-md border border-[#383846] text-xs text-zinc-300 z-30 shadow-lg">
-              <button
-                disabled={currentPage <= 2}
-                onClick={() => onPageChange(Math.max(1, currentPage - 2))}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous Spread"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-mono text-[11px]">
-                Spread {Math.ceil(currentPage / 2)} of {Math.ceil(numPages / 2)}
-              </span>
-              <button
-                disabled={currentPage >= numPages - 1}
-                onClick={() => onPageChange(Math.min(numPages, currentPage + 2))}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next Spread"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         )}

@@ -131,7 +131,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <nav
       aria-label="Annotation Dock"
-      className="macos-annotation-dock fixed bottom-5 left-1/2 -translate-x-1/2 z-40 inline-flex items-center w-max max-w-fit select-none animate-slide-up relative"
+      className="macos-annotation-dock select-none"
     >
       {/* Smooth Sliding Active Circle Indicator */}
       <div

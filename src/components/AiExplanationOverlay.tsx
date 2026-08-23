@@ -78,7 +78,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     };
   }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete]);
 
-  const popoverWidth = Math.min(460, Math.max(300, pageWidth - 16));
+  const popoverWidth = Math.min(480, Math.max(320, pageWidth - 20));
   const popoverStyle = active ? {
     width: `${popoverWidth}px`,
     left: `${Math.min(Math.max(8, (active.x + active.width) * pageWidth + 8), Math.max(8, pageWidth - popoverWidth - 8))}px`,
@@ -136,48 +136,59 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   return (
     <div className="absolute inset-0 z-30 pointer-events-none">
+      {/* Floating AI Pin Buttons on Canvas */}
       {annotations.map((annotation) => {
         const state = jobs[annotation.id];
+        const isRunning = state?.phase === 'running';
+
         return (
           <button
             key={annotation.id}
             type="button"
             aria-label={annotation.response ? 'Open AI explanation' : 'Open AI prompt'}
             onClick={(event) => { event.stopPropagation(); setOpenId(annotation.id); }}
-            style={{ left: `${(annotation.x + annotation.width) * pageWidth - 12}px`, top: `${annotation.y * pageHeight - 12}px` }}
-            className="absolute pointer-events-auto w-6 h-6 rounded-md bg-blue-600 text-white shadow-lg border border-white/30 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-300"
+            style={{ left: `${(annotation.x + annotation.width) * pageWidth - 14}px`, top: `${annotation.y * pageHeight - 14}px` }}
+            className={`absolute pointer-events-auto macos-ai-pin flex items-center justify-center cursor-pointer ${
+              isRunning ? 'macos-ai-pin-thinking' : ''
+            }`}
           >
-            <Sparkles className={`w-3.5 h-3.5 ${state?.phase === 'running' ? 'animate-pulse' : ''}`} />
+            <Sparkles className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
           </button>
         );
       })}
 
+      {/* Animated macOS AI Popover Window */}
       {active && (
         <div
           ref={popoverRef}
           style={popoverStyle}
           role="dialog"
           aria-label="AI region explanation"
-          className="absolute pointer-events-auto max-h-[min(72vh,540px)] overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--popover)] text-[var(--foreground)] shadow-2xl p-3.5 flex flex-col gap-2.5"
+          className="macos-ai-popover absolute pointer-events-auto max-h-[min(76vh,560px)] overflow-y-auto p-4 flex flex-col gap-3"
           onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold">
-              <Sparkles className={`w-3.5 h-3.5 text-blue-500 ${job?.phase === 'running' ? 'animate-pulse' : ''}`} />
-              <span>Codex explanation</span>
+          {/* Header Bar */}
+          <div className="flex items-center justify-between gap-2 pb-1 border-b border-[var(--border)]">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-xs">
+                <Sparkles className={`w-3 h-3 ${job?.phase === 'running' ? 'animate-spin' : ''}`} />
+              </div>
+              <span className="text-zinc-100 font-medium">AI Analysis</span>
               {job?.phase === 'running' && (
-                <span className="text-[10px] font-medium text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-full animate-pulse">
+                <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
                   Thinking…
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-0.5">
+
+            <div className="flex items-center gap-1">
               {active.response && !job && (
                 <button
                   className="btn-icon w-6 h-6"
-                  title="Rasterize explanation into adjustable image"
+                  title="Rasterize explanation into adjustable image card"
                   onClick={() => void handleRasterizeResponse(active)}
                   aria-label="Rasterize explanation"
                 >
@@ -201,34 +212,50 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             </div>
           </div>
 
+          {/* Body: Prompting or Thinking State */}
           {(!active.response || job) && (
             <>
               {job?.phase === 'running' ? (
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">Question</div>
-                    <div className="text-xs font-medium text-[var(--foreground)] bg-[var(--secondary)] p-2 rounded-md border border-[var(--border-subtle)] leading-relaxed">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Prompt</div>
+                    <div className="text-xs font-medium text-zinc-200 bg-[var(--secondary)] p-2.5 rounded-lg border border-[var(--border)] leading-relaxed">
                       {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 py-3 px-3 rounded-md bg-[var(--input)] border border-[var(--border-subtle)]">
-                    <Sparkles className="w-4 h-4 text-blue-500 animate-spin shrink-0" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-semibold text-[var(--foreground)]">Thinking…</span>
-                      <span className="text-[11px] text-[var(--muted-foreground)]">Analyzing selected document region</span>
+                  {/* Luminous Shimmering Thinking Box */}
+                  <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2">
+                    <div className="macos-ai-thinking-shimmer" />
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+                        <Sparkles className="w-4 h-4 animate-spin text-blue-400" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+                          Thinking & Explaining
+                          <span className="inline-flex gap-1 items-center">
+                            <span className="w-1 h-1 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1 h-1 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1 h-1 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </span>
+                        </span>
+                        <span className="text-[11px] text-zinc-400">Reading document context and generating answer</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-1.5 pt-0.5">
+                  <div className="flex justify-end gap-1.5 pt-1">
                     <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => void onCancel(active.id)}>
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <>
-                  <label className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]" htmlFor={`ai-prompt-${active.id}`}>Question</label>
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400" htmlFor={`ai-prompt-${active.id}`}>
+                    Ask AI about this region
+                  </label>
                   <textarea
                     id={`ai-prompt-${active.id}`}
                     autoFocus
@@ -245,46 +272,108 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                       }
                     }}
                     placeholder="Type your question and press Enter..."
-                    className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--input)] p-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
+                    className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 leading-relaxed font-sans transition-all"
                   />
-                  {job?.phase === 'error' && <div className="text-[11px] text-amber-500" role="alert">{job.message}</div>}
-                  <div className="flex justify-between items-center gap-1.5">
-                    <button className="btn-ghost px-2 py-1.5 text-red-500" onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}>Delete</button>
-                    <button className="btn-primary px-2.5 py-1.5" disabled={!(drafts[active.id] ?? active.prompt).trim()} onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}>{job?.phase === 'error' ? 'Retry' : 'Explain'}</button>
+                  {job?.phase === 'error' && (
+                    <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg" role="alert">
+                      {job.message}
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center gap-1.5 pt-1">
+                    <button
+                      className="btn-ghost px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      className="btn-primary px-3 py-1.5 font-medium shadow-md"
+                      disabled={!(drafts[active.id] ?? active.prompt).trim()}
+                      onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
+                    >
+                      {job?.phase === 'error' ? 'Retry' : 'Explain Region'}
+                    </button>
                   </div>
-                </>
+                </div>
               )}
             </>
           )}
 
+          {/* Settled AI Response View */}
           {active.response && !job && (
-            <>
-              <div data-ai-question="true" className="ai-question-section flex flex-col gap-1">
-                <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">Question</div>
-                <div className="text-xs font-medium">{active.prompt}</div>
-                <div className="h-px bg-[var(--border-subtle)]" />
+            <div className="flex flex-col gap-3">
+              <div data-ai-question="true" className="ai-question-section flex flex-col gap-1.5 bg-[var(--secondary)] p-2.5 rounded-lg border border-[var(--border)]">
+                <div className="text-[9.5px] font-semibold uppercase tracking-wider text-zinc-400">Prompt</div>
+                <div className="text-xs font-medium text-zinc-100">{active.prompt}</div>
               </div>
+
               {editingResponse ? (
-                <textarea autoFocus rows={7} value={drafts[`response_${active.id}`] ?? active.response} onChange={(event) => setDrafts((current) => ({ ...current, [`response_${active.id}`]: event.target.value }))} className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--input)] p-2 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <textarea
+                  autoFocus
+                  rows={7}
+                  value={drafts[`response_${active.id}`] ?? active.response}
+                  onChange={(event) => setDrafts((current) => ({ ...current, [`response_${active.id}`]: event.target.value }))}
+                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
+                />
               ) : (
-                <React.Suspense fallback={<div className="text-xs text-[var(--muted-foreground)]">Rendering explanation…</div>}>
-                  <AiResponseRenderer response={active.response} />
-                </React.Suspense>
+                <div className="p-1 max-h-[380px] overflow-y-auto">
+                  <React.Suspense fallback={<div className="text-xs text-zinc-400 p-2">Rendering explanation…</div>}>
+                    <AiResponseRenderer response={active.response} />
+                  </React.Suspense>
+                </div>
               )}
-              <div className="flex items-center justify-end gap-1">
-                <button
-                  className="btn-icon"
-                  title="Rasterize explanation into adjustable image"
-                  onClick={() => void handleRasterizeResponse(active)}
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                </button>
-                <button className="btn-icon" title="Copy response" onClick={() => void navigator.clipboard.writeText(active.response)}><Copy className="w-3.5 h-3.5" /></button>
-                <button className="btn-icon" title={editingResponse ? 'Save edit' : 'Edit response'} onClick={() => { if (editingResponse) onUpdate(active.id, { response: drafts[`response_${active.id}`] ?? active.response, updatedAt: Date.now() }); setEditingResponse(!editingResponse); }}>{editingResponse ? <Check className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}</button>
-                <button className="btn-icon" title="Retry" onClick={() => { setDrafts((current) => ({ ...current, [active.id]: active.prompt })); setOpenId(null); onCloseJob(active.id); requestAnimationFrame(() => setOpenId(active.id)); onSubmit(active, active.prompt); }}><RotateCcw className="w-3.5 h-3.5" /></button>
-                <button className="btn-icon text-red-500" title="Delete" onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}><Trash2 className="w-3.5 h-3.5" /></button>
+
+              {/* Action Toolbar */}
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
+                <span className="text-[10px] text-zinc-500 font-mono">LaTeX & Markdown formatted</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="btn-icon"
+                    title="Rasterize explanation into adjustable image"
+                    onClick={() => void handleRasterizeResponse(active)}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    className="btn-icon"
+                    title="Copy response"
+                    onClick={() => void navigator.clipboard.writeText(active.response)}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    className="btn-icon"
+                    title={editingResponse ? 'Save edit' : 'Edit response'}
+                    onClick={() => {
+                      if (editingResponse) onUpdate(active.id, { response: drafts[`response_${active.id}`] ?? active.response, updatedAt: Date.now() });
+                      setEditingResponse(!editingResponse);
+                    }}
+                  >
+                    {editingResponse ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Pencil className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    className="btn-icon"
+                    title="Regenerate"
+                    onClick={() => {
+                      setDrafts((current) => ({ ...current, [active.id]: active.prompt }));
+                      setOpenId(null);
+                      onCloseJob(active.id);
+                      requestAnimationFrame(() => setOpenId(active.id));
+                      onSubmit(active, active.prompt);
+                    }}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    className="btn-icon text-red-400 hover:text-red-300"
+                    title="Delete"
+                    onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

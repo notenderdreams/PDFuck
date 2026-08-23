@@ -263,6 +263,94 @@
 }
 .ai-response-markdown .katex { font-size: 1.04em; }
 
+/* macOS AI Explanation Window & Smooth Animations */
+.macos-ai-popover {
+  background: color-mix(in srgb, var(--popover) 94%, transparent);
+  backdrop-filter: blur(28px) saturate(190%) contrast(102%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(102%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.15),
+    0 18px 42px -6px rgba(0, 0, 0, 0.4),
+    0 6px 16px -2px rgba(0, 0, 0, 0.25);
+  animation: macosAiWindowIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top left;
+}
+
+[data-ui-theme='light'] .macos-ai-popover {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 18px 42px -6px rgba(0, 0, 0, 0.14),
+    0 6px 16px -2px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes macosAiWindowIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* AI Thinking Card with luminous gradient animation */
+.macos-ai-thinking-box {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+}
+
+.macos-ai-thinking-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: aiShimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes aiShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* AI Trigger Button Pin on Document */
+.macos-ai-pin {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms ease;
+}
+
+.macos-ai-pin:hover {
+  transform: scale(1.18);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.55), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.macos-ai-pin-thinking {
+  animation: aiPinPulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes aiPinPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7), 0 4px 12px rgba(59, 130, 246, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0), 0 6px 20px rgba(99, 102, 241, 0.6);
+  }
+}
+
 [data-ui-theme] input,
 [data-ui-theme] select,
 [data-ui-theme] textarea { caret-color: var(--primary); }
@@ -414,44 +502,39 @@
 }
 
 .reader-progress {
-  position: absolute;
+  position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 35;
+  z-index: 50;
+  height: 3px;
   pointer-events: none;
 }
 
-.reader-progress-label {
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0.625rem;
-  padding: 0.1875rem 0.5rem;
-  border: 0.5px solid var(--border);
-  border-radius: 6px;
-  color: var(--muted-foreground);
-  background: color-mix(in srgb, var(--card) 90%, transparent);
-  box-shadow: var(--shadow-soft);
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1rem;
+.reader-progress-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.12);
 }
 
-.reader-progress-track {
-  height: 0.1875rem;
-  background: color-mix(in srgb, var(--muted) 72%, transparent);
+[data-ui-theme='dark'] .reader-progress-track {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .reader-progress-value {
   height: 100%;
-  border-radius: 0 999px 999px 0;
-  background: var(--primary);
-  transition: width 180ms ease-out;
+  background: #0066eb;
+  box-shadow: 0 0 8px rgba(0, 102, 235, 0.6);
+  transition: width 200ms ease-out;
 }
 
 /* Floating Annotation Toolbar (macOS Glossy Liquid Glass Dock) */
 .macos-annotation-dock {
+  position: fixed !important;
+  bottom: 1.25rem !important;
+  left: 50% !important;
+  transform: translate3d(-50%, 0, 0) !important;
+  z-index: 40 !important;
   display: inline-flex;
   align-items: center;
   width: max-content;
@@ -467,7 +550,19 @@
     0 4px 12px rgba(0, 0, 0, 0.05);
   padding: 5px 8px;
   gap: 5px;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  animation: macosDockIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: box-shadow 0.2s ease;
+}
+
+@keyframes macosDockIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 10px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) scale(1);
+  }
 }
 
 [data-ui-theme='dark'] .macos-annotation-dock {
@@ -1051,7 +1146,11 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent !important;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -1062,6 +1161,20 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
+}
+
+/* Hide scrollbars completely on main PDF viewer viewport to eliminate bottom gutter/rectangle */
+.pdf-viewer-viewport,
+.pdf-viewer-viewport * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.pdf-viewer-viewport::-webkit-scrollbar,
+.pdf-viewer-viewport *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* macOS Tahoe Button & Control Utility Classes */

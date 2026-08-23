@@ -223,7 +223,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
       }}
-      className={`relative mx-auto ${isFlush ? 'my-1' : 'my-4'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group ${
+      className={`relative mx-auto ${isFlush ? 'my-1' : 'my-4'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group overflow-hidden ${
         isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
@@ -240,7 +240,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         style={customFilterStyle}
       >
         {/* Rendered PDF Raster Canvas */}
-        <canvas ref={canvasRef} className="block" />
+        <canvas ref={canvasRef} className="block w-full h-full" />
 
         {/* Selectable & Copiable Text Layer */}
         <div

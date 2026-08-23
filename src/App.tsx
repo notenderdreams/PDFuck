@@ -632,7 +632,7 @@ export function App() {
             )}
 
             {/* Primary PDF Canvas Viewport */}
-            <div className="flex-1 min-w-0 relative overflow-hidden flex">
+            <div className="flex-1 min-w-0 relative overflow-hidden flex bg-[var(--workspace)]">
               <PDFViewer
                 pdfDoc={pdfDoc}
                 rawPdfBytes={rawPdfBytes}
@@ -689,9 +689,6 @@ export function App() {
                   aria-valuemax={100}
                   aria-valuenow={Math.round((currentPage / pdfDoc.numPages) * 100)}
                 >
-                  <div className="reader-progress-label">
-                    {Math.round((currentPage / pdfDoc.numPages) * 100)}% read
-                  </div>
                   <div className="reader-progress-track">
                     <div
                       className="reader-progress-value"
