@@ -1,6 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Check, Copy, Image as ImageIcon, Pencil, RotateCcw, Sparkles, Trash2, X } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  Image as ImageIcon,
+  Pencil,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  X,
+  Maximize2,
+  Minimize2,
+} from 'lucide-react';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import type { AiExplanationAnnotation, Annotation, AttachedImageAnnotation } from '../utils/types';
 import { rasterizeResponseCard } from '../utils/cardRasterizer';
@@ -50,9 +61,22 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   const [openId, setOpenId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingResponse, setEditingResponse] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const dragStartRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  }>({ mouseX: 0, mouseY: 0, startOffsetX: 0, startOffsetY: 0 });
+
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  const activeJobId = Object.keys(jobs).find((id) => annotations.some((annotation) => annotation.id === id));
+  const activeJobId = Object.keys(jobs).find((id) =>
+    annotations.some((annotation) => annotation.id === id)
+  );
   const activeId = activeJobId || openId;
   const active = annotations.find((annotation) => annotation.id === activeId);
   const job = active ? jobs[active.id] : undefined;
@@ -63,10 +87,19 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     }
   }, [activeJobId, openId]);
 
+  // Reset local state when active annotation changes
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setDragOffset(null);
+      setIsExpanded(false);
+      return;
+    }
     setEditingResponse(false);
-    setDrafts((current) => current[active.id] === undefined ? { ...current, [active.id]: active.prompt || DEFAULT_PROMPT } : current);
+    setDrafts((current) =>
+      current[active.id] === undefined
+        ? { ...current, [active.id]: active.prompt || DEFAULT_PROMPT }
+        : current
+    );
   }, [active?.id]);
 
   useEffect(() => {
@@ -87,12 +120,75 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     };
   }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete]);
 
-  const popoverWidth = Math.min(480, Math.max(320, pageWidth - 20));
-  const popoverStyle = active ? {
-    width: `${popoverWidth}px`,
-    left: `${Math.min(Math.max(8, (active.x + active.width) * pageWidth + 8), Math.max(8, pageWidth - popoverWidth - 8))}px`,
-    top: `${Math.min(Math.max(8, active.y * pageHeight), Math.max(8, pageHeight - 300))}px`,
-  } : undefined;
+  // Window dragging handlers
+  const handleHeaderPointerDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button, input, textarea, a, svg, [role="button"]')) {
+      return;
+    }
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startOffsetX: dragOffset?.x ?? 0,
+      startOffsetY: dragOffset?.y ?? 0,
+    };
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleHeaderPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.mouseX;
+    const dy = e.clientY - dragStartRef.current.mouseY;
+    setDragOffset({
+      x: dragStartRef.current.startOffsetX + dx,
+      y: dragStartRef.current.startOffsetY + dy,
+    });
+  };
+
+  const handleHeaderPointerUp = (e: React.PointerEvent) => {
+    if (isDragging) {
+      setIsDragging(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  // Popover sizing & smart viewport placement
+  const popoverWidth = isExpanded
+    ? Math.min(740, Math.max(480, pageWidth + 40))
+    : Math.min(500, Math.max(340, pageWidth - 20));
+
+  let popoverStyle: React.CSSProperties | undefined = undefined;
+
+  if (active) {
+    // Determine ideal X placement (try right of box, fallback to left, fallback to clamped)
+    let baseX = (active.x + active.width) * pageWidth + 12;
+    if (baseX + popoverWidth > pageWidth + 24) {
+      const leftX = active.x * pageWidth - popoverWidth - 12;
+      if (leftX >= 8) {
+        baseX = leftX;
+      } else {
+        baseX = Math.max(8, Math.min(baseX, pageWidth - popoverWidth - 8));
+      }
+    }
+
+    // Determine ideal Y placement
+    const targetY = active.y * pageHeight;
+    const baseY = Math.max(8, Math.min(targetY, Math.max(8, pageHeight - 240)));
+
+    const leftPos = (dragOffset?.x ?? 0) + baseX;
+    const topPos = (dragOffset?.y ?? 0) + baseY;
+
+    popoverStyle = {
+      width: `${popoverWidth}px`,
+      left: `${leftPos}px`,
+      top: `${topPos}px`,
+    };
+  }
 
   const handleRasterizeResponse = async (targetAnnotation: AiExplanationAnnotation) => {
     const rawResponse = drafts[`response_${targetAnnotation.id}`] ?? targetAnnotation.response;
@@ -167,8 +263,14 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             key={annotation.id}
             type="button"
             aria-label={annotation.response ? 'Open AI explanation' : 'Open AI prompt'}
-            onClick={(event) => { event.stopPropagation(); setOpenId(annotation.id); }}
-            style={{ left: `${(annotation.x + annotation.width) * pageWidth - 14}px`, top: `${annotation.y * pageHeight - 14}px` }}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpenId(annotation.id);
+            }}
+            style={{
+              left: `${(annotation.x + annotation.width) * pageWidth - 14}px`,
+              top: `${annotation.y * pageHeight - 14}px`,
+            }}
             className={`absolute pointer-events-auto macos-ai-pin flex items-center justify-center cursor-pointer ${
               isRunning ? 'macos-ai-pin-thinking' : ''
             }`}
@@ -185,18 +287,30 @@ export const AiExplanationOverlay: React.FC<Props> = ({
           style={popoverStyle}
           role="dialog"
           aria-label="AI region explanation"
-          className="macos-ai-popover absolute pointer-events-auto max-h-[min(76vh,560px)] overflow-y-auto p-4 flex flex-col gap-3"
+          className={`macos-ai-popover absolute pointer-events-auto flex flex-col ${
+            isExpanded
+              ? 'max-h-[min(88vh,760px)] shadow-2xl ring-1 ring-blue-500/20'
+              : 'max-h-[min(80vh,620px)]'
+          } overflow-hidden`}
           onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          {/* Header Bar */}
-          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[var(--border)]">
+          {/* STICKY HEADER BAR (Draggable) */}
+          <div
+            onPointerDown={handleHeaderPointerDown}
+            onPointerMove={handleHeaderPointerMove}
+            onPointerUp={handleHeaderPointerUp}
+            onPointerCancel={handleHeaderPointerUp}
+            className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--border)] shrink-0 cursor-grab active:cursor-grabbing select-none bg-[var(--popover)]/60 backdrop-blur-xs"
+          >
             <div className="flex items-center gap-2 text-xs font-semibold">
-              <Sparkles className="w-4 h-4 text-blue-500" />
+              <span className="flex items-center justify-center w-4.5 h-4.5 rounded-md bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-xs">
+                <Sparkles className="w-2.5 h-2.5" />
+              </span>
               <span className="text-zinc-100 font-medium tracking-tight">AI Assistant</span>
               {job?.phase === 'running' && (
-                <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
                   Thinking…
                 </span>
@@ -204,6 +318,18 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             </div>
 
             <div className="flex items-center gap-1">
+              <button
+                className="macos-ai-action-btn w-6 h-6 rounded-md"
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? 'Collapse window' : 'Expand window'}
+                aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              >
+                {isExpanded ? (
+                  <Minimize2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Maximize2 className="w-3.5 h-3.5" />
+                )}
+              </button>
               <button
                 className="macos-ai-action-btn w-6 h-6 rounded-md"
                 onClick={() => {
@@ -221,189 +347,260 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Body: Prompting or Thinking State */}
-          {(!active.response || job) && (
-            <>
-              {job?.phase === 'running' ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Prompt</div>
-                    <div className="text-xs font-medium text-zinc-200 bg-[var(--secondary)] p-2.5 rounded-lg border border-[var(--border)] leading-relaxed">
-                      {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
-                    </div>
-                  </div>
-
-                  {/* Clean Text-Driven Shimmer Thinking Box */}
-                  <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2.5">
-                    <div className="macos-ai-thinking-shimmer" />
-                    <div className="flex flex-col gap-2 relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className="ai-text-shimmer text-xs">
-                          Thinking & generating explanation…
-                        </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">Analyzing context</span>
+          {/* SCROLLABLE BODY (Handles arbitrarily long responses smoothly) */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-3.5 flex flex-col gap-3 macos-thin-scrollbar select-text">
+            {/* Body: Prompting or Thinking State */}
+            {(!active.response || job) && (
+              <>
+                {job?.phase === 'running' ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                        Prompt
                       </div>
-
-                      {/* Clean Shimmer Skeleton Lines */}
-                      <div className="flex flex-col gap-1.5 pt-0.5">
-                        <div className="ai-skeleton-line w-full" />
-                        <div className="ai-skeleton-line w-4/5" />
-                        <div className="ai-skeleton-line w-3/5" />
+                      <div className="text-xs font-medium text-zinc-200 bg-[var(--secondary)] p-2.5 rounded-lg border border-[var(--border)] leading-relaxed">
+                        {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex justify-end gap-1.5 pt-1">
-                    <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => void onCancel(active.id)}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400" htmlFor={`ai-prompt-${active.id}`}>
-                    Ask AI about this region
-                  </label>
-                  <textarea
-                    id={`ai-prompt-${active.id}`}
-                    autoFocus
-                    rows={3}
-                    value={drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
-                    onChange={(event) => setDrafts((current) => ({ ...current, [active.id]: event.target.value }))}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey || !event.shiftKey)) {
-                        event.preventDefault();
-                        const promptText = (drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT).trim();
-                        if (promptText) {
-                          onSubmit(active, promptText);
-                        }
-                      }
-                    }}
-                    placeholder="Type your question and press Enter..."
-                    className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 leading-relaxed font-sans transition-all"
-                  />
+                    {/* Clean Text-Driven Shimmer Thinking Box */}
+                    <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2.5">
+                      <div className="macos-ai-thinking-shimmer" />
+                      <div className="flex flex-col gap-2 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <span className="ai-text-shimmer text-xs">
+                            Thinking & generating explanation…
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            Analyzing context
+                          </span>
+                        </div>
 
-                  {/* Quick Preset Prompt Pills */}
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {QUICK_PROMPTS.map((qp) => (
+                        {/* Clean Shimmer Skeleton Lines */}
+                        <div className="flex flex-col gap-1.5 pt-0.5">
+                          <div className="ai-skeleton-line w-full" />
+                          <div className="ai-skeleton-line w-4/5" />
+                          <div className="ai-skeleton-line w-3/5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-1.5 pt-1">
                       <button
-                        key={qp}
-                        type="button"
-                        onClick={() => setDrafts((current) => ({ ...current, [active.id]: qp }))}
-                        className="text-[10.5px] px-2 py-0.5 rounded-md bg-[var(--secondary)] hover:bg-[var(--hover)] text-zinc-400 hover:text-zinc-200 border border-[var(--border)] transition-colors cursor-pointer"
+                        className="btn-secondary px-3 py-1.5 text-xs"
+                        onClick={() => void onCancel(active.id)}
                       >
-                        {qp}
+                        Cancel
                       </button>
-                    ))}
-                  </div>
-
-                  {job?.phase === 'error' && (
-                    <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg" role="alert">
-                      {job.message}
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2.5">
+                    <label
+                      className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+                      htmlFor={`ai-prompt-${active.id}`}
+                    >
+                      Ask AI about this region
+                    </label>
+                    <textarea
+                      id={`ai-prompt-${active.id}`}
+                      autoFocus
+                      rows={3}
+                      value={drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [active.id]: event.target.value,
+                        }))
+                      }
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === 'Enter' &&
+                          (event.metaKey || event.ctrlKey || !event.shiftKey)
+                        ) {
+                          event.preventDefault();
+                          const promptText = (
+                            drafts[active.id] ??
+                            active.prompt ??
+                            DEFAULT_PROMPT
+                          ).trim();
+                          if (promptText) {
+                            onSubmit(active, promptText);
+                          }
+                        }
+                      }}
+                      placeholder="Type your question and press Enter..."
+                      className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 leading-relaxed font-sans transition-all"
+                    />
 
-                  <div className="flex justify-between items-center gap-1.5 pt-1">
-                    <button
-                      className="btn-ghost px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      className="btn-primary px-3.5 py-1.5 font-medium shadow-md"
-                      disabled={!(drafts[active.id] ?? active.prompt).trim()}
-                      onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
-                    >
-                      {job?.phase === 'error' ? 'Retry' : 'Explain Region'}
-                    </button>
+                    {/* Quick Preset Prompt Pills */}
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {QUICK_PROMPTS.map((qp) => (
+                        <button
+                          key={qp}
+                          type="button"
+                          onClick={() =>
+                            setDrafts((current) => ({ ...current, [active.id]: qp }))
+                          }
+                          className="text-[10.5px] px-2 py-0.5 rounded-md bg-[var(--secondary)] hover:bg-[var(--hover)] text-zinc-400 hover:text-zinc-200 border border-[var(--border)] transition-colors cursor-pointer"
+                        >
+                          {qp}
+                        </button>
+                      ))}
+                    </div>
+
+                    {job?.phase === 'error' && (
+                      <div
+                        className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg"
+                        role="alert"
+                      >
+                        {job.message}
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center gap-1.5 pt-1">
+                      <button
+                        className="btn-ghost px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={() => {
+                          onDelete(active.id);
+                          onCloseJob(active.id);
+                          setOpenId(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        className="btn-primary px-3.5 py-1.5 font-medium shadow-md"
+                        disabled={!(drafts[active.id] ?? active.prompt).trim()}
+                        onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
+                      >
+                        {job?.phase === 'error' ? 'Retry' : 'Explain Region'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Settled AI Response View */}
+            {active.response && !job && (
+              <div className="flex flex-col gap-3">
+                <div
+                  data-ai-question="true"
+                  className="ai-question-section flex flex-col gap-1 bg-[var(--secondary)]/70 p-2.5 rounded-lg border border-[var(--border)]"
+                >
+                  <div className="text-[9.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Prompt
+                  </div>
+                  <div className="text-xs font-medium text-zinc-100 leading-snug">
+                    {active.prompt}
                   </div>
                 </div>
-              )}
-            </>
-          )}
 
-          {/* Settled AI Response View */}
+                {editingResponse ? (
+                  <textarea
+                    autoFocus
+                    rows={8}
+                    value={drafts[`response_${active.id}`] ?? active.response}
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [`response_${active.id}`]: event.target.value,
+                      }))
+                    }
+                    className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
+                  />
+                ) : (
+                  <div className="py-0.5 px-0.5">
+                    <React.Suspense
+                      fallback={
+                        <div className="text-xs text-zinc-400 p-2">
+                          Rendering explanation…
+                        </div>
+                      }
+                    >
+                      <AiResponseRenderer response={active.response} />
+                    </React.Suspense>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* STICKY FOOTER (Action Toolbar for Settled Response) */}
           {active.response && !job && (
-            <div className="flex flex-col gap-3">
-              <div data-ai-question="true" className="ai-question-section flex flex-col gap-1.5 bg-[var(--secondary)] p-2.5 rounded-lg border border-[var(--border)]">
-                <div className="text-[9.5px] font-semibold uppercase tracking-wider text-zinc-400">Prompt</div>
-                <div className="text-xs font-medium text-zinc-100">{active.prompt}</div>
+            <div className="flex items-center justify-between px-3.5 py-2 border-t border-[var(--border)] shrink-0 bg-[var(--secondary)]/40 backdrop-blur-xs select-none">
+              <div className="text-[10px] text-zinc-400 font-mono">
+                {Math.round(active.response.split(/\s+/).filter(Boolean).length)} words
               </div>
 
-              {editingResponse ? (
-                <textarea
-                  autoFocus
-                  rows={7}
-                  value={drafts[`response_${active.id}`] ?? active.response}
-                  onChange={(event) => setDrafts((current) => ({ ...current, [`response_${active.id}`]: event.target.value }))}
-                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
-                />
-              ) : (
-                <div className="p-1 max-h-[380px] overflow-y-auto">
-                  <React.Suspense fallback={<div className="text-xs text-zinc-400 p-2">Rendering explanation…</div>}>
-                    <AiResponseRenderer response={active.response} />
-                  </React.Suspense>
-                </div>
-              )}
-
-              {/* Action Toolbar */}
-              <div className="flex items-center justify-end pt-2.5 border-t border-[var(--border)]">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    className="macos-ai-action-btn"
-                    title="Rasterize explanation into adjustable image"
-                    onClick={() => void handleRasterizeResponse(active)}
-                    aria-label="Rasterize as Image"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="macos-ai-action-btn"
-                    title={copiedId === active.id ? 'Copied to clipboard' : 'Copy response'}
-                    onClick={() => void handleCopyText(active.response, active.id)}
-                    aria-label="Copy Response"
-                  >
-                    {copiedId === active.id ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                  <button
-                    className="macos-ai-action-btn"
-                    title={editingResponse ? 'Save edit' : 'Edit response'}
-                    onClick={() => {
-                      if (editingResponse) onUpdate(active.id, { response: drafts[`response_${active.id}`] ?? active.response, updatedAt: Date.now() });
-                      setEditingResponse(!editingResponse);
-                    }}
-                    aria-label={editingResponse ? 'Save edit' : 'Edit response'}
-                  >
-                    {editingResponse ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Pencil className="w-3.5 h-3.5" />}
-                  </button>
-                  <button
-                    className="macos-ai-action-btn"
-                    title="Regenerate"
-                    onClick={() => {
-                      setDrafts((current) => ({ ...current, [active.id]: active.prompt }));
-                      setOpenId(null);
-                      onCloseJob(active.id);
-                      requestAnimationFrame(() => setOpenId(active.id));
-                      onSubmit(active, active.prompt);
-                    }}
-                    aria-label="Regenerate"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="macos-ai-action-btn macos-ai-action-btn-danger"
-                    title="Delete"
-                    onClick={() => { onDelete(active.id); onCloseJob(active.id); setOpenId(null); }}
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+              <div className="flex items-center gap-1">
+                <button
+                  className="macos-ai-action-btn"
+                  title="Rasterize explanation into adjustable image on page"
+                  onClick={() => void handleRasterizeResponse(active)}
+                  aria-label="Rasterize as Image"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  className="macos-ai-action-btn"
+                  title={copiedId === active.id ? 'Copied to clipboard' : 'Copy response'}
+                  onClick={() => void handleCopyText(active.response, active.id)}
+                  aria-label="Copy Response"
+                >
+                  {copiedId === active.id ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                <button
+                  className="macos-ai-action-btn"
+                  title={editingResponse ? 'Save edit' : 'Edit response'}
+                  onClick={() => {
+                    if (editingResponse) {
+                      onUpdate(active.id, {
+                        response: drafts[`response_${active.id}`] ?? active.response,
+                        updatedAt: Date.now(),
+                      });
+                    }
+                    setEditingResponse(!editingResponse);
+                  }}
+                  aria-label={editingResponse ? 'Save edit' : 'Edit response'}
+                >
+                  {editingResponse ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Pencil className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                <button
+                  className="macos-ai-action-btn"
+                  title="Regenerate"
+                  onClick={() => {
+                    setDrafts((current) => ({ ...current, [active.id]: active.prompt }));
+                    setOpenId(null);
+                    onCloseJob(active.id);
+                    requestAnimationFrame(() => setOpenId(active.id));
+                    onSubmit(active, active.prompt);
+                  }}
+                  aria-label="Regenerate"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  className="macos-ai-action-btn macos-ai-action-btn-danger"
+                  title="Delete"
+                  onClick={() => {
+                    onDelete(active.id);
+                    onCloseJob(active.id);
+                    setOpenId(null);
+                  }}
+                  aria-label="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                </button>
               </div>
             </div>
           )}

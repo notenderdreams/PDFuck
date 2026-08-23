@@ -223,7 +223,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
       }}
-      className={`relative mx-auto ${isFlush ? 'my-1' : 'my-4'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group overflow-hidden ${
+      className={`relative mx-auto ${isFlush ? 'my-1' : 'my-4'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group ${
         isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
