@@ -53,6 +53,40 @@ export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
+export async function startDraggingWindow(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().startDragging();
+  } catch (err) {
+    console.warn('Tauri startDragging failed:', err);
+  }
+}
+
+export async function toggleMaximizeWindow(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().toggleMaximize();
+  } catch (err) {
+    console.warn('Tauri toggleMaximize failed:', err);
+  }
+}
+
+export function handleTitlebarMouseDown(e: React.MouseEvent): void {
+  if (e.button !== 0) return;
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  if (target.closest('button, input, textarea, select, a, [role="button"], .app-no-drag, [data-tauri-drag-region="false"]')) {
+    return;
+  }
+  if (e.detail === 2) {
+    void toggleMaximizeWindow();
+    return;
+  }
+  void startDraggingWindow();
+}
+
 export async function getAiProviderStatus(): Promise<AiProviderStatus> {
   if (!isTauri()) {
     return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };

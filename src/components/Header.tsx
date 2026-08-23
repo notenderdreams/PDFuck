@@ -15,7 +15,7 @@ import {
   Columns2,
 } from 'lucide-react';
 import type { DocumentInfo, ReadingTheme, ViewMode } from '../utils/types';
-import { isTauri } from '../utils/tauriBridge';
+import { isTauri, handleTitlebarMouseDown } from '../utils/tauriBridge';
 
 interface HeaderProps {
   docInfo: DocumentInfo | null;
@@ -124,26 +124,32 @@ export const Header: React.FC<HeaderProps> = ({
   const isInverted = ['invert', 'oled', 'nord', 'matrix'].includes(theme);
 
   return (
-    <header className="macos-titlebar reader-titlebar h-12 px-3.5 z-30 select-none app-drag-region text-xs">
-      <div className="reader-titlebar-left flex items-center gap-2.5 app-no-drag min-w-0">
+    <header
+      data-tauri-drag-region
+      onMouseDown={handleTitlebarMouseDown}
+      className="macos-titlebar reader-titlebar h-12 px-3.5 z-30 select-none app-drag-region text-xs cursor-default"
+    >
+      <div className="reader-titlebar-left flex items-center gap-2.5 min-w-0" data-tauri-drag-region>
         {/* Spacer for native macOS traffic lights on desktop */}
-        {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" />}
+        {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" data-tauri-drag-region />}
 
         {onOpenDashboard && (
           <button
             onClick={onOpenDashboard}
-            className="macos-topbar-icon"
+            className="macos-topbar-icon app-no-drag"
             title="Back to Library (Cmd+L)"
+            data-tauri-drag-region="false"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
         )}
         {docInfo?.fileName && (
           <>
-            <span className="reader-toolbar-divider shrink-0" aria-hidden="true" />
+            <span className="reader-toolbar-divider shrink-0" aria-hidden="true" data-tauri-drag-region />
             <span
               className="font-medium truncate text-[12px] text-zinc-200"
               title={docInfo.fileName}
+              data-tauri-drag-region
             >
               {docInfo.fileName}
             </span>
@@ -151,9 +157,9 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      <div className="reader-titlebar-center app-no-drag min-w-0">
+      <div className="reader-titlebar-center min-w-0" data-tauri-drag-region>
         {numPages > 0 && (
-          <div className="macos-toolbar-group macos-page-control flex items-center gap-1.5 px-3 py-1">
+          <div className="macos-toolbar-group macos-page-control flex items-center gap-1.5 px-3 py-1 app-no-drag" data-tauri-drag-region="false">
             <input
               type="text"
               inputMode="numeric"

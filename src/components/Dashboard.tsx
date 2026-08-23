@@ -26,6 +26,7 @@ import {
   tauriGetDefaultDirectories,
   tauriReadFile,
   tauriOpenPdf,
+  handleTitlebarMouseDown,
 } from '../utils/tauriBridge';
 import {
   loadSavedDirectories,
@@ -317,16 +318,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
       {/* Top Studio App Header (macOS Tahoe Window Bar) */}
-      <header className="macos-titlebar h-12 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3.5 z-30 select-none app-drag-region text-xs">
+      <header
+        data-tauri-drag-region
+        onMouseDown={handleTitlebarMouseDown}
+        className="macos-titlebar h-12 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3.5 z-30 select-none app-drag-region text-xs cursor-default"
+      >
         {/* Left window chrome */}
-        <div className="flex items-center gap-2.5 app-no-drag justify-self-start">
+        <div className="flex items-center gap-2.5 justify-self-start" data-tauri-drag-region>
           {/* Spacer for native macOS traffic lights on desktop */}
-          {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" />}
+          {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" data-tauri-drag-region />}
         </div>
 
         {/* Center Search Input (dead center in titlebar) */}
-        <div className="flex items-center justify-center app-no-drag w-80 sm:w-96 md:w-[28rem] justify-self-center">
-          <div className="control-field macos-search-field w-full flex items-center gap-2 px-2.5 py-1 rounded-lg">
+        <div className="flex items-center justify-center w-80 sm:w-96 md:w-[28rem] justify-self-center" data-tauri-drag-region>
+          <div className="control-field macos-search-field w-full flex items-center gap-2 px-2.5 py-1 rounded-lg app-no-drag" data-tauri-drag-region="false">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
               type="text"
@@ -347,7 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Right Actions: Add Folder, Open File & Back to Reader Studio */}
-        <div className="flex items-center gap-1.5 app-no-drag justify-self-end">
+        <div className="flex items-center gap-1.5 app-no-drag justify-self-end" data-tauri-drag-region="false">
           <button
             onClick={onToggleTheme}
             className="btn-icon"
