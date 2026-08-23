@@ -23,6 +23,7 @@ export interface ScannedPdfResult {
   file_size: number;
   modified_timestamp: number;
   directory_path: string;
+  num_pages?: number | null;
 }
 
 export type AiProviderStatus =

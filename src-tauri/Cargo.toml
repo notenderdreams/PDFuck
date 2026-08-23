@@ -23,3 +23,4 @@ base64 = "0.22"
 arboard = "3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 tokio = { version = "1", features = ["time", "rt", "sync"] }
+lopdf = { version = "0.44", default-features = false }

@@ -35,6 +35,7 @@ pub struct ScannedPdfResult {
     pub file_size: u64,
     pub modified_timestamp: u64,
     pub directory_path: String,
+    pub num_pages: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -658,8 +659,13 @@ fn select_directory_dialog() -> Option<String> {
     Some(folder.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-fn scan_directory_pdfs(directory_path: String) -> Vec<ScannedPdfResult> {
+fn pdf_page_count(path: &Path) -> Option<u32> {
+    lopdf::Document::load_metadata(path)
+        .ok()
+        .map(|metadata| metadata.page_count)
+}
+
+fn scan_directory_pdfs_blocking(directory_path: String) -> Vec<ScannedPdfResult> {
     let mut results = Vec::new();
     let root = Path::new(&directory_path);
     if !root.exists() || !root.is_dir() {
@@ -695,6 +701,7 @@ fn scan_directory_pdfs(directory_path: String) -> Vec<ScannedPdfResult> {
                                 file_size,
                                 modified_timestamp,
                                 directory_path: base_dir.to_string(),
+                                num_pages: pdf_page_count(&path),
                             });
                         }
                     }
@@ -716,6 +723,13 @@ fn scan_directory_pdfs(directory_path: String) -> Vec<ScannedPdfResult> {
 
     scan_dir(root, &directory_path, &mut results, 0);
     results
+}
+
+#[tauri::command]
+async fn scan_directory_pdfs(directory_path: String) -> Vec<ScannedPdfResult> {
+    tauri::async_runtime::spawn_blocking(move || scan_directory_pdfs_blocking(directory_path))
+        .await
+        .unwrap_or_default()
 }
 
 #[tauri::command]
@@ -871,6 +885,7 @@ mod ai_tests {
 #[cfg(test)]
 mod pdf_file_persistence_tests {
     use super::*;
+    use lopdf::{dictionary, Document, Object};
 
     #[test]
     fn page_changes_are_written_to_the_source_file() {
@@ -891,6 +906,46 @@ mod pdf_file_persistence_tests {
 
         assert!(result.success);
         assert_eq!(fs::read(&path).unwrap(), b"pdf bytes after page deletion");
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn page_count_comes_from_pdf_metadata() {
+        let path = std::env::temp_dir().join(format!(
+            "pdfuck-metadata-test-{}-{}.pdf",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut document = Document::with_version("1.5");
+        let pages_id = document.new_object_id();
+        let page_ids = (0..3)
+            .map(|_| {
+                document.add_object(dictionary! {
+                    "Type" => "Page",
+                    "Parent" => pages_id,
+                    "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+                })
+            })
+            .collect::<Vec<_>>();
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => page_ids.iter().copied().map(Object::Reference).collect::<Vec<_>>(),
+                "Count" => 3,
+            }),
+        );
+        let catalog_id = document.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        document.trailer.set("Root", catalog_id);
+        document.save(&path).unwrap();
+
+        assert_eq!(pdf_page_count(&path), Some(3));
         let _ = fs::remove_file(path);
     }
 }

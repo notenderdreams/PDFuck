@@ -1,15 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 
 describe('PDF metadata', () => {
-  test('shows lazily loaded total page counts and cleans up PDF.js', async () => {
-    const [dashboardSource, metadataSource] = await Promise.all([
+  test('does not transfer complete PDFs into the UI to obtain library page counts', async () => {
+    const [dashboardSource, bridgeSource] = await Promise.all([
       Bun.file(new URL('../src/components/Dashboard.tsx', import.meta.url)).text(),
-      Bun.file(new URL('../src/utils/pdfMetadata.ts', import.meta.url)).text(),
+      Bun.file(new URL('../src/utils/tauriBridge.ts', import.meta.url)).text(),
     ]);
 
-    expect(dashboardSource).toContain('<LibraryPageCount item={item}');
-    expect(dashboardSource).toContain('IntersectionObserver');
-    expect(metadataSource).toContain('document.numPages');
-    expect(metadataSource).toContain('loadingTask.destroy()');
+    expect(dashboardSource).not.toContain('const file = await tauriReadFile(item.filePath)');
+    expect(dashboardSource).not.toContain('Counting pages…');
+    expect(bridgeSource).toContain('num_pages?: number');
   });
 });
