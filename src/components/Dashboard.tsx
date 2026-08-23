@@ -12,7 +12,6 @@ import {
   ArrowRight,
   HardDrive,
   Folder,
-  Layers,
   Moon,
   Sun,
   ChevronDown,
@@ -318,23 +317,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
       {/* Top Studio App Header (macOS Tahoe Window Bar) */}
-      <header className="macos-titlebar h-12 flex items-center justify-between px-3.5 z-30 select-none app-drag-region text-xs">
-        {/* Left window chrome / branding */}
-        <div className="flex items-center gap-2.5 app-no-drag">
+      <header className="macos-titlebar h-12 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3.5 z-30 select-none app-drag-region text-xs">
+        {/* Left window chrome */}
+        <div className="flex items-center gap-2.5 app-no-drag justify-self-start">
           {/* Spacer for native macOS traffic lights on desktop */}
           {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" />}
-
-          <div className="macos-app-title flex items-center gap-2 text-zinc-200 tracking-tight">
-            <Layers className="w-4 h-4 text-blue-500" />
-            <div className="leading-tight">
-              <span className="block text-[12px] font-semibold text-zinc-100">PDFuck</span>
-              <span className="block text-[9.5px] text-zinc-400 font-medium">Library</span>
-            </div>
-          </div>
         </div>
 
-        {/* Center Search Input (Tahoe 8px radius input field) */}
-        <div className="flex items-center gap-2 app-no-drag w-full max-w-md">
+        {/* Center Search Input (dead center in titlebar) */}
+        <div className="flex items-center justify-center app-no-drag w-80 sm:w-96 md:w-[28rem] justify-self-center">
           <div className="control-field macos-search-field w-full flex items-center gap-2 px-2.5 py-1 rounded-lg">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
@@ -356,7 +347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Right Actions: Add Folder, Open File & Back to Reader Studio */}
-        <div className="flex items-center gap-1.5 app-no-drag">
+        <div className="flex items-center gap-1.5 app-no-drag justify-self-end">
           <button
             onClick={onToggleTheme}
             className="btn-icon"
@@ -383,17 +374,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
             <span>Browse PDF</span>
           </button>
-
-          {hasActiveDoc && (
-            <button
-              onClick={onSwitchToReader}
-              className="btn-primary ml-1"
-              title={`Return to active document (${activeDocName})`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Resume Reading</span>
-            </button>
-          )}
         </div>
       </header>
 
@@ -668,6 +648,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </main>
       </div>
+
+      {/* Floating Circular Resume Reading Button (Bottom Right) */}
+      {hasActiveDoc && (
+        <button
+          onClick={onSwitchToReader}
+          className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full flex items-center justify-center text-white bg-gradient-to-b from-[#3b99ff] to-[#0066eb] shadow-xl hover:scale-108 active:scale-95 transition-all cursor-pointer border border-white/25 group"
+          title={`Resume Reading: ${activeDocName}`}
+          aria-label={`Resume Reading: ${activeDocName}`}
+        >
+          <BookOpen className="w-5 h-5 transition-transform group-hover:scale-110" />
+        </button>
+      )}
     </div>
   );
 };
