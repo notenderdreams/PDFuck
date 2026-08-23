@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import {
   LayoutGrid,
@@ -92,6 +92,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const [tabIndicatorStyle, setTabIndicatorStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
+
+  const tabRefs = useRef<Map<SidebarTabType, HTMLButtonElement>>(new Map());
+
+  useLayoutEffect(() => {
+    const updateIndicator = () => {
+      const activeEl = tabRefs.current.get(activeTab);
+      if (activeEl) {
+        setTabIndicatorStyle({
+          left: activeEl.offsetLeft,
+          top: activeEl.offsetTop,
+          width: activeEl.offsetWidth,
+          height: activeEl.offsetHeight,
+          opacity: 1,
+        });
+      }
+    };
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [activeTab]);
+
   const thumbnailQueueRef = useRef<ThumbnailRenderQueue | null>(null);
 
   if (!thumbnailQueueRef.current) {
@@ -105,12 +133,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-xl border-r border-[var(--border)]">
       {/* Tab Header Strip (Tahoe Segmented Navigation) */}
       <div className="p-2.5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
-        <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)]">
+        <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)] relative">
+          {/* Smooth Sliding Tab Highlighter Box */}
+          <div
+            className="macos-tab-sliding-indicator"
+            style={{
+              transform: `translate3d(${tabIndicatorStyle.left}px, ${tabIndicatorStyle.top}px, 0)`,
+              width: `${tabIndicatorStyle.width}px`,
+              height: `${tabIndicatorStyle.height}px`,
+              opacity: tabIndicatorStyle.opacity,
+            }}
+          />
+
           <button
+            ref={(el) => {
+              if (el) tabRefs.current.set('thumbnails', el);
+              else tabRefs.current.delete('thumbnails');
+            }}
             onClick={() => setActiveTab('thumbnails')}
-            className={`p-1.5 rounded-md text-xs transition-all ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               activeTab === 'thumbnails'
-                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Thumbnails"
@@ -118,10 +161,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
           <button
+            ref={(el) => {
+              if (el) tabRefs.current.set('outline', el);
+              else tabRefs.current.delete('outline');
+            }}
             onClick={() => setActiveTab('outline')}
-            className={`p-1.5 rounded-md text-xs transition-all ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               activeTab === 'outline'
-                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Table of Contents"
@@ -129,10 +176,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <ListTree className="w-3.5 h-3.5" />
           </button>
           <button
+            ref={(el) => {
+              if (el) tabRefs.current.set('annotations', el);
+              else tabRefs.current.delete('annotations');
+            }}
             onClick={() => setActiveTab('annotations')}
-            className={`p-1.5 rounded-md text-xs transition-all ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               activeTab === 'annotations'
-                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title={`Annotations (${annotations.length})`}
@@ -140,24 +191,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Highlighter className="w-3.5 h-3.5" />
           </button>
           <button
+            ref={(el) => {
+              if (el) tabRefs.current.set('snippets', el);
+              else tabRefs.current.delete('snippets');
+            }}
             onClick={() => setActiveTab('snippets')}
-            className={`p-1.5 rounded-md text-xs transition-all relative ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               activeTab === 'snippets'
-                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title={`AI Snippet Compactor (${snippets.length})`}
           >
             <Crop className="w-3.5 h-3.5" />
             {snippets.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[var(--card)]" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[var(--card)]" />
             )}
           </button>
           <button
+            ref={(el) => {
+              if (el) tabRefs.current.set('info', el);
+              else tabRefs.current.delete('info');
+            }}
             onClick={() => setActiveTab('info')}
-            className={`p-1.5 rounded-md text-xs transition-all ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               activeTab === 'info'
-                ? 'bg-[var(--card)] text-blue-500 dark:text-blue-400 font-semibold shadow-sm'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Document Details"

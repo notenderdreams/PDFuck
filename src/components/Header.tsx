@@ -65,6 +65,34 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [pageInputText, setPageInputText] = React.useState<string>(String(currentPage));
 
+  const [viewModeIndicatorStyle, setViewModeIndicatorStyle] = React.useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
+
+  const viewModeRefs = React.useRef<Map<ViewMode, HTMLButtonElement>>(new Map());
+
+  React.useLayoutEffect(() => {
+    const updateIndicator = () => {
+      const activeEl = viewModeRefs.current.get(viewMode);
+      if (activeEl) {
+        setViewModeIndicatorStyle({
+          left: activeEl.offsetLeft,
+          top: activeEl.offsetTop,
+          width: activeEl.offsetWidth,
+          height: activeEl.offsetHeight,
+          opacity: 1,
+        });
+      }
+    };
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [viewMode]);
+
   React.useEffect(() => {
     setPageInputText(String(currentPage));
   }, [currentPage]);
@@ -190,15 +218,27 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <span className="reader-toolbar-divider hidden md:block" aria-hidden="true" />
+        {/* View Mode Segmented Controls with Smooth Sliding Highlighter Box */}
+        <div className="macos-toolbar-group macos-reader-segmented hidden md:flex items-center px-2 py-1 gap-1 relative">
+          <div
+            className="macos-segmented-sliding-indicator"
+            style={{
+              transform: `translate3d(${viewModeIndicatorStyle.left}px, ${viewModeIndicatorStyle.top}px, 0)`,
+              width: `${viewModeIndicatorStyle.width}px`,
+              height: `${viewModeIndicatorStyle.height}px`,
+              opacity: viewModeIndicatorStyle.opacity,
+            }}
+          />
 
-        {/* View Mode Segmented Controls */}
-        <div className="macos-toolbar-group macos-reader-segmented hidden md:flex items-center px-2 py-1 gap-1">
           <button
+            ref={(el) => {
+              if (el) viewModeRefs.current.set('continuous', el);
+              else viewModeRefs.current.delete('continuous');
+            }}
             onClick={() => onChangeViewMode('continuous')}
-            className={`p-1 rounded-md transition-all ${
+            className={`relative z-10 p-1 rounded-md transition-colors ${
               viewMode === 'continuous'
-                ? 'reader-view-mode-active'
+                ? 'text-blue-500 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Continuous Vertical View"
@@ -206,10 +246,14 @@ export const Header: React.FC<HeaderProps> = ({
             <Rows className="w-3.5 h-3.5" />
           </button>
           <button
+            ref={(el) => {
+              if (el) viewModeRefs.current.set('single', el);
+              else viewModeRefs.current.delete('single');
+            }}
             onClick={() => onChangeViewMode('single')}
-            className={`p-1 rounded-md transition-all ${
+            className={`relative z-10 p-1 rounded-md transition-colors ${
               viewMode === 'single'
-                ? 'reader-view-mode-active'
+                ? 'text-blue-500 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Single Page View"
@@ -217,10 +261,14 @@ export const Header: React.FC<HeaderProps> = ({
             <Square className="w-3.5 h-3.5" />
           </button>
           <button
+            ref={(el) => {
+              if (el) viewModeRefs.current.set('spread', el);
+              else viewModeRefs.current.delete('spread');
+            }}
             onClick={() => onChangeViewMode('spread')}
-            className={`p-1 rounded-md transition-all ${
+            className={`relative z-10 p-1 rounded-md transition-colors ${
               viewMode === 'spread'
-                ? 'reader-view-mode-active'
+                ? 'text-blue-500 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Two-Page Spread"

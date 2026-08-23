@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   MousePointer,
   Highlighter,
@@ -54,6 +54,45 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [hoveredTool, setHoveredTool] = useState<ToolType | 'color' | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
 
+  // Position for smooth sliding active circle indicator
+  const [indicatorStyle, setIndicatorStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({
+    left: 0,
+    top: 0,
+    width: 34,
+    height: 34,
+    opacity: 0,
+  });
+
+  const toolRefs = useRef<Map<ToolType, HTMLDivElement>>(new Map());
+
+  // Measure and update the sliding active circle
+  useLayoutEffect(() => {
+    const updateIndicator = () => {
+      const activeEl = toolRefs.current.get(activeTool);
+      if (activeEl) {
+        setIndicatorStyle({
+          left: activeEl.offsetLeft,
+          top: activeEl.offsetTop,
+          width: activeEl.offsetWidth,
+          height: activeEl.offsetHeight,
+          opacity: 1,
+        });
+      } else {
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      }
+    };
+
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [activeTool]);
+
   // Click-outside and Escape key dismissal for color palette popover
   useEffect(() => {
     if (!showPalette) return;
@@ -92,8 +131,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <nav
       aria-label="Annotation Dock"
-      className="macos-annotation-dock fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center select-none animate-slide-up"
+      className="macos-annotation-dock fixed bottom-5 left-1/2 -translate-x-1/2 z-40 inline-flex items-center w-max max-w-fit select-none animate-slide-up relative"
     >
+      {/* Smooth Sliding Active Circle Indicator */}
+      <div
+        className="macos-dock-sliding-indicator"
+        style={{
+          transform: `translate3d(${indicatorStyle.left}px, ${indicatorStyle.top}px, 0)`,
+          width: `${indicatorStyle.width}px`,
+          height: `${indicatorStyle.height}px`,
+          opacity: indicatorStyle.opacity,
+        }}
+      />
+
       {/* Tool Buttons with Mac Dock Magnification & Tooltips */}
       {tools.map((tool) => {
         const Icon = tool.icon;
@@ -101,7 +151,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         const isHovered = hoveredTool === tool.id;
 
         return (
-          <div key={tool.id} className="relative flex items-center justify-center">
+          <div
+            key={tool.id}
+            ref={(el) => {
+              if (el) toolRefs.current.set(tool.id, el);
+              else toolRefs.current.delete(tool.id);
+            }}
+            className="relative flex items-center justify-center"
+          >
             {/* Glossy Dock Tooltip */}
             {isHovered && !showPalette && (
               <div className="macos-dock-tooltip">
@@ -114,7 +171,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               onClick={() => onSelectTool(tool.id)}
               onMouseEnter={() => setHoveredTool(tool.id)}
               onMouseLeave={() => setHoveredTool(null)}
-              className={`macos-dock-item ${isActive ? 'macos-dock-item-active' : ''}`}
+              className={`macos-dock-item z-10 ${isActive ? 'macos-dock-item-active' : ''}`}
               aria-label={tool.label}
               aria-pressed={isActive}
             >
@@ -125,10 +182,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       })}
 
       {/* Glossy Etched Glass Divider */}
-      <div className="macos-dock-divider" aria-hidden="true" />
+      <div className="macos-dock-divider z-10" aria-hidden="true" />
 
       {/* Color Swatch Orb & Floating Palette */}
-      <div className="relative flex items-center justify-center" ref={paletteRef}>
+      <div className="relative flex items-center justify-center z-10" ref={paletteRef}>
         {hoveredTool === 'color' && !showPalette && (
           <div className="macos-dock-tooltip">
             <span>Color & Stroke</span>
