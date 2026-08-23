@@ -189,6 +189,20 @@ export async function tauriSavePdf(pdfBytes: Uint8Array, defaultName: string): P
   }
 }
 
+export async function tauriWritePdf(pdfBytes: Uint8Array, filePath: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const res = await invoke<SaveResult>('write_pdf_file', {
+      filePath,
+      data: Array.from(pdfBytes),
+    });
+    return res.success;
+  } catch (err) {
+    console.error('Tauri write PDF error:', err);
+    return false;
+  }
+}
+
 export async function tauriSaveJson(jsonString: string, defaultName: string): Promise<{ success: boolean; path?: string }> {
   if (!isTauri()) return { success: false };
   try {

@@ -20,7 +20,7 @@ import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
 import { createSamplePDF } from './utils/samplePdf';
 import { loadViewMode, saveViewMode, recordRecentDoc } from './utils/storage';
-import { isTauri, tauriOpenPdf, tauriOpenImage } from './utils/tauriBridge';
+import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf } from './utils/tauriBridge';
 import {
   extractPageText,
   copyTextToClipboard,
@@ -529,6 +529,14 @@ export function App() {
         const updatedSnippets = reindexAfterPageDeletion(snippets, pageNumber);
         const nextPage = Math.min(pageNumber, pdfDoc.numPages - 1);
 
+        if (isTauri() && docInfo.filePath) {
+          const persisted = await tauriWritePdf(updatedBytes, docInfo.filePath);
+          if (!persisted) {
+            showToast('Could not save the page deletion to the PDF.', true);
+            return;
+          }
+        }
+
         const reloaded = await loadPdf(
           updatedBytes,
           docInfo.fileName,
@@ -548,7 +556,11 @@ export function App() {
         cursorPosRef.current = null;
         setPageNavRequest({ page: nextPage, timestamp: Date.now() });
         setPagePendingDeletion(null);
-        showToast(`Deleted Page ${pageNumber}.`);
+        showToast(
+          isTauri() && docInfo.filePath
+            ? `Deleted Page ${pageNumber} and saved the PDF.`
+            : `Deleted Page ${pageNumber}. Save the PDF to keep this change.`
+        );
       } catch (error) {
         console.error('Failed to delete PDF page:', error);
         showToast('Could not delete the page.', true);

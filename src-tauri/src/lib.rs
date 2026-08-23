@@ -590,6 +590,27 @@ fn save_pdf_dialog(data: Vec<u8>, default_name: Option<String>) -> SaveResult {
 }
 
 #[tauri::command]
+fn write_pdf_file(file_path: String, data: Vec<u8>) -> SaveResult {
+    let path = PathBuf::from(&file_path);
+    let is_pdf = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"));
+
+    if !is_pdf || !path.is_file() || fs::write(&path, &data).is_err() {
+        return SaveResult {
+            success: false,
+            file_path: None,
+        };
+    }
+
+    SaveResult {
+        success: true,
+        file_path: Some(file_path),
+    }
+}
+
+#[tauri::command]
 fn save_json_dialog(json_string: String, default_name: Option<String>) -> SaveResult {
     let mut dialog = rfd::FileDialog::new()
         .add_filter("JSON File", &["json"])
@@ -779,6 +800,7 @@ pub fn run() {
             open_pdf_dialog,
             open_image_dialog,
             save_pdf_dialog,
+            write_pdf_file,
             save_json_dialog,
             read_file_from_path,
             select_directory_dialog,
@@ -843,5 +865,32 @@ mod ai_tests {
         fs::write(path.join("region.png"), b"temporary").unwrap();
         drop(TempAiDirectory(path.clone()));
         assert!(!path.exists());
+    }
+}
+
+#[cfg(test)]
+mod pdf_file_persistence_tests {
+    use super::*;
+
+    #[test]
+    fn page_changes_are_written_to_the_source_file() {
+        let path = std::env::temp_dir().join(format!(
+            "pdfuck-page-persistence-test-{}-{}.pdf",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::write(&path, b"original pdf bytes").unwrap();
+
+        let result = write_pdf_file(
+            path.to_string_lossy().into_owned(),
+            b"pdf bytes after page deletion".to_vec(),
+        );
+
+        assert!(result.success);
+        assert_eq!(fs::read(&path).unwrap(), b"pdf bytes after page deletion");
+        let _ = fs::remove_file(path);
     }
 }
