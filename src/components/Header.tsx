@@ -219,9 +219,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* View Mode Segmented Controls with Smooth Sliding Highlighter Box */}
-        <div className="macos-toolbar-group macos-reader-segmented hidden md:flex items-center px-2 py-1 gap-1 relative">
+        <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)] relative hidden md:flex">
           <div
-            className="macos-segmented-sliding-indicator"
+            className="macos-tab-sliding-indicator"
             style={{
               transform: `translate3d(${viewModeIndicatorStyle.left}px, ${viewModeIndicatorStyle.top}px, 0)`,
               width: `${viewModeIndicatorStyle.width}px`,
@@ -236,9 +236,9 @@ export const Header: React.FC<HeaderProps> = ({
               else viewModeRefs.current.delete('continuous');
             }}
             onClick={() => onChangeViewMode('continuous')}
-            className={`relative z-10 p-1 rounded-md transition-colors ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               viewMode === 'continuous'
-                ? 'text-blue-500 font-semibold'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Continuous Vertical View"
@@ -251,9 +251,9 @@ export const Header: React.FC<HeaderProps> = ({
               else viewModeRefs.current.delete('single');
             }}
             onClick={() => onChangeViewMode('single')}
-            className={`relative z-10 p-1 rounded-md transition-colors ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               viewMode === 'single'
-                ? 'text-blue-500 font-semibold'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Single Page View"
@@ -266,9 +266,9 @@ export const Header: React.FC<HeaderProps> = ({
               else viewModeRefs.current.delete('spread');
             }}
             onClick={() => onChangeViewMode('spread')}
-            className={`relative z-10 p-1 rounded-md transition-colors ${
+            className={`relative z-10 p-1.5 rounded-md text-xs transition-colors ${
               viewMode === 'spread'
-                ? 'text-blue-500 font-semibold'
+                ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Two-Page Spread"

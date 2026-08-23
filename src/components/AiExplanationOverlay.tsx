@@ -27,6 +27,7 @@ interface Props {
 const DEFAULT_PROMPT = 'Explain this clearly and concisely';
 
 const QUICK_PROMPTS = [
+  'Solve step-by-step',
   'Explain clearly',
   'Summarize key points',
   'Explain formulas & math',
