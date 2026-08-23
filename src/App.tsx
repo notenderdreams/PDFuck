@@ -737,6 +737,7 @@ export function App() {
               customFilterStyle={getCustomFilterStyle()}
               onClose={() => setIsSidebarOpen(false)}
               onPageSelect={handleNavigatePage}
+              onSelectAnnotation={setSelectedAnnotationId}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
               snippets={snippets}
               isSnipActive={activeTool === 'snip'}

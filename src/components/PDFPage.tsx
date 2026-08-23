@@ -322,6 +322,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         onUpdate={onUpdateAnnotation}
         onDelete={onDeleteAnnotation}
         onAddAnnotation={onAddAnnotation}
+        selectedAnnotationId={selectedAnnotationId}
         onSelectAnnotation={onSelectAnnotation}
       />
 

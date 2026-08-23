@@ -9,10 +9,12 @@ import {
   Trash2,
   Image as ImageIcon,
   Crop,
+  Sparkles,
 } from 'lucide-react';
 import type { Annotation, DocumentInfo, PDFOutlineItem, SnippetDividerEntry, SnippetEntry, StitchOptions } from '../utils/types';
 import { ThumbnailRenderQueue } from '../utils/thumbnailRenderQueue';
 import { SnippetPanel } from './SnippetPanel';
+import { getAnnotationListPresentation } from '../utils/annotationPresentation';
 
 export type SidebarTabType = 'thumbnails' | 'outline' | 'annotations' | 'snippets' | 'info';
 
@@ -30,6 +32,7 @@ interface SidebarProps {
   customFilterStyle: React.CSSProperties;
   onClose: () => void;
   onPageSelect: (pageNumber: number) => void;
+  onSelectAnnotation?: (id: string | null) => void;
   onDeleteAnnotation: (id: string) => void;
   // Snippets props
   snippets?: SnippetEntry[];
@@ -64,6 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   customFilterStyle,
   onClose,
   onPageSelect,
+  onSelectAnnotation,
   onDeleteAnnotation,
   snippets = [],
   isSnipActive = false,
@@ -189,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title={`Annotations (${annotations.length})`}
+            title={`Highlights & AI responses (${annotations.length})`}
           >
             <Highlighter className="w-3.5 h-3.5" />
           </button>
@@ -289,43 +293,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 No annotations added yet.
               </div>
             ) : (
-              annotations.map((ann) => (
-                <div
-                  key={ann.id}
-                  onClick={() => onPageSelect(ann.pageNumber)}
-                  className="p-2 rounded-lg bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] flex items-center justify-between gap-2 cursor-pointer transition-all group text-xs shadow-xs"
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    {ann.type === 'image' ? (
-                      <ImageIcon className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    ) : (
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 shadow-xs"
-                        style={{ backgroundColor: (ann as { color?: string }).color || '#facc15' }}
-                      />
-                    )}
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="font-medium text-zinc-200 capitalize truncate">
-                        {ann.type.replace('-', ' ')}
-                      </span>
-                      <span className="text-[10px] font-mono text-zinc-400">
-                        Page {ann.pageNumber}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteAnnotation(ann.id);
+              annotations.map((ann) => {
+                const presentation = getAnnotationListPresentation(ann);
+                return (
+                  <div
+                    key={ann.id}
+                    onClick={() => {
+                      onPageSelect(ann.pageNumber);
+                      onSelectAnnotation?.(ann.id);
                     }}
-                    className="p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Delete Annotation"
+                    className="p-2 rounded-lg bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] flex items-start justify-between gap-2 cursor-pointer transition-all group text-xs shadow-xs"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))
+                    <div className="flex items-start gap-2 min-w-0">
+                      {presentation.isAi ? (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-500">
+                          <Sparkles className="h-3 w-3" />
+                        </span>
+                      ) : ann.type === 'image' ? (
+                        <ImageIcon className="mt-0.5 w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      ) : (
+                        <span
+                          className="mt-1 w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 shadow-xs"
+                          style={{ backgroundColor: (ann as { color?: string }).color || '#facc15' }}
+                        />
+                      )}
+                      <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-medium capitalize text-zinc-200">
+                            {presentation.title}
+                          </span>
+                          <span className="shrink-0 text-[9px] font-mono text-zinc-500">
+                            P.{ann.pageNumber}
+                          </span>
+                        </div>
+                        {presentation.preview && (
+                          <span className="truncate text-[10.5px] leading-4 text-zinc-400" title={presentation.preview}>
+                            {presentation.preview}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteAnnotation(ann.id);
+                      }}
+                      className="shrink-0 p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      title="Delete Annotation"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         )}

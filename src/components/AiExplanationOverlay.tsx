@@ -32,6 +32,7 @@ interface Props {
   onUpdate: (id: string, updates: Partial<Annotation>) => void;
   onDelete: (id: string) => void;
   onAddAnnotation: (ann: Annotation) => void;
+  selectedAnnotationId?: string | null;
   onSelectAnnotation?: (id: string | null) => void;
 }
 
@@ -56,6 +57,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   onUpdate,
   onDelete,
   onAddAnnotation,
+  selectedAnnotationId,
   onSelectAnnotation,
 }) => {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -87,6 +89,15 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     }
   }, [activeJobId, openId]);
 
+  useEffect(() => {
+    if (
+      selectedAnnotationId &&
+      annotations.some((annotation) => annotation.id === selectedAnnotationId)
+    ) {
+      setOpenId(selectedAnnotationId);
+    }
+  }, [annotations, selectedAnnotationId]);
+
   // Reset local state when active annotation changes
   useEffect(() => {
     if (!active) {
@@ -108,10 +119,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       if (event.key === 'Escape') {
         if (job?.phase === 'running') void onCancel(activeId);
         else onCloseJob(activeId);
-        if (active && !active.response) {
-          onDelete(active.id);
-        }
         setOpenId(null);
+        onSelectAnnotation?.(null);
       }
     };
     window.addEventListener('keydown', closeOnEscape);
@@ -266,6 +275,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             onClick={(event) => {
               event.stopPropagation();
               setOpenId(annotation.id);
+              onSelectAnnotation?.(annotation.id);
             }}
             style={{
               left: `${(annotation.x + annotation.width) * pageWidth - 14}px`,
@@ -334,10 +344,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                 className="macos-ai-action-btn w-6 h-6 rounded-md"
                 onClick={() => {
                   if (job?.phase === 'running') void onCancel(active.id);
-                  if (!active.response) {
-                    onDelete(active.id);
-                  }
                   setOpenId(null);
+                  onSelectAnnotation?.(null);
                   onCloseJob(active.id);
                 }}
                 aria-label="Close"
@@ -407,12 +415,16 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                       autoFocus
                       rows={3}
                       value={drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
-                      onChange={(event) =>
+                      onChange={(event) => {
                         setDrafts((current) => ({
                           ...current,
                           [active.id]: event.target.value,
-                        }))
-                      }
+                        }));
+                        onUpdate(active.id, {
+                          prompt: event.target.value,
+                          updatedAt: Date.now(),
+                        });
+                      }}
                       onKeyDown={(event) => {
                         if (
                           event.key === 'Enter' &&
@@ -439,9 +451,10 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                         <button
                           key={qp}
                           type="button"
-                          onClick={() =>
-                            setDrafts((current) => ({ ...current, [active.id]: qp }))
-                          }
+                          onClick={() => {
+                            setDrafts((current) => ({ ...current, [active.id]: qp }));
+                            onUpdate(active.id, { prompt: qp, updatedAt: Date.now() });
+                          }}
                           className="text-[10.5px] px-2 py-0.5 rounded-md bg-[var(--secondary)] hover:bg-[var(--hover)] text-zinc-400 hover:text-zinc-200 border border-[var(--border)] transition-colors cursor-pointer"
                         >
                           {qp}
@@ -502,12 +515,16 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                     autoFocus
                     rows={8}
                     value={drafts[`response_${active.id}`] ?? active.response}
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setDrafts((current) => ({
                         ...current,
                         [`response_${active.id}`]: event.target.value,
-                      }))
-                    }
+                      }));
+                      onUpdate(active.id, {
+                        response: event.target.value,
+                        updatedAt: Date.now(),
+                      });
+                    }}
                     className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
                   />
                 ) : (

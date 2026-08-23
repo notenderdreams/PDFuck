@@ -16,6 +16,18 @@ const IDB_NAME = 'pdfuck_database';
 const IDB_VERSION = 1;
 const IDB_STORE_ANNOTATIONS = 'annotations_store';
 
+export interface StoredAnnotationRecord {
+  annotations: Annotation[];
+  updatedAt: number;
+}
+
+let lastAnnotationSaveTimestamp = 0;
+
+const nextAnnotationSaveTimestamp = (): number => {
+  lastAnnotationSaveTimestamp = Math.max(Date.now(), lastAnnotationSaveTimestamp + 1);
+  return lastAnnotationSaveTimestamp;
+};
+
 function openIDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
@@ -33,36 +45,68 @@ function openIDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function idbSaveAnnotations(docKey: string, annotations: Annotation[]): Promise<void> {
+export async function idbSaveAnnotations(
+  docKey: string,
+  annotations: Annotation[],
+  updatedAt = nextAnnotationSaveTimestamp()
+): Promise<boolean> {
   try {
     const db = await openIDB();
     const tx = db.transaction(IDB_STORE_ANNOTATIONS, 'readwrite');
     const store = tx.objectStore(IDB_STORE_ANNOTATIONS);
-    store.put({ docKey, annotations, updatedAt: Date.now() });
-    await new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+    const existingRequest = store.get(docKey);
+    existingRequest.onsuccess = () => {
+      const existing = parseStoredAnnotationRecord(existingRequest.result);
+      if (!existing || existing.updatedAt <= updatedAt) {
+        store.put({ docKey, annotations, updatedAt });
+      }
+    };
+    existingRequest.onerror = () => {
+      store.put({ docKey, annotations, updatedAt });
+    };
+
+    return await new Promise<boolean>((resolve) => {
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve(false);
+      };
+      tx.onabort = () => {
+        db.close();
+        resolve(false);
+      };
     });
-  } catch (err) {
-    // console.warn('IDB Save Error:', err);
+  } catch {
+    return false;
   }
 }
 
-export async function idbLoadAnnotations(docKey: string): Promise<Annotation[] | null> {
+export async function idbLoadAnnotationRecord(docKey: string): Promise<StoredAnnotationRecord | null> {
   try {
     const db = await openIDB();
     const tx = db.transaction(IDB_STORE_ANNOTATIONS, 'readonly');
     const store = tx.objectStore(IDB_STORE_ANNOTATIONS);
     const req = store.get(docKey);
-    return await new Promise<Annotation[] | null>((resolve) => {
+    return await new Promise<StoredAnnotationRecord | null>((resolve) => {
       req.onsuccess = () => {
-        resolve(req.result ? req.result.annotations : null);
+        db.close();
+        resolve(parseStoredAnnotationRecord(req.result));
       };
-      req.onerror = () => resolve(null);
+      req.onerror = () => {
+        db.close();
+        resolve(null);
+      };
     });
   } catch {
     return null;
   }
+}
+
+export async function idbLoadAnnotations(docKey: string): Promise<Annotation[] | null> {
+  return (await idbLoadAnnotationRecord(docKey))?.annotations ?? null;
 }
 
 // --- Theme Settings Storage ---
@@ -104,89 +148,130 @@ export function loadViewMode(): ViewMode {
 // --- Unified Annotations Auto-Save Engine ---
 
 export function filterPersistableAnnotations(annotations: Annotation[]): Annotation[] {
-  return annotations.filter((ann) => {
-    // If it's an AI explanation box without a response (user just drew a box but didn't send/explain), do not persist
-    if (ann.type === 'ai-explanation') {
-      return Boolean(ann.response && ann.response.trim());
-    }
-    return true;
-  });
+  return annotations;
 }
 
-export function saveAnnotationsForDoc(
+export function parseStoredAnnotationRecord(value: unknown): StoredAnnotationRecord | null {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (Array.isArray(parsed)) {
+      return { annotations: filterPersistableAnnotations(parsed as Annotation[]), updatedAt: 0 };
+    }
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Array.isArray((parsed as { annotations?: unknown }).annotations)
+    ) {
+      const record = parsed as { annotations: Annotation[]; updatedAt?: unknown };
+      const updatedAt =
+        typeof record.updatedAt === 'number' && Number.isFinite(record.updatedAt)
+          ? record.updatedAt
+          : 0;
+      lastAnnotationSaveTimestamp = Math.max(lastAnnotationSaveTimestamp, updatedAt);
+      return {
+        annotations: filterPersistableAnnotations(record.annotations),
+        updatedAt,
+      };
+    }
+  } catch {}
+  return null;
+}
+
+export function selectNewestAnnotationRecord(
+  records: Array<StoredAnnotationRecord | null>
+): StoredAnnotationRecord | null {
+  return records.reduce<StoredAnnotationRecord | null>((newest, record) => {
+    if (!record) return newest;
+    if (!newest || record.updatedAt > newest.updatedAt) return record;
+    return newest;
+  }, null);
+}
+
+const annotationStorageKeys = (docKey: string, fallbackKeys: string[]): string[] =>
+  [...new Set([docKey, ...fallbackKeys].filter(Boolean))];
+
+export async function saveAnnotationsForDoc(
   docKey: string,
   annotations: Annotation[],
   fallbackKeys: string[] = []
-): void {
+): Promise<void> {
   const persistable = filterPersistableAnnotations(annotations);
+  const updatedAt = nextAnnotationSaveTimestamp();
+  const record: StoredAnnotationRecord = { annotations: persistable, updatedAt };
+  const keys = annotationStorageKeys(docKey, fallbackKeys);
+  let localSaveSucceeded = false;
 
   // 1. LocalStorage for fast instant access
-  try {
-    const json = JSON.stringify(persistable);
-    localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`, json);
-    for (const key of fallbackKeys) {
-      if (key) {
-        localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`, json);
-      }
+  const json = JSON.stringify(record);
+  for (const key of keys) {
+    try {
+      localStorage.setItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`, json);
+      localSaveSucceeded = true;
+    } catch {
+      // Large image annotations may exceed localStorage; IndexedDB remains authoritative.
     }
-  } catch (e) {
-    // QuotaExceededError is handled gracefully via IndexedDB below
   }
 
   // 2. Persistent IndexedDB for full-size payloads & image attachments
-  idbSaveAnnotations(docKey, persistable);
-  for (const key of fallbackKeys) {
-    if (key) {
-      idbSaveAnnotations(key, persistable);
-    }
-  }
+  const idbResults = await Promise.all(
+    keys.map((key) => idbSaveAnnotations(key, persistable, updatedAt))
+  );
 
   // 3. Update annotation count in recent docs
   try {
     const recents = loadRecentDocs();
     const updated = recents.map((doc) => {
-      if (doc.filePath === docKey || doc.fileName === docKey || fallbackKeys.includes(doc.filePath || '')) {
+      if (
+        doc.filePath === docKey ||
+        doc.fileName === docKey ||
+        fallbackKeys.includes(doc.filePath || '') ||
+        fallbackKeys.includes(doc.fileName)
+      ) {
         return { ...doc, annotationCount: persistable.length };
       }
       return doc;
     });
     localStorage.setItem(STORAGE_KEYS.RECENT_DOCS, JSON.stringify(updated));
   } catch {}
+
+  if (!localSaveSucceeded && !idbResults.some(Boolean)) {
+    throw new Error('No annotation storage backend is available.');
+  }
+}
+
+export function loadAnnotationRecordForDocSync(
+  docKey: string,
+  fallbackKeys: string[] = []
+): StoredAnnotationRecord | null {
+  const records = annotationStorageKeys(docKey, fallbackKeys).map((key) => {
+    try {
+      const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`);
+      return raw ? parseStoredAnnotationRecord(raw) : null;
+    } catch {}
+    return null;
+  });
+  return selectNewestAnnotationRecord(records);
 }
 
 export function loadAnnotationsForDocSync(docKey: string, fallbackKeys: string[] = []): Annotation[] {
-  // Try main docKey
-  try {
-    const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${docKey}`);
-    if (raw) return filterPersistableAnnotations(JSON.parse(raw));
-  } catch {}
+  return loadAnnotationRecordForDocSync(docKey, fallbackKeys)?.annotations ?? [];
+}
 
-  // Try fallback keys (e.g. filePath, fileName, fingerprint)
-  for (const key of fallbackKeys) {
-    if (!key) continue;
-    try {
-      const raw = localStorage.getItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`);
-      if (raw) return filterPersistableAnnotations(JSON.parse(raw));
-    } catch {}
-  }
-
-  return [];
+export async function loadAnnotationRecordForDocAsync(
+  docKey: string,
+  fallbackKeys: string[] = []
+): Promise<StoredAnnotationRecord | null> {
+  const records = await Promise.all(
+    annotationStorageKeys(docKey, fallbackKeys).map(idbLoadAnnotationRecord)
+  );
+  return selectNewestAnnotationRecord(records);
 }
 
 export async function loadAnnotationsForDocAsync(
   docKey: string,
   fallbackKeys: string[] = []
 ): Promise<Annotation[] | null> {
-  const fromIdb = await idbLoadAnnotations(docKey);
-  if (fromIdb && fromIdb.length > 0) return filterPersistableAnnotations(fromIdb);
-
-  for (const key of fallbackKeys) {
-    if (!key) continue;
-    const fb = await idbLoadAnnotations(key);
-    if (fb && fb.length > 0) return filterPersistableAnnotations(fb);
-  }
-
-  return null;
+  return (await loadAnnotationRecordForDocAsync(docKey, fallbackKeys))?.annotations ?? null;
 }
 
 export function loadAnnotationsForDoc(docKey: string): Annotation[] {

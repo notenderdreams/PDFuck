@@ -27,7 +27,7 @@ interface HeaderProps {
   isZenMode: boolean;
   isSearchOpen: boolean;
   annotationCount?: number;
-  saveStatus?: 'saved' | 'saving';
+  saveStatus?: 'saved' | 'saving' | 'error';
   onOpenDashboard?: () => void;
   onExportClick: () => void;
   onToggleSearch: () => void;
