@@ -9,4 +9,11 @@ describe('document opening', () => {
     expect(appSource).not.toContain("from './utils/samplePdf'");
     expect(appSource).not.toContain('Welcome-Document.pdf');
   });
+
+  test('does not enter the reader until the selected PDF has loaded', async () => {
+    const appSource = await projectFile('src/App.tsx');
+
+    expect(appSource).toContain('const loaded = await loadPdf(');
+    expect(appSource).toContain("if (loaded) setCurrentScreen('reader')");
+  });
 });

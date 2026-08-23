@@ -9,7 +9,7 @@ import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ExportModal } from './components/ExportModal';
 import { DeletePageConfirmationDialog } from './components/DeletePageConfirmationDialog';
-import { Check, Info, Sidebar as SidebarIcon } from 'lucide-react';
+import { Check, Info, LoaderCircle, Sidebar as SidebarIcon } from 'lucide-react';
 
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
@@ -87,6 +87,7 @@ export function App() {
     outline,
     currentPage,
     docKey,
+    isLoading,
     loadPdf,
     changePage,
     searchResults,
@@ -170,6 +171,21 @@ export function App() {
     saveViewMode(mode);
   };
 
+  const openPdfInReader = useCallback(
+    async (
+      data: Uint8Array | ArrayBuffer,
+      fileName: string,
+      filePath?: string,
+      initialPage?: number
+    ) => {
+      const loaded = await loadPdf(data, fileName, filePath, initialPage);
+      if (loaded) setCurrentScreen('reader');
+      else showToast(`Could not open ${fileName}.`, true);
+      return loaded;
+    },
+    [loadPdf, showToast]
+  );
+
   // Open PDF File (Desktop native dialog or Browser File Input fallback)
   const handleOpenPdf = async () => {
     if (isTauri()) {
@@ -181,8 +197,7 @@ export function App() {
           fileSize: fileData.data.byteLength,
           modifiedTimestamp: Date.now(),
         });
-        loadPdf(fileData.data, fileData.fileName, fileData.filePath);
-        setCurrentScreen('reader');
+        await openPdfInReader(fileData.data, fileData.fileName, fileData.filePath);
       }
     } else {
       pdfInputRef.current?.click();
@@ -193,7 +208,7 @@ export function App() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         if (reader.result instanceof ArrayBuffer) {
           const bytes = new Uint8Array(reader.result);
           recordRecentDoc({
@@ -202,8 +217,7 @@ export function App() {
             fileSize: file.size,
             modifiedTimestamp: file.lastModified || Date.now(),
           });
-          loadPdf(bytes, file.name);
-          setCurrentScreen('reader');
+          await openPdfInReader(bytes, file.name);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -680,6 +694,20 @@ export function App() {
         </div>
       )}
 
+      {isLoading && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-[2px]"
+          role="status"
+          aria-live="polite"
+          aria-label="Opening PDF"
+        >
+          <div className="flex items-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--popover)] px-4 py-2.5 text-xs font-medium text-zinc-200 shadow-xl">
+            <LoaderCircle className="h-4 w-4 animate-spin text-blue-500" />
+            <span>Opening PDF…</span>
+          </div>
+        </div>
+      )}
+
       {/* VIEW 1: DASHBOARD & SAVED DIRECTORIES LIBRARY */}
       {currentScreen === 'dashboard' ? (
         <Dashboard
@@ -688,10 +716,7 @@ export function App() {
           isDarkTheme={isDarkTheme}
           onToggleTheme={toggleInvert}
           onSwitchToReader={() => setCurrentScreen('reader')}
-          onOpenPdf={(data, fileName, filePath, initialPage) => {
-            loadPdf(data, fileName, filePath, initialPage);
-            setCurrentScreen('reader');
-          }}
+          onOpenPdf={openPdfInReader}
         />
       ) : (
         /* VIEW 2: FULL READER & ANNOTATION STUDIO */
@@ -816,9 +841,9 @@ export function App() {
                 onAskAiAboutPage={handleAskAiAboutPage}
                 onPdfFileDrop={(file) => {
                   const reader = new FileReader();
-                  reader.onload = () => {
+                  reader.onload = async () => {
                     if (reader.result instanceof ArrayBuffer) {
-                      loadPdf(new Uint8Array(reader.result), file.name);
+                      await openPdfInReader(new Uint8Array(reader.result), file.name);
                     }
                   };
                   reader.readAsArrayBuffer(file);

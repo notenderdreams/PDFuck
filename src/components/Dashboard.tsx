@@ -38,7 +38,7 @@ import {
 } from '../utils/storage';
 
 interface DashboardProps {
-  onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => void;
+  onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => Promise<boolean>;
   onSwitchToReader: () => void;
   hasActiveDoc: boolean;
   activeDocName?: string;
@@ -225,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           lastReadPage: item.lastReadPage || 1,
         });
         setRecentDocs(loadRecentDocs());
-        onOpenPdf(fileData.data, fileData.fileName, fileData.filePath, item.lastReadPage);
+        await onOpenPdf(fileData.data, fileData.fileName, fileData.filePath, item.lastReadPage);
         return;
       }
     }
@@ -243,7 +243,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           modifiedTimestamp: Date.now(),
         });
         setRecentDocs(loadRecentDocs());
-        onOpenPdf(fileData.data, fileData.fileName, fileData.filePath);
+        await onOpenPdf(fileData.data, fileData.fileName, fileData.filePath);
       }
     }
   };
