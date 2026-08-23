@@ -106,25 +106,54 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   }, []);
 
   // Initial center scroll position horizontally when document is ready
+  const isInitialCenteredRef = useRef(false);
+  useEffect(() => {
+    isInitialCenteredRef.current = false;
+  }, [pdfDoc]);
+
   useEffect(() => {
     if (pdfDoc && viewerContainerRef.current) {
       const container = viewerContainerRef.current;
-      requestAnimationFrame(() => {
-        const centerScrollLeft = (container.scrollWidth - container.clientWidth) / 2;
-        if (centerScrollLeft > 0) {
-          container.scrollLeft = centerScrollLeft;
-        }
-
-        // Scroll to currentPage if not page 1
-        if (currentPage > 1) {
-          const targetEl = document.getElementById(`pdf-page-${currentPage}`);
-          if (targetEl) {
-            targetEl.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
+      const centerScroll = () => {
+        if (!isInitialCenteredRef.current) {
+          const centerScrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+          if (centerScrollLeft > 0) {
+            container.scrollLeft = centerScrollLeft;
+            isInitialCenteredRef.current = true;
           }
         }
-      });
+      };
+
+      requestAnimationFrame(centerScroll);
+      const timer = setTimeout(centerScroll, 100);
+
+      // Scroll to currentPage if not page 1
+      if (currentPage > 1) {
+        const targetEl = document.getElementById(`pdf-page-${currentPage}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
+        }
+      }
+
+      return () => clearTimeout(timer);
     }
   }, [pdfDoc, viewMode]);
+
+  // Preserve zoom focal position during zoom transitions
+  const prevZoomRef = useRef(zoom);
+  useEffect(() => {
+    const container = viewerContainerRef.current;
+    if (!container || prevZoomRef.current === zoom) return;
+
+    const zoomRatio = zoom / prevZoomRef.current;
+    prevZoomRef.current = zoom;
+
+    const currentCenterDocX = container.scrollLeft + container.clientWidth / 2;
+    const currentCenterDocY = container.scrollTop + container.clientHeight / 2;
+
+    container.scrollLeft = currentCenterDocX * zoomRatio - container.clientWidth / 2;
+    container.scrollTop = currentCenterDocY * zoomRatio - container.clientHeight / 2;
+  }, [zoom]);
 
   // Scroll to page when navigating via stepper or thumbnail
   const lastTargetPageRef = useRef<number>(currentPage);
@@ -206,10 +235,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const handleStartPan = (e: React.MouseEvent) => {
     const isMiddleClick = e.button === 1;
     const isSpaceDrag = e.button === 0 && isSpacePressed;
+    const target = e.target as HTMLElement;
     const isBackgroundClick =
       e.button === 0 &&
-      (e.target === viewerContainerRef.current ||
-        (e.target as HTMLElement).classList.contains('canvas-background-layer'));
+      (target === viewerContainerRef.current ||
+        target.classList.contains('canvas-background-layer') ||
+        target.classList.contains('canvas-workspace-area'));
 
     if (isMiddleClick || isSpaceDrag || isBackgroundClick) {
       const container = viewerContainerRef.current;
@@ -342,11 +373,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         </div>
       )}
 
-      {/* 2D Canvas Workspace Wrapper with balanced horizontal side breathing room */}
-      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-start px-12 sm:px-20 md:px-28 lg:px-36 py-6 box-border">
+      {/* 2D Canvas Workspace Wrapper with expansive horizontal and vertical panning canvas */}
+      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-start px-[50vw] sm:px-[60vw] py-10 box-border">
         {/* CONTINUOUS VIEW MODE */}
         {viewMode === 'continuous' && (
-          <div className="flex flex-col items-center gap-3 py-2 pb-28">
+          <div className="canvas-workspace-area flex flex-col items-center gap-3 py-2 pb-28">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
               <PDFPage
                 key={pageNum}
@@ -382,7 +413,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
         {/* SINGLE PAGE VIEW MODE */}
         {viewMode === 'single' && (
-          <div className="flex flex-col items-center justify-center relative pb-24">
+          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-28">
             <PDFPage
               pdfDoc={pdfDoc}
               pageNumber={currentPage}
@@ -437,7 +468,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
         {/* TWO-PAGE SPREAD VIEW MODE */}
         {viewMode === 'spread' && (
-          <div className="flex flex-col items-center justify-center relative pb-24">
+          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-28">
             <div className="flex items-start justify-center gap-1">
               {/* Left Page */}
               <PDFPage
