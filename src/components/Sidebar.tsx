@@ -118,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     updateIndicator();
     window.addEventListener('resize', updateIndicator);
     return () => window.removeEventListener('resize', updateIndicator);
-  }, [activeTab]);
+  }, [activeTab, isOpen]);
 
   const thumbnailQueueRef = useRef<ThumbnailRenderQueue | null>(null);
 
@@ -127,10 +127,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }
   const thumbnailQueue = thumbnailQueueRef.current;
 
-  if (!isOpen) return null;
-
   return (
-    <aside className="macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-xl border-r border-[var(--border)]">
+    <aside
+      aria-label="Navigation Sidebar"
+      className={`macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-2xl border-r border-[var(--border)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        isOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
+      }`}
+    >
       {/* Tab Header Strip (Tahoe Segmented Navigation) */}
       <div className="p-2.5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
         <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)] relative">

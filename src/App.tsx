@@ -621,10 +621,14 @@ export function App() {
               showToast={showToast}
             />
 
-            {!isSidebarOpen && !isZenMode && (
+            {!isZenMode && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="macos-sidebar-collapse-control canvas-sidebar-toggle"
+                className={`macos-sidebar-collapse-control canvas-sidebar-toggle transition-all duration-200 ease-out ${
+                  !isSidebarOpen
+                    ? 'opacity-100 translate-x-0 pointer-events-auto'
+                    : 'opacity-0 -translate-x-3 pointer-events-none'
+                }`}
                 title="Show Sidebar"
               >
                 <SidebarIcon className="w-3.5 h-3.5" />
