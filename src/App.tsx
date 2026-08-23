@@ -488,7 +488,7 @@ export function App() {
         y: 0.01,
         width: 0.98,
         height: 0.98,
-        prompt: 'Explain this page clearly and concisely',
+        prompt: '',
         response: '',
         provider: 'codex',
         createdAt: now,

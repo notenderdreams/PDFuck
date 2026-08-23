@@ -379,7 +379,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           y,
           width,
           height,
-          prompt: 'Explain this clearly and concisely',
+          prompt: '',
           response: '',
           provider: 'codex',
           createdAt: now,
@@ -507,7 +507,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 height={rect.height * pageHeight}
                 fill={rect.color}
                 fillOpacity={rect.opacity || 0.4}
-                rx={3}
                 style={{ mixBlendMode: highlightBlendMode }}
               />
             );
@@ -518,7 +517,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           .filter((a) => a.type === 'ai-explanation')
           .map((a) => {
             const box = a as AiExplanationAnnotation;
-            return <rect key={box.id} x={box.x * pageWidth} y={box.y * pageHeight} width={box.width * pageWidth} height={box.height * pageHeight} fill="rgba(59,130,246,0.05)" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="5 3" rx={3} />;
+            return <rect key={box.id} x={box.x * pageWidth} y={box.y * pageHeight} width={box.width * pageWidth} height={box.height * pageHeight} fill="rgba(59,130,246,0.05)" stroke="#3b82f6" strokeWidth={1.5} />;
           })}
 
         {/* Render Existing Straight Line Highlights */}
@@ -611,8 +610,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             fillOpacity={opacity}
             stroke={selectedColor}
             strokeWidth={1}
-            strokeDasharray="4 2"
-            rx={3}
             style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
@@ -627,9 +624,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               height={Math.abs(snipCurrent.y - snipStart.y) * pageHeight}
               fill="rgba(59, 130, 246, 0.15)"
               stroke="#3b82f6"
-              strokeWidth={2}
-              strokeDasharray="6 3"
-              rx={3}
+              strokeWidth={1}
             />
           </g>
         )}
@@ -643,8 +638,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             fill="rgba(59, 130, 246, 0.12)"
             stroke="#3b82f6"
             strokeWidth={2}
-            strokeDasharray="6 3"
-            rx={3}
           />
         )}
 

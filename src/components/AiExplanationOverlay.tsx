@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import {
   Check,
@@ -9,8 +9,7 @@ import {
   Sparkles,
   Trash2,
   X,
-  Maximize2,
-  Minimize2,
+  Send,
 } from 'lucide-react';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import type { AiExplanationAnnotation, Annotation, AttachedImageAnnotation } from '../utils/types';
@@ -63,19 +62,9 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   const [openId, setOpenId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingResponse, setEditingResponse] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const dragStartRef = useRef<{
-    mouseX: number;
-    mouseY: number;
-    startOffsetX: number;
-    startOffsetY: number;
-  }>({ mouseX: 0, mouseY: 0, startOffsetX: 0, startOffsetY: 0 });
-
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
   const activeJobId = Object.keys(jobs).find((id) =>
     annotations.some((annotation) => annotation.id === id)
   );
@@ -101,17 +90,22 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   // Reset local state when active annotation changes
   useEffect(() => {
     if (!active) {
-      setDragOffset(null);
-      setIsExpanded(false);
       return;
     }
     setEditingResponse(false);
     setDrafts((current) =>
       current[active.id] === undefined
-        ? { ...current, [active.id]: active.prompt || DEFAULT_PROMPT }
+        ? { ...current, [active.id]: active.prompt }
         : current
     );
   }, [active?.id]);
+
+  useEffect(() => {
+    const input = promptInputRef.current;
+    if (!input || active?.response || job?.phase === 'running') return;
+    input.style.height = '0px';
+    input.style.height = `${Math.min(Math.max(input.scrollHeight, 48), 120)}px`;
+  }, [active?.id, active?.response, drafts, job?.phase]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -129,73 +123,60 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     };
   }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete]);
 
-  // Window dragging handlers
-  const handleHeaderPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, textarea, a, svg, [role="button"]')) {
-      return;
-    }
-    e.preventDefault();
-    setIsDragging(true);
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      startOffsetX: dragOffset?.x ?? 0,
-      startOffsetY: dragOffset?.y ?? 0,
+  useEffect(() => {
+    if (!active || (active.response && job?.phase !== 'running')) return;
+
+    const dismissOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (popoverRef.current?.contains(target)) return;
+      if (target?.closest(`[data-ai-annotation-id="${active.id}"]`)) return;
+
+      const pageRect = popoverRef.current?.parentElement?.getBoundingClientRect();
+      if (pageRect) {
+        const selectionLeft = pageRect.left + active.x * pageWidth;
+        const selectionTop = pageRect.top + active.y * pageHeight;
+        const selectionRight = selectionLeft + active.width * pageWidth;
+        const selectionBottom = selectionTop + active.height * pageHeight;
+        if (
+          event.clientX >= selectionLeft &&
+          event.clientX <= selectionRight &&
+          event.clientY >= selectionTop &&
+          event.clientY <= selectionBottom
+        ) {
+          return;
+        }
+      }
+
+      if (job?.phase === 'running') void onCancel(active.id);
+      onCloseJob(active.id);
+      onDelete(active.id);
+      setOpenId(null);
+      onSelectAnnotation?.(null);
     };
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {}
-  };
 
-  const handleHeaderPointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStartRef.current.mouseX;
-    const dy = e.clientY - dragStartRef.current.mouseY;
-    setDragOffset({
-      x: dragStartRef.current.startOffsetX + dx,
-      y: dragStartRef.current.startOffsetY + dy,
-    });
-  };
+    window.addEventListener('pointerdown', dismissOnOutsidePointer);
+    return () => window.removeEventListener('pointerdown', dismissOnOutsidePointer);
+  }, [active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation, pageHeight, pageWidth]);
 
-  const handleHeaderPointerUp = (e: React.PointerEvent) => {
-    if (isDragging) {
-      setIsDragging(false);
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {}
-    }
-  };
-
-  // Popover sizing & smart viewport placement
-  const popoverWidth = isExpanded
-    ? Math.min(740, Math.max(480, pageWidth + 40))
+  const isPromptComposer = Boolean(active && !active.response && job?.phase !== 'running');
+  const popoverWidth = isPromptComposer
+    ? Math.min(460, Math.max(300, pageWidth - 24))
     : Math.min(500, Math.max(340, pageWidth - 20));
 
   let popoverStyle: React.CSSProperties | undefined = undefined;
 
   if (active) {
-    // Determine ideal X placement (try right of box, fallback to left, fallback to clamped)
-    let baseX = (active.x + active.width) * pageWidth + 12;
-    if (baseX + popoverWidth > pageWidth + 24) {
-      const leftX = active.x * pageWidth - popoverWidth - 12;
-      if (leftX >= 8) {
-        baseX = leftX;
-      } else {
-        baseX = Math.max(8, Math.min(baseX, pageWidth - popoverWidth - 8));
-      }
-    }
-
-    // Determine ideal Y placement
-    const targetY = active.y * pageHeight;
-    const baseY = Math.max(8, Math.min(targetY, Math.max(8, pageHeight - 240)));
-
-    const leftPos = (dragOffset?.x ?? 0) + baseX;
-    const topPos = (dragOffset?.y ?? 0) + baseY;
+    const selectionLeft = active.x * pageWidth;
+    const baseX = Math.max(8, Math.min(selectionLeft, pageWidth - popoverWidth - 8));
+    const belowSelection = (active.y + active.height) * pageHeight + 10;
+    const baseY = isPromptComposer
+      ? Math.min(belowSelection, Math.max(8, pageHeight - 174))
+      : Math.max(8, Math.min(active.y * pageHeight, Math.max(8, pageHeight - 240)));
 
     popoverStyle = {
       width: `${popoverWidth}px`,
-      left: `${leftPos}px`,
-      top: `${topPos}px`,
+      left: `${baseX}px`,
+      top: `${baseY}px`,
     };
   }
 
@@ -262,58 +243,23 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   return (
     <div className="absolute inset-0 z-30 pointer-events-none">
-      {/* Floating AI Pin Buttons on Canvas */}
-      {annotations.map((annotation) => {
-        const state = jobs[annotation.id];
-        const isRunning = state?.phase === 'running';
-
-        return (
-          <button
-            key={annotation.id}
-            type="button"
-            aria-label={annotation.response ? 'Open AI explanation' : 'Open AI prompt'}
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpenId(annotation.id);
-              onSelectAnnotation?.(annotation.id);
-            }}
-            style={{
-              left: `${(annotation.x + annotation.width) * pageWidth - 14}px`,
-              top: `${annotation.y * pageHeight - 14}px`,
-            }}
-            className={`absolute pointer-events-auto macos-ai-pin flex items-center justify-center cursor-pointer ${
-              isRunning ? 'macos-ai-pin-thinking' : ''
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-          </button>
-        );
-      })}
-
-      {/* Animated macOS AI Popover Window */}
+      {/* The composer is deliberately anchored to the selected region, not a detached window. */}
       {active && (
         <div
           ref={popoverRef}
           style={popoverStyle}
           role="dialog"
           aria-label="AI region explanation"
-          className={`macos-ai-popover absolute pointer-events-auto flex flex-col ${
-            isExpanded
-              ? 'max-h-[min(88vh,760px)] shadow-2xl ring-1 ring-blue-500/20'
-              : 'max-h-[min(80vh,620px)]'
-          } overflow-hidden`}
+          className={`absolute pointer-events-auto flex flex-col ${
+            isPromptComposer
+              ? 'ai-prompt-composer-stack'
+              : 'macos-ai-popover max-h-[min(80vh,620px)] overflow-hidden'
+          }`}
           onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          {/* STICKY HEADER BAR (Draggable) */}
-          <div
-            onPointerDown={handleHeaderPointerDown}
-            onPointerMove={handleHeaderPointerMove}
-            onPointerUp={handleHeaderPointerUp}
-            onPointerCancel={handleHeaderPointerUp}
-            className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--border)] shrink-0 cursor-grab active:cursor-grabbing select-none bg-[var(--popover)]/60 backdrop-blur-xs"
-          >
+          {!isPromptComposer && <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs">
             <div className="flex items-center gap-2 text-xs font-semibold">
               <span className="flex items-center justify-center w-4.5 h-4.5 rounded-md bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-xs">
                 <Sparkles className="w-2.5 h-2.5" />
@@ -330,18 +276,6 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             <div className="flex items-center gap-1">
               <button
                 className="macos-ai-action-btn w-6 h-6 rounded-md"
-                onClick={() => setIsExpanded(!isExpanded)}
-                title={isExpanded ? 'Collapse window' : 'Expand window'}
-                aria-label={isExpanded ? 'Collapse' : 'Expand'}
-              >
-                {isExpanded ? (
-                  <Minimize2 className="w-3.5 h-3.5" />
-                ) : (
-                  <Maximize2 className="w-3.5 h-3.5" />
-                )}
-              </button>
-              <button
-                className="macos-ai-action-btn w-6 h-6 rounded-md"
                 onClick={() => {
                   if (job?.phase === 'running') void onCancel(active.id);
                   setOpenId(null);
@@ -353,22 +287,23 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* SCROLLABLE BODY (Handles arbitrarily long responses smoothly) */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-3.5 flex flex-col gap-3 macos-thin-scrollbar select-text">
+          <div className={`flex-1 min-h-0 flex flex-col gap-3 select-text ${
+            isPromptComposer
+              ? ''
+              : 'p-3.5 overflow-y-auto overflow-x-hidden macos-thin-scrollbar'
+          }`}>
             {/* Body: Prompting or Thinking State */}
             {(!active.response || job) && (
               <>
                 {job?.phase === 'running' ? (
                   <div className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                        Prompt
-                      </div>
-                      <div className="text-xs font-medium text-zinc-200 bg-[var(--secondary)] p-2.5 rounded-lg border border-[var(--border)] leading-relaxed">
-                        {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
-                      </div>
+                    <div
+                      className="ai-question-section self-end max-w-[85%] bg-blue-500/10 text-blue-900 dark:text-blue-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm border border-blue-500/20 leading-relaxed font-medium shadow-sm"
+                    >
+                      {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
                     </div>
 
                     {/* Clean Text-Driven Shimmer Thinking Box */}
@@ -403,50 +338,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2.5">
-                    <label
-                      className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
-                      htmlFor={`ai-prompt-${active.id}`}
-                    >
-                      Ask AI about this region
-                    </label>
-                    <textarea
-                      id={`ai-prompt-${active.id}`}
-                      autoFocus
-                      rows={3}
-                      value={drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
-                      onChange={(event) => {
-                        setDrafts((current) => ({
-                          ...current,
-                          [active.id]: event.target.value,
-                        }));
-                        onUpdate(active.id, {
-                          prompt: event.target.value,
-                          updatedAt: Date.now(),
-                        });
-                      }}
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === 'Enter' &&
-                          (event.metaKey || event.ctrlKey || !event.shiftKey)
-                        ) {
-                          event.preventDefault();
-                          const promptText = (
-                            drafts[active.id] ??
-                            active.prompt ??
-                            DEFAULT_PROMPT
-                          ).trim();
-                          if (promptText) {
-                            onSubmit(active, promptText);
-                          }
-                        }
-                      }}
-                      placeholder="Type your question and press Enter..."
-                      className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 leading-relaxed font-sans transition-all"
-                    />
-
-                    {/* Quick Preset Prompt Pills */}
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  <div className="ai-prompt-composer-content flex flex-col gap-2">
+                    <div className="ai-prompt-presets flex flex-wrap gap-1.5 px-0.5">
                       {QUICK_PROMPTS.map((qp) => (
                         <button
                           key={qp}
@@ -455,11 +348,53 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                             setDrafts((current) => ({ ...current, [active.id]: qp }));
                             onUpdate(active.id, { prompt: qp, updatedAt: Date.now() });
                           }}
-                          className="text-[10.5px] px-2 py-0.5 rounded-md bg-[var(--secondary)] hover:bg-[var(--hover)] text-zinc-400 hover:text-zinc-200 border border-[var(--border)] transition-colors cursor-pointer"
+                          className="ai-prompt-preset"
                         >
                           {qp}
                         </button>
                       ))}
+                    </div>
+
+                    <div className="ai-prompt-composer">
+                      <textarea
+                        ref={promptInputRef}
+                        id={`ai-prompt-${active.id}`}
+                        autoFocus
+                        rows={2}
+                        aria-label="Ask AI about this selection"
+                        value={drafts[active.id] ?? active.prompt}
+                        onChange={(event) => {
+                          setDrafts((current) => ({
+                            ...current,
+                            [active.id]: event.target.value,
+                          }));
+                          onUpdate(active.id, {
+                            prompt: event.target.value,
+                            updatedAt: Date.now(),
+                          });
+                        }}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'Enter' &&
+                            (event.metaKey || event.ctrlKey || !event.shiftKey)
+                          ) {
+                            event.preventDefault();
+                            const promptText = (drafts[active.id] ?? active.prompt).trim();
+                            if (promptText) onSubmit(active, promptText);
+                          }
+                        }}
+                        placeholder="Ask about this selection…"
+                        className="ai-prompt-composer-input w-full resize-none text-sm leading-6 font-sans"
+                      />
+                      <button
+                        className="ai-prompt-send"
+                        disabled={!(drafts[active.id] ?? active.prompt).trim()}
+                        onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
+                        title="Explain selection (Enter)"
+                        aria-label="Send prompt"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
                     {job?.phase === 'error' && (
@@ -470,26 +405,6 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                         {job.message}
                       </div>
                     )}
-
-                    <div className="flex justify-between items-center gap-1.5 pt-1">
-                      <button
-                        className="btn-ghost px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                        onClick={() => {
-                          onDelete(active.id);
-                          onCloseJob(active.id);
-                          setOpenId(null);
-                        }}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        className="btn-primary px-3.5 py-1.5 font-medium shadow-md"
-                        disabled={!(drafts[active.id] ?? active.prompt).trim()}
-                        onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
-                      >
-                        {job?.phase === 'error' ? 'Retry' : 'Explain Region'}
-                      </button>
-                    </div>
                   </div>
                 )}
               </>
@@ -497,17 +412,12 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
             {/* Settled AI Response View */}
             {active.response && !job && (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <div
                   data-ai-question="true"
-                  className="ai-question-section flex flex-col gap-1 bg-[var(--secondary)]/70 p-2.5 rounded-lg border border-[var(--border)]"
+                  className="ai-question-section self-end max-w-[85%] bg-blue-500/10 text-blue-900 dark:text-blue-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm border border-blue-500/20 leading-relaxed font-medium shadow-sm"
                 >
-                  <div className="text-[9.5px] font-semibold uppercase tracking-wider text-zinc-400">
-                    Prompt
-                  </div>
-                  <div className="text-xs font-medium text-zinc-100 leading-snug">
-                    {active.prompt}
-                  </div>
+                  {active.prompt}
                 </div>
 
                 {editingResponse ? (
