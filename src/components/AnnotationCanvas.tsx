@@ -6,6 +6,7 @@ import type {
   LineHighlightAnnotation,
   RectHighlightAnnotation,
   StrokePoint,
+  TextHighlightAnnotation,
   TextNoteAnnotation,
   ToolType,
 } from '../utils/types';
@@ -161,6 +162,23 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           py >= ry - ERASE_RADIUS &&
           py <= ry + rh + ERASE_RADIUS
         ) {
+          onDeleteAnnotation(ann.id);
+        }
+      } else if (ann.type === 'highlight-text') {
+        const textHighlight = ann as TextHighlightAnnotation;
+        const isNearHighlight = textHighlight.rects.some((rect) => {
+          const rx = rect.x * pageWidth;
+          const ry = rect.y * pageHeight;
+          const rw = rect.width * pageWidth;
+          const rh = rect.height * pageHeight;
+          return (
+            px >= rx - ERASE_RADIUS &&
+            px <= rx + rw + ERASE_RADIUS &&
+            py >= ry - ERASE_RADIUS &&
+            py <= ry + rh + ERASE_RADIUS
+          );
+        });
+        if (isNearHighlight) {
           onDeleteAnnotation(ann.id);
         }
       } else if (ann.type === 'text-note') {
@@ -453,6 +471,27 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         className="w-full h-full absolute inset-0 pointer-events-none"
         style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
       >
+        {/* Render highlights created from selected PDF text. */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-text')
+          .flatMap((a) => {
+            const textHighlight = a as TextHighlightAnnotation;
+            return textHighlight.rects.map((rect, index) => (
+              <rect
+                key={`${textHighlight.id}_${index}`}
+                className={colorFilterClass}
+                x={rect.x * pageWidth}
+                y={rect.y * pageHeight}
+                width={rect.width * pageWidth}
+                height={rect.height * pageHeight}
+                fill={textHighlight.color}
+                fillOpacity={textHighlight.opacity || 0.45}
+                rx={1.5}
+                style={{ mixBlendMode: highlightBlendMode }}
+              />
+            ));
+          })}
+
         {/* Render Existing Rect Highlights */}
         {pageAnnotations
           .filter((a) => a.type === 'highlight-rect')

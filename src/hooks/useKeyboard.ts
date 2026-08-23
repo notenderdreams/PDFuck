@@ -22,6 +22,7 @@ interface KeyboardShortcutOptions {
   onCopyPageJpg?: () => void;
   onCopyStitchedSnippets?: () => void;
   onClearSnippets?: () => void;
+  onHighlightSelectedText?: () => void;
 }
 
 export function useKeyboard(options: KeyboardShortcutOptions) {
@@ -46,7 +47,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (cmdOrCtrl) {
-        if (e.altKey && e.key.toLowerCase() === 'c') {
+        if (e.shiftKey && e.key.toLowerCase() === 'h') {
+          e.preventDefault();
+          options.onHighlightSelectedText?.();
+        } else if (e.altKey && e.key.toLowerCase() === 'c') {
           e.preventDefault();
           options.onCopyStitchedSnippets?.();
         } else if (e.shiftKey && e.key.toLowerCase() === 's') {

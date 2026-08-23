@@ -215,6 +215,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
+      data-pdf-page-number={pageNumber}
       onMouseMove={handleMouseMove}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

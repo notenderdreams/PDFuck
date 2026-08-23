@@ -20,6 +20,7 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Annotation Tools',
     items: [
+      { keys: ['Cmd / Ctrl', 'Shift', 'H'], desc: 'Highlight Selected PDF Text' },
       { keys: ['L'], desc: 'Straight Line Highlighter (Auto-Snap)' },
       { keys: ['H'], desc: 'Freehand Highlighter Pen' },
       { keys: ['R'], desc: 'Area Highlight Box' },

@@ -27,6 +27,7 @@ import {
   downloadPageAsJpg,
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
+import { createTextHighlightsFromSelection } from './utils/textHighlight';
 import {
   cropCanvasRegion,
   copyStitchedSnippetsToClipboard,
@@ -495,6 +496,23 @@ export function App() {
     return () => window.removeEventListener('paste', handlePaste);
   }, [currentPage, handleAddImage, showToast]);
 
+  const handleHighlightSelectedText = useCallback(() => {
+    const selection = window.getSelection();
+    const highlights = createTextHighlightsFromSelection(selection, selectedColor, opacity);
+
+    if (highlights.length === 0) {
+      showToast('Select PDF text first', true);
+      return;
+    }
+
+    highlights.forEach(addAnnotation);
+    selection?.removeAllRanges();
+    const location = highlights.length === 1
+      ? `Page ${highlights[0].pageNumber}`
+      : `${highlights.length} pages`;
+    showToast(`Highlighted selected text on ${location}`);
+  }, [addAnnotation, opacity, selectedColor, showToast]);
+
   // Global Keyboard Shortcuts
   useKeyboard({
     onOpenPdf: handleOpenPdf,
@@ -518,6 +536,7 @@ export function App() {
     onCopyPageJpg: () => handleCopyPageJpg(currentPage),
     onCopyStitchedSnippets: handleQuickCopyStitched,
     onClearSnippets: handleQuickDumpSnippets,
+    onHighlightSelectedText: handleHighlightSelectedText,
   });
 
   return (
