@@ -23,10 +23,103 @@ export interface ScannedPdfResult {
   file_size: number;
   modified_timestamp: number;
   directory_path: string;
+  num_pages?: number | null;
 }
+
+export type AiProviderStatus =
+  | { status: 'ready'; provider: 'codex'; version: string; executable: string }
+  | { status: 'native_required' | 'missing_cli' | 'unauthenticated' | 'incompatible_cli'; message: string };
+
+export type AiExplanationErrorCode =
+  | 'native_required'
+  | 'missing_cli'
+  | 'unauthenticated'
+  | 'incompatible_cli'
+  | 'timeout'
+  | 'cancelled'
+  | 'process_failed'
+  | 'malformed_output';
+
+export interface AiExplanationRequest {
+  requestId: string;
+  prompt: string;
+  pngDataUrl: string;
+}
+
+export type AiExplanationResult =
+  | { ok: true; response: string }
+  | { ok: false; code: AiExplanationErrorCode; message: string };
 
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+export async function startDraggingWindow(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().startDragging();
+  } catch (err) {
+    console.warn('Tauri startDragging failed:', err);
+  }
+}
+
+export async function toggleMaximizeWindow(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().toggleMaximize();
+  } catch (err) {
+    console.warn('Tauri toggleMaximize failed:', err);
+  }
+}
+
+export function handleTitlebarMouseDown(e: React.MouseEvent): void {
+  if (e.button !== 0) return;
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  if (target.closest('button, input, textarea, select, a, [role="button"], .app-no-drag, [data-tauri-drag-region="false"]')) {
+    return;
+  }
+  if (e.detail === 2) {
+    void toggleMaximizeWindow();
+    return;
+  }
+  void startDraggingWindow();
+}
+
+export async function getAiProviderStatus(): Promise<AiProviderStatus> {
+  if (!isTauri()) {
+    return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+  }
+  return invoke<AiProviderStatus>('get_ai_provider_status');
+}
+
+export async function setAiProviderExecutable(executablePath: string): Promise<AiProviderStatus> {
+  if (!isTauri()) {
+    return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+  }
+  return invoke<AiProviderStatus>('set_ai_provider_executable', { executablePath });
+}
+
+export async function runAiExplanation(request: AiExplanationRequest): Promise<AiExplanationResult> {
+  if (!isTauri()) {
+    return { ok: false, code: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+  }
+  try {
+    return await invoke<AiExplanationResult>('run_ai_explanation', { request });
+  } catch (error) {
+    return { ok: false, code: 'process_failed', message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function cancelAiExplanation(requestId: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await invoke<boolean>('cancel_ai_explanation', { requestId });
+  } catch {
+    return false;
+  }
 }
 
 export async function tauriOpenPdf(): Promise<{ fileName: string; filePath: string; data: Uint8Array } | null> {
@@ -94,6 +187,20 @@ export async function tauriSavePdf(pdfBytes: Uint8Array, defaultName: string): P
   } catch (err) {
     console.error('Tauri save PDF error:', err);
     return { success: false };
+  }
+}
+
+export async function tauriWritePdf(pdfBytes: Uint8Array, filePath: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const res = await invoke<SaveResult>('write_pdf_file', {
+      filePath,
+      data: Array.from(pdfBytes),
+    });
+    return res.success;
+  } catch (err) {
+    console.error('Tauri write PDF error:', err);
+    return false;
   }
 }
 
@@ -170,5 +277,20 @@ export async function tauriCopyTextToClipboard(text: string): Promise<boolean> {
   } catch (err) {
     console.error('Tauri native copy text error:', err);
     return false;
+  }
+}
+
+export async function openExternalUrl(url: string): Promise<void> {
+  if (isTauri()) {
+    try {
+      const { openUrl } = await import('@tauri-apps/plugin-opener');
+      await openUrl(url);
+      return;
+    } catch (err) {
+      console.warn('Tauri openUrl plugin error, falling back to window.open:', err);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 }

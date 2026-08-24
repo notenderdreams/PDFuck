@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   MousePointer,
   Highlighter,
@@ -8,7 +8,7 @@ import {
   Crop,
   Type,
   Eraser,
-  Stamp,
+  ScanSearch,
 } from 'lucide-react';
 import type { ToolType } from '../utils/types';
 
@@ -25,7 +25,6 @@ interface ToolbarProps {
   onChangeStrokeWidth: (width: number) => void;
   onChangeOpacity: (opacity: number) => void;
   onAttachImageClick?: () => void;
-  onOpenStampPicker: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onClearPageAnnotations?: () => void;
@@ -47,100 +46,189 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   selectedColor,
   isInvertedColorMode,
   strokeWidth,
-  opacity,
   onSelectTool,
   onSelectColor,
   onChangeStrokeWidth,
-  onChangeOpacity,
-  onAttachImageClick,
-  onOpenStampPicker,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
+  const [hoveredTool, setHoveredTool] = useState<ToolType | 'color' | null>(null);
+  const paletteRef = useRef<HTMLDivElement | null>(null);
+
+  // Position for smooth sliding active circle indicator
+  const [indicatorStyle, setIndicatorStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({
+    left: 0,
+    top: 0,
+    width: 34,
+    height: 34,
+    opacity: 0,
+  });
+
+  const toolRefs = useRef<Map<ToolType, HTMLDivElement>>(new Map());
+
+  // Measure and update the sliding active circle
+  useLayoutEffect(() => {
+    const updateIndicator = () => {
+      const activeEl = toolRefs.current.get(activeTool);
+      if (activeEl) {
+        setIndicatorStyle({
+          left: activeEl.offsetLeft,
+          top: activeEl.offsetTop,
+          width: activeEl.offsetWidth,
+          height: activeEl.offsetHeight,
+          opacity: 1,
+        });
+      } else {
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      }
+    };
+
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [activeTool]);
+
+  // Click-outside and Escape key dismissal for color palette popover
+  useEffect(() => {
+    if (!showPalette) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) {
+        setShowPalette(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowPalette(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showPalette]);
 
   const tools: { id: ToolType; icon: React.FC<{ className?: string }>; label: string; shortcut: string }[] = [
-    { id: 'select', icon: MousePointer, label: 'Pointer Tool (V)', shortcut: 'V' },
-    { id: 'highlight-line', icon: PenLine, label: 'Straight Line Highlighter (L)', shortcut: 'L' },
-    { id: 'highlight-pen', icon: Highlighter, label: 'Freehand Highlighter (H)', shortcut: 'H' },
-    { id: 'highlight-rect', icon: Square, label: 'Area Box (R)', shortcut: 'R' },
-    { id: 'pen', icon: PenTool, label: 'Pen Tool (P)', shortcut: 'P' },
-    { id: 'snip', icon: Crop, label: 'Snip & Compact for AI (C)', shortcut: 'C' },
-    { id: 'text', icon: Type, label: 'Text Note (T)', shortcut: 'T' },
-    { id: 'eraser', icon: Eraser, label: 'Eraser (E)', shortcut: 'E' },
+    { id: 'select', icon: MousePointer, label: 'Pointer', shortcut: 'V' },
+    { id: 'highlight-line', icon: PenLine, label: 'Line Highlight', shortcut: 'L' },
+    { id: 'highlight-pen', icon: Highlighter, label: 'Freehand', shortcut: 'H' },
+    { id: 'highlight-rect', icon: Square, label: 'Area Box', shortcut: 'R' },
+    { id: 'pen', icon: PenTool, label: 'Pen', shortcut: 'P' },
+    { id: 'snip', icon: Crop, label: 'Snip to AI', shortcut: 'C' },
+    { id: 'ai-box', icon: ScanSearch, label: 'Explain Region', shortcut: 'A' },
+    { id: 'text', icon: Type, label: 'Text Note', shortcut: 'T' },
+    { id: 'eraser', icon: Eraser, label: 'Eraser', shortcut: 'E' },
   ];
-
-  const handleToolClick = (toolId: ToolType) => {
-    onSelectTool(toolId);
-  };
 
   return (
     <nav
-      aria-label="Annotation Tools"
-      className="macos-annotation-toolbar fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-0.5 p-1 rounded-lg select-none animate-slide-up"
+      aria-label="Annotation Dock"
+      className="macos-annotation-dock select-none"
     >
-      {/* Tool Buttons */}
+      {/* Smooth Sliding Active Circle Indicator */}
+      <div
+        className="macos-dock-sliding-indicator"
+        style={{
+          transform: `translate3d(${indicatorStyle.left}px, ${indicatorStyle.top}px, 0)`,
+          width: `${indicatorStyle.width}px`,
+          height: `${indicatorStyle.height}px`,
+          opacity: indicatorStyle.opacity,
+        }}
+      />
+
+      {/* Tool Buttons with Mac Dock Magnification & Tooltips */}
       {tools.map((tool) => {
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
+        const isHovered = hoveredTool === tool.id;
+
         return (
-          <button
+          <div
             key={tool.id}
-            onClick={() => handleToolClick(tool.id)}
-            className={`flex items-center justify-center w-7.5 h-7.5 rounded-md transition-all ${
-              isActive
-                ? 'bg-[#e8e8ed] text-[#18181f] shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-100 hover:bg-[#2f2f38]'
-            }`}
-            title={tool.label}
+            ref={(el) => {
+              if (el) toolRefs.current.set(tool.id, el);
+              else toolRefs.current.delete(tool.id);
+            }}
+            className="relative flex items-center justify-center"
           >
-            <Icon className="w-3.5 h-3.5" />
-          </button>
+            {/* Glossy Dock Tooltip */}
+            {isHovered && !showPalette && (
+              <div className="macos-dock-tooltip">
+                <span>{tool.label}</span>
+                <span className="macos-dock-badge">{tool.shortcut}</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => onSelectTool(tool.id)}
+              onMouseEnter={() => setHoveredTool(tool.id)}
+              onMouseLeave={() => setHoveredTool(null)}
+              className={`macos-dock-item z-10 ${isActive ? 'macos-dock-item-active' : ''}`}
+              aria-label={tool.label}
+              aria-pressed={isActive}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          </div>
         );
       })}
 
-      {/* Preset Stamps Quick Trigger */}
-      <button
-        onClick={onOpenStampPicker}
-        className="flex items-center justify-center w-7.5 h-7.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-[#2f2f38] transition-all"
-        title="Stamps & Badges"
-      >
-        <Stamp className="w-3.5 h-3.5" />
-      </button>
+      {/* Glossy Etched Glass Divider */}
+      <div className="macos-dock-divider z-10" aria-hidden="true" />
 
-      {/* Subtle Inset Divider */}
-      <div className="w-[1px] h-3.5 bg-[#383846] mx-0.5" />
+      {/* Color Swatch Orb & Floating Palette */}
+      <div className="relative flex items-center justify-center z-10" ref={paletteRef}>
+        {hoveredTool === 'color' && !showPalette && (
+          <div className="macos-dock-tooltip">
+            <span>Color & Stroke</span>
+          </div>
+        )}
 
-      {/* Color Swatch & Stroke Well */}
-      <div className="relative">
         <button
-          onClick={() => setShowPalette(!showPalette)}
-          className="flex items-center justify-center w-7.5 h-7.5 rounded-md hover:bg-[#2f2f38] transition-all p-1"
-          title="Color & Stroke"
+          onClick={() => {
+            setShowPalette(!showPalette);
+            setHoveredTool(null);
+          }}
+          onMouseEnter={() => setHoveredTool('color')}
+          onMouseLeave={() => setHoveredTool(null)}
+          className="macos-dock-item"
+          aria-label="Select Color and Stroke Size"
+          aria-expanded={showPalette}
         >
           <span
-            className={`w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs ${
+            className={`macos-color-orb ${
               isInvertedColorMode ? 'annotation-color-preview-invert' : ''
             }`}
             style={{ backgroundColor: selectedColor }}
           />
         </button>
 
-        {/* Color & Stroke Popover */}
+        {/* Glossy Frosted Glass Palette Popover */}
         {showPalette && (
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 p-3 rounded-lg bg-[#26262d] border border-[#3a3a46] shadow-2xl flex flex-col gap-2.5 min-w-[180px] animate-slide-up z-50">
-            <div className="flex items-center justify-between text-[10px] font-medium text-zinc-400 uppercase tracking-wider">
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 p-3.5 rounded-2xl bg-[var(--popover)]/95 border border-white/20 backdrop-blur-2xl shadow-2xl flex flex-col gap-3 min-w-[200px] animate-slide-up z-50">
+            <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
               <span>Swatches</span>
               <input
                 type="color"
                 value={selectedColor}
                 onChange={(e) => onSelectColor(e.target.value)}
-                className={`w-4 h-4 rounded border-0 bg-transparent cursor-pointer ${
+                className={`w-5 h-5 rounded-full border-0 bg-transparent cursor-pointer ${
                   isInvertedColorMode ? 'annotation-color-preview-invert' : ''
                 }`}
-                title="Custom Color"
+                title="Custom Color Picker"
               />
             </div>
-            {/* Color Swatch Grid */}
-            <div className="grid grid-cols-4 gap-1.5">
+
+            {/* Color Swatch Grid with Glossy Chips */}
+            <div className="grid grid-cols-4 gap-2">
               {COLOR_PRESETS.map((colorHex) => (
                 <button
                   key={colorHex}
@@ -148,12 +236,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     onSelectColor(colorHex);
                     setShowPalette(false);
                   }}
-                  className={`w-5.5 h-5.5 rounded-md transition-all ${
+                  className={`w-6 h-6 rounded-lg transition-all ${
                     isInvertedColorMode ? 'annotation-color-preview-invert' : ''
                   } ${
                     selectedColor.toLowerCase() === colorHex.toLowerCase()
-                      ? 'ring-2 ring-white scale-105 shadow-xs'
-                      : 'opacity-80 hover:opacity-100 hover:scale-105 border border-black/30'
+                      ? 'ring-2 ring-blue-500 scale-110 shadow-md'
+                      : 'opacity-85 hover:opacity-100 hover:scale-108 border border-black/20'
                   }`}
                   style={{ backgroundColor: colorHex }}
                 />
@@ -161,10 +249,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </div>
 
             {/* Stroke Slider */}
-            <div className="pt-2 border-t border-[#343440] flex flex-col gap-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400 font-medium">
+            <div className="pt-2.5 border-t border-[var(--border)] flex flex-col gap-1.5">
+              <div className="flex justify-between text-[10.5px] text-zinc-400 font-medium">
                 <span>Stroke Size</span>
-                <span className="font-mono text-zinc-200">{strokeWidth}px</span>
+                <span className="font-mono text-zinc-200 font-semibold">{strokeWidth}px</span>
               </div>
               <input
                 type="range"
@@ -172,7 +260,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 max="20"
                 value={strokeWidth}
                 onChange={(e) => onChangeStrokeWidth(parseInt(e.target.value, 10))}
-                className="w-full accent-zinc-200 cursor-pointer h-1"
+                className="w-full accent-blue-500 cursor-pointer h-1"
               />
             </div>
           </div>

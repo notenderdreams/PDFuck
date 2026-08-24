@@ -20,11 +20,13 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Annotation Tools',
     items: [
+      { keys: ['Cmd / Ctrl', 'Shift', 'H'], desc: 'Highlight Selected PDF Text' },
       { keys: ['L'], desc: 'Straight Line Highlighter (Auto-Snap)' },
       { keys: ['H'], desc: 'Freehand Highlighter Pen' },
       { keys: ['R'], desc: 'Area Highlight Box' },
       { keys: ['P'], desc: 'Freehand Pen' },
       { keys: ['C'], desc: 'Snip & Compact for AI' },
+      { keys: ['A'], desc: 'Explain PDF Region with Codex' },
       { keys: ['T'], desc: 'Sticky Text Note Tool' },
       { keys: ['E'], desc: 'Eraser (Sweep / Click)' },
       { keys: ['V'], desc: 'Select / Pointer Tool' },
@@ -56,13 +58,13 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
-      <div className="w-full max-w-lg bg-[#24242b] border border-[#383846] rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-xs">
+      <div className="w-full max-w-xl bg-[var(--popover)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1 rounded bg-[#1e1e24] border border-[#343440] text-zinc-300">
-              <Command className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-[var(--secondary)] border border-[var(--border)] text-blue-500 shadow-xs">
+              <Command className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-zinc-100 tracking-tight">
@@ -86,19 +88,19 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           {SHORTCUT_GROUPS.map((group, gIdx) => (
             <div
               key={gIdx}
-              className="p-3 rounded-lg bg-[#1e1e24] border border-[#343440] flex flex-col gap-2"
+              className="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] flex flex-col gap-2.5 shadow-xs"
             >
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
                 {group.title}
               </span>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {group.items.map((item, iIdx) => (
                   <div key={iIdx} className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1 flex-wrap">
                       {item.keys.map((k, kIdx) => (
                         <kbd
                           key={kIdx}
-                          className="px-1 py-0.5 text-[9px] font-mono font-medium bg-[#282832] text-zinc-200 border border-[#3c3c4a] rounded shadow-xs"
+                          className="px-1.5 py-0.5 text-[9.5px] font-mono font-medium bg-[var(--card)] text-zinc-200 border border-[var(--border)] rounded-md shadow-xs"
                         >
                           {k}
                         </kbd>
@@ -114,8 +116,8 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           ))}
         </div>
 
-        <div className="text-center text-[11px] text-zinc-500 pt-0.5">
-          Press <kbd className="px-1 py-0.5 bg-[#282832] border border-[#3c3c4a] rounded text-[10px] font-mono text-zinc-300">?</kbd> anytime to open shortcuts.
+        <div className="text-center text-[11px] text-zinc-500 pt-1">
+          Press <kbd className="px-1.5 py-0.5 bg-[var(--secondary)] border border-[var(--border)] rounded-md text-[10px] font-mono text-zinc-300">?</kbd> anytime to open shortcuts.
         </div>
       </div>
     </div>

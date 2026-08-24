@@ -3,12 +3,19 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFPage } from './PDFPage';
 import { ChevronLeft, ChevronRight, UploadCloud } from 'lucide-react';
 import type { Annotation, ReadingTheme, ToolType, ViewMode } from '../utils/types';
+import type { AiExplanationAnnotation } from '../utils/types';
+import type { AiJobState } from '../hooks/useAiExplanations';
+import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
+import { isAnnotationHitByEraser } from '../utils/eraserUtils';
+
+const EMPTY_ANNOTATIONS: Annotation[] = [];
 
 interface PDFViewerProps {
   pdfDoc: PDFDocumentProxy | null;
   rawPdfBytes: Uint8Array | null;
   currentPage: number;
   numPages: number;
+  pageNavRequest?: { page: number; timestamp: number } | null;
   zoom: number;
   viewMode: ViewMode;
   currentTheme: ReadingTheme;
@@ -31,12 +38,22 @@ interface PDFViewerProps {
   onChangeZoom: (newZoom: number) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
+  aiJobs: Record<string, AiJobState>;
+  onAiBoxCreated: (annotationId: string) => void;
+  onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
+  onCancelAi: (annotationId: string) => void;
+  onCloseAi: (annotationId: string) => void;
+  onDeletePage: (pageNumber: number) => void;
+  onCopyPageText: (pageNumber: number) => void;
+  onCopyPageImage: (pageNumber: number) => void;
+  onAskAiAboutPage: (pageNumber: number) => void;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
   pdfDoc,
   currentPage,
   numPages,
+  pageNavRequest,
   zoom,
   viewMode,
   currentTheme,
@@ -59,12 +76,112 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onChangeZoom,
   onCursorMove,
   onCaptureSnippet,
+  aiJobs,
+  onAiBoxCreated,
+  onSubmitAi,
+  onCancelAi,
+  onCloseAi,
+  onDeletePage,
+  onCopyPageText,
+  onCopyPageImage,
+  onAskAiAboutPage,
 }) => {
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const [isViewerDraggingFile, setIsViewerDraggingFile] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+  // Programmatic scroll flags to eliminate feedback loops between scroll events and onPageChange
+  const isProgrammaticScrollRef = useRef(false);
+  const programmaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentPageRef = useRef<number>(currentPage);
+  currentPageRef.current = currentPage;
+  const lastReportedPageRef = useRef<number>(currentPage);
+  const lastNavTimestampRef = useRef<number>(0);
+  const prevDocRef = useRef<PDFDocumentProxy | null>(null);
+  const prevViewModeRef = useRef<ViewMode>(viewMode);
+  const prevPropCurrentPageRef = useRef<number>(currentPage);
+
+  const annotationsByPage = React.useMemo(() => {
+    const map = new Map<number, Annotation[]>();
+    for (const ann of annotations) {
+      const list = map.get(ann.pageNumber);
+      if (list) {
+        list.push(ann);
+      } else {
+        map.set(ann.pageNumber, [ann]);
+      }
+    }
+    return map;
+  }, [annotations]);
+
+  // Global Eraser Tool State & Cross-Page Sweeping
+  const [eraserPos, setEraserPos] = useState<{ x: number; y: number } | null>(null);
+  const isErasingRef = useRef(false);
+
+  const performGlobalEraseAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const container = viewerContainerRef.current;
+      if (!container) return;
+
+      const ERASE_RADIUS = 22;
+      const pageElements = container.querySelectorAll<HTMLElement>('[data-pdf-page-number]');
+
+      pageElements.forEach((pageEl) => {
+        const rect = pageEl.getBoundingClientRect();
+        if (
+          clientX + ERASE_RADIUS >= rect.left &&
+          clientX - ERASE_RADIUS <= rect.right &&
+          clientY + ERASE_RADIUS >= rect.top &&
+          clientY - ERASE_RADIUS <= rect.bottom
+        ) {
+          const pageNumber = Number(pageEl.getAttribute('data-pdf-page-number'));
+          const pageWidth = rect.width;
+          const pageHeight = rect.height;
+          const px = clientX - rect.left;
+          const py = clientY - rect.top;
+
+          const pageAnns = annotationsByPage.get(pageNumber) || EMPTY_ANNOTATIONS;
+          for (const ann of pageAnns) {
+            if (isAnnotationHitByEraser(ann, px, py, pageWidth, pageHeight, ERASE_RADIUS)) {
+              onDeleteAnnotation(ann.id);
+            }
+          }
+        }
+      });
+    },
+    [annotationsByPage, onDeleteAnnotation]
+  );
+
+  useEffect(() => {
+    if (activeTool !== 'eraser') {
+      setEraserPos(null);
+      isErasingRef.current = false;
+      return;
+    }
+
+    const handleGlobalPointerUp = () => {
+      isErasingRef.current = false;
+    };
+
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+      if (isErasingRef.current) {
+        setEraserPos({ x: e.clientX, y: e.clientY });
+        performGlobalEraseAt(e.clientX, e.clientY);
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+    };
+  }, [activeTool, performGlobalEraseAt]);
 
   // Track Spacebar for Space+Drag Panning (Hand Tool mode)
   useEffect(() => {
@@ -93,111 +210,225 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     };
   }, []);
 
-  // Initial center scroll position horizontally when document is ready
-  useEffect(() => {
-    if (pdfDoc && viewerContainerRef.current) {
+  // Smooth & deterministic scroll-to-page without touching scrollLeft
+  const scrollToPage = useCallback(
+    (targetPage: number, behavior: ScrollBehavior = 'smooth') => {
       const container = viewerContainerRef.current;
-      requestAnimationFrame(() => {
+      if (!container || !pdfDoc || targetPage < 1 || targetPage > numPages) return;
+
+      if (viewMode === 'continuous') {
+        const pageEl = document.getElementById(`pdf-page-${targetPage}`);
+        if (!pageEl) return;
+
+        // Suppress intermediate scroll event page changes during smooth programmatic transition
+        isProgrammaticScrollRef.current = true;
+        if (programmaticScrollTimerRef.current) {
+          clearTimeout(programmaticScrollTimerRef.current);
+        }
+        programmaticScrollTimerRef.current = setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+          lastReportedPageRef.current = targetPage;
+        }, behavior === 'smooth' ? 600 : 80);
+
+        const targetRect = pageEl.getBoundingClientRect();
+        const contRect = container.getBoundingClientRect();
+        const targetScrollTop = container.scrollTop + (targetRect.top - contRect.top) - 16;
+
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior,
+        });
+        lastReportedPageRef.current = targetPage;
+      } else {
+        container.scrollTo({ top: 0, behavior: 'instant' });
+        lastReportedPageRef.current = targetPage;
+      }
+    },
+    [pdfDoc, numPages, viewMode]
+  );
+
+  // Initial horizontal centering & initial page restore on document load or viewMode switch
+  useEffect(() => {
+    const isNewDoc = pdfDoc !== prevDocRef.current;
+    const isNewMode = viewMode !== prevViewModeRef.current;
+    prevDocRef.current = pdfDoc;
+    prevViewModeRef.current = viewMode;
+
+    if (
+      shouldRestoreViewerPosition(Boolean(pdfDoc), isNewDoc, isNewMode) &&
+      viewerContainerRef.current
+    ) {
+      const container = viewerContainerRef.current;
+      const centerAndRestore = () => {
         const centerScrollLeft = (container.scrollWidth - container.clientWidth) / 2;
         if (centerScrollLeft > 0) {
           container.scrollLeft = centerScrollLeft;
         }
 
-        // Scroll to currentPage if not page 1
-        if (currentPage > 1) {
-          const targetEl = document.getElementById(`pdf-page-${currentPage}`);
-          if (targetEl) {
-            targetEl.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
+        if (isNewDoc || isNewMode) {
+          const targetPage = currentPageRef.current;
+          if (targetPage > 1) {
+            scrollToPage(targetPage, 'instant');
           }
         }
-      });
+      };
+
+      requestAnimationFrame(centerAndRestore);
+      const timer = setTimeout(centerAndRestore, 120);
+      return () => clearTimeout(timer);
     }
-  }, [pdfDoc, viewMode]);
+  }, [pdfDoc, viewMode, scrollToPage]);
 
-  // Scroll to page when navigating via stepper or thumbnail
-  const lastTargetPageRef = useRef<number>(currentPage);
+  // Handle explicit page jump requests (from sidebar thumbnail click, outline click, search result click, etc.)
   useEffect(() => {
-    if (viewMode === 'continuous' && pdfDoc && currentPage > 0) {
-      if (lastTargetPageRef.current === currentPage) return;
-      lastTargetPageRef.current = currentPage;
+    if (pageNavRequest && pageNavRequest.timestamp !== lastNavTimestampRef.current) {
+      lastNavTimestampRef.current = pageNavRequest.timestamp;
+      scrollToPage(pageNavRequest.page, 'smooth');
+    }
+  }, [pageNavRequest, scrollToPage]);
 
-      const pageEl = document.getElementById(`pdf-page-${currentPage}`);
-      const container = viewerContainerRef.current;
-      if (pageEl && container) {
-        const rect = pageEl.getBoundingClientRect();
-        const contRect = container.getBoundingClientRect();
-        if (rect.bottom < contRect.top || rect.top > contRect.bottom) {
-          pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+  // Handle external currentPage prop changes (when not already initiated by user scroll)
+  useEffect(() => {
+    if (currentPage !== prevPropCurrentPageRef.current) {
+      prevPropCurrentPageRef.current = currentPage;
+      if (currentPage !== lastReportedPageRef.current && !isProgrammaticScrollRef.current) {
+        scrollToPage(currentPage, 'smooth');
       }
     }
-  }, [currentPage, pdfDoc, viewMode]);
+  }, [currentPage, scrollToPage]);
 
-  // Mouse Wheel & Trackpad Pinch-to-Zoom (Ctrl/Cmd + Wheel)
+  // Preserve zoom focal position during zoom transitions
+  const prevZoomRef = useRef(zoom);
   useEffect(() => {
     const container = viewerContainerRef.current;
-    if (!container) return;
+    if (!container || prevZoomRef.current === zoom) return;
 
-    const handleWheel = (e: WheelEvent) => {
-      // Pinch on trackpad sets e.ctrlKey=true. Cmd/Ctrl + Mouse Wheel also sets ctrlKey/metaKey.
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const zoomDelta = -e.deltaY * 0.004;
-        const newZoom = Math.min(3.5, Math.max(0.3, zoom + zoomDelta));
-        onChangeZoom(Number(newZoom.toFixed(2)));
-      }
-    };
+    const zoomRatio = zoom / prevZoomRef.current;
+    prevZoomRef.current = zoom;
 
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [zoom, onChangeZoom]);
+    const currentCenterDocX = container.scrollLeft + container.clientWidth / 2;
+    const currentCenterDocY = container.scrollTop + container.clientHeight / 2;
 
-  // Track page scroll in continuous mode using IntersectionObserver
+    container.scrollLeft = currentCenterDocX * zoomRatio - container.clientWidth / 2;
+    container.scrollTop = currentCenterDocY * zoomRatio - container.clientHeight / 2;
+  }, [zoom]);
+
+  // High-performance, jitter-free scroll listener for active page detection
   useEffect(() => {
     if (viewMode !== 'continuous' || !pdfDoc) return;
 
     const container = viewerContainerRef.current;
     if (!container) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let maxRatio = 0;
-        let mostVisiblePage = currentPage;
+    let rafId: number | null = null;
 
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
-            const pageNum = parseInt(entry.target.id.replace('pdf-page-', ''), 10);
-            if (!isNaN(pageNum)) {
-              mostVisiblePage = pageNum;
-            }
+    const handleScroll = () => {
+      if (rafId !== null) return;
+
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (isProgrammaticScrollRef.current || !container) return;
+
+        const containerRect = container.getBoundingClientRect();
+        // Focal line at upper 35% of the viewport where user naturally reads
+        const focalLine = containerRect.top + Math.min(containerRect.height * 0.35, 240);
+
+        const pageElements = container.querySelectorAll<HTMLElement>('[id^="pdf-page-"]');
+        if (pageElements.length === 0) return;
+
+        let focalPage: number | null = null;
+        let maxOverlap = 0;
+        let maxOverlapPage = lastReportedPageRef.current;
+
+        for (let i = 0; i < pageElements.length; i++) {
+          const el = pageElements[i];
+          const rect = el.getBoundingClientRect();
+          const pageNum = parseInt(el.id.replace('pdf-page-', ''), 10);
+          if (isNaN(pageNum)) continue;
+
+          // Check if page covers the focal line
+          if (rect.top <= focalLine && rect.bottom > focalLine) {
+            focalPage = pageNum;
+            break;
           }
-        });
 
-        if (mostVisiblePage !== currentPage && maxRatio > 0.3) {
-          onPageChange(mostVisiblePage);
+          // Calculate visible pixel overlap inside container
+          const visibleTop = Math.max(rect.top, containerRect.top);
+          const visibleBottom = Math.min(rect.bottom, containerRect.bottom);
+          const overlap = Math.max(0, visibleBottom - visibleTop);
+
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            maxOverlapPage = pageNum;
+          }
         }
-      },
-      {
-        root: container,
-        threshold: [0.1, 0.3, 0.5, 0.8],
+
+        const activePage = focalPage ?? maxOverlapPage;
+        if (activePage > 0 && activePage !== lastReportedPageRef.current) {
+          lastReportedPageRef.current = activePage;
+          onPageChange(activePage);
+        }
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [viewMode, pdfDoc, onPageChange]);
+
+  // Mouse Wheel: Pinch-to-zoom and intuitive single-page turn on boundary scroll
+  useEffect(() => {
+    const container = viewerContainerRef.current;
+    if (!container) return;
+
+    let lastWheelPageTurnTime = 0;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Pinch on trackpad (ctrlKey) or Cmd/Ctrl + Mouse Wheel
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const zoomDelta = -e.deltaY * 0.004;
+        const newZoom = Math.min(3.5, Math.max(0.3, zoom + zoomDelta));
+        onChangeZoom(Number(newZoom.toFixed(2)));
+        return;
       }
-    );
 
-    const pageElements = container.querySelectorAll('[id^="pdf-page-"]');
-    pageElements.forEach((el) => observer.observe(el));
+      // In Single Page Mode, wheel scroll at boundaries turns the page smoothly
+      if (viewMode === 'single' && pdfDoc) {
+        const now = Date.now();
+        if (now - lastWheelPageTurnTime < 350) return;
 
-    return () => observer.disconnect();
-  }, [viewMode, pdfDoc, zoom]);
+        const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+        const isAtTop = container.scrollTop <= 10;
+
+        if (e.deltaY > 40 && isAtBottom && currentPage < numPages) {
+          lastWheelPageTurnTime = now;
+          onPageChange(currentPage + 1);
+        } else if (e.deltaY < -40 && isAtTop && currentPage > 1) {
+          lastWheelPageTurnTime = now;
+          onPageChange(currentPage - 1);
+        }
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [zoom, onChangeZoom, viewMode, pdfDoc, currentPage, numPages, onPageChange]);
 
   // Handle Mouse Down for Panning (Spacebar + Left Click, Middle Click, or Background Canvas Drag)
   const handleStartPan = (e: React.MouseEvent) => {
     const isMiddleClick = e.button === 1;
     const isSpaceDrag = e.button === 0 && isSpacePressed;
+    const target = e.target as HTMLElement;
     const isBackgroundClick =
       e.button === 0 &&
-      (e.target === viewerContainerRef.current ||
-        (e.target as HTMLElement).classList.contains('canvas-background-layer'));
+      !isSpacePressed &&
+      activeTool !== 'eraser' &&
+      (target === viewerContainerRef.current ||
+        target.classList.contains('canvas-background-layer') ||
+        target.classList.contains('canvas-workspace-area'));
 
     if (isMiddleClick || isSpaceDrag || isBackgroundClick) {
       const container = viewerContainerRef.current;
@@ -257,6 +488,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
+  // Handle Eraser pointer events on viewer container
+  const handleViewerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTool === 'eraser' && e.button === 0 && !isSpacePressed) {
+      isErasingRef.current = true;
+      setEraserPos({ x: e.clientX, y: e.clientY });
+      performGlobalEraseAt(e.clientX, e.clientY);
+    }
+  };
+
+  const handleViewerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTool === 'eraser') {
+      setEraserPos({ x: e.clientX, y: e.clientY });
+      if (isErasingRef.current || e.buttons === 1) {
+        performGlobalEraseAt(e.clientX, e.clientY);
+      }
+    }
+  };
+
+  const handleViewerPointerLeave = () => {
+    if (activeTool === 'eraser' && !isErasingRef.current) {
+      setEraserPos(null);
+    }
+  };
+
   // If no PDF is loaded, show welcoming Hero drop zone
   if (!pdfDoc) {
     return (
@@ -298,22 +553,41 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     );
   }
 
-  // Compute cursor style based on space/pan state
+  // Compute cursor style based on space/pan/eraser state
   const cursorStyle = isPanning
     ? 'cursor-grabbing'
     : isSpacePressed
     ? 'cursor-grab'
+    : activeTool === 'eraser'
+    ? 'cursor-none'
     : '';
 
   return (
     <main
       ref={viewerContainerRef}
       onMouseDown={handleStartPan}
+      onPointerDown={handleViewerPointerDown}
+      onPointerMove={handleViewerPointerMove}
+      onPointerLeave={handleViewerPointerLeave}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex-1 overflow-y-auto overflow-x-auto bg-[#1c1c22] relative select-none ${cursorStyle}`}
+      className={`pdf-viewer-viewport flex-1 overflow-y-auto overflow-x-auto bg-[#1c1c22] relative select-none ${cursorStyle}`}
     >
+      {/* Visual Eraser Brush Circle Indicator - Single global indicator across all pages */}
+      {activeTool === 'eraser' && eraserPos && (
+        <div
+          style={{
+            left: `${eraserPos.x}px`,
+            top: `${eraserPos.y}px`,
+            width: '36px',
+            height: '36px',
+            transform: 'translate(-50%, -50%)',
+          }}
+          className="fixed pointer-events-none rounded-full border-2 border-red-400/80 bg-red-500/20 shadow-md backdrop-blur-2xs animate-pulse-glow z-50"
+        />
+      )}
+
       {/* Spacebar Pan Glass Interceptor (captures clicks everywhere over text/layers when space is held) */}
       {isSpacePressed && (
         <div
@@ -330,11 +604,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         </div>
       )}
 
-      {/* Infinite-Feel 2D Canvas Workspace Wrapper (allows 360° sidewise and vertical panning) */}
-      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-center px-[35vw] py-12 box-border">
+      {/* 2D Canvas Workspace Wrapper with expansive horizontal and vertical panning canvas */}
+      <div className="canvas-background-layer w-max min-w-full min-h-full flex flex-col items-center justify-start px-[50vw] sm:px-[60vw] py-6 box-border">
         {/* CONTINUOUS VIEW MODE */}
         {viewMode === 'continuous' && (
-          <div className="flex flex-col items-center gap-1 pb-32">
+          <div className="canvas-workspace-area flex flex-col items-center gap-3 py-2 pb-6">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
               <PDFPage
                 key={pageNum}
@@ -348,7 +622,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 selectedColor={selectedColor}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
-                annotations={annotations}
+                annotations={annotationsByPage.get(pageNum) || EMPTY_ANNOTATIONS}
                 selectedAnnotationId={selectedAnnotationId}
                 onSelectAnnotation={onSelectAnnotation}
                 onAddAnnotation={onAddAnnotation}
@@ -357,6 +631,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
                 onCaptureSnippet={onCaptureSnippet}
+                aiJobs={aiJobs}
+                onAiBoxCreated={onAiBoxCreated}
+                onSubmitAi={onSubmitAi}
+                onCancelAi={onCancelAi}
+                onCloseAi={onCloseAi}
+                onDeletePage={onDeletePage}
+                onCopyPageText={onCopyPageText}
+                onCopyPageImage={onCopyPageImage}
+                onAskAiAboutPage={onAskAiAboutPage}
                 isFlush
               />
             ))}
@@ -365,7 +648,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
         {/* SINGLE PAGE VIEW MODE */}
         {viewMode === 'single' && (
-          <div className="flex flex-col items-center justify-center relative pb-24">
+          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-6">
             <PDFPage
               pdfDoc={pdfDoc}
               pageNumber={currentPage}
@@ -377,7 +660,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               selectedColor={selectedColor}
               strokeWidth={strokeWidth}
               opacity={opacity}
-              annotations={annotations}
+              annotations={annotationsByPage.get(currentPage) || EMPTY_ANNOTATIONS}
               selectedAnnotationId={selectedAnnotationId}
               onSelectAnnotation={onSelectAnnotation}
               onAddAnnotation={onAddAnnotation}
@@ -386,36 +669,22 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               onImageDrop={onImageDrop}
               onCursorMove={onCursorMove}
               onCaptureSnippet={onCaptureSnippet}
+              aiJobs={aiJobs}
+              onAiBoxCreated={onAiBoxCreated}
+              onSubmitAi={onSubmitAi}
+              onCancelAi={onCancelAi}
+              onCloseAi={onCloseAi}
+              onDeletePage={onDeletePage}
+              onCopyPageText={onCopyPageText}
+              onCopyPageImage={onCopyPageImage}
+              onAskAiAboutPage={onAskAiAboutPage}
             />
-
-            {/* Floating Next/Prev Page Buttons */}
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#24242b]/95 backdrop-blur-md px-3 py-1 rounded-md border border-[#383846] text-xs text-zinc-300 z-30 shadow-lg">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => onPageChange(currentPage - 1)}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous Page (Left Arrow / K)"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-mono text-[11px]">
-                {currentPage} / {numPages}
-              </span>
-              <button
-                disabled={currentPage >= numPages}
-                onClick={() => onPageChange(currentPage + 1)}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next Page (Right Arrow / J)"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         )}
 
         {/* TWO-PAGE SPREAD VIEW MODE */}
         {viewMode === 'spread' && (
-          <div className="flex flex-col items-center justify-center relative pb-24">
+          <div className="canvas-workspace-area flex flex-col items-center justify-center relative pb-6">
             <div className="flex items-start justify-center gap-1">
               {/* Left Page */}
               <PDFPage
@@ -429,7 +698,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 selectedColor={selectedColor}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
-                annotations={annotations}
+                annotations={
+                  annotationsByPage.get(currentPage % 2 === 0 ? currentPage - 1 : currentPage) ||
+                  EMPTY_ANNOTATIONS
+                }
                 selectedAnnotationId={selectedAnnotationId}
                 onSelectAnnotation={onSelectAnnotation}
                 onAddAnnotation={onAddAnnotation}
@@ -438,6 +710,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
                 onCaptureSnippet={onCaptureSnippet}
+                aiJobs={aiJobs}
+                onAiBoxCreated={onAiBoxCreated}
+                onSubmitAi={onSubmitAi}
+                onCancelAi={onCancelAi}
+                onCloseAi={onCloseAi}
+                onDeletePage={onDeletePage}
+                onCopyPageText={onCopyPageText}
+                onCopyPageImage={onCopyPageImage}
+                onAskAiAboutPage={onAskAiAboutPage}
               />
 
               {/* Right Page (if exists) */}
@@ -453,7 +734,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   selectedColor={selectedColor}
                   strokeWidth={strokeWidth}
                   opacity={opacity}
-                  annotations={annotations}
+                  annotations={
+                    annotationsByPage.get(currentPage % 2 === 0 ? currentPage : currentPage + 1) ||
+                    EMPTY_ANNOTATIONS
+                  }
                   selectedAnnotationId={selectedAnnotationId}
                   onSelectAnnotation={onSelectAnnotation}
                   onAddAnnotation={onAddAnnotation}
@@ -462,31 +746,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onImageDrop={onImageDrop}
                   onCursorMove={onCursorMove}
                   onCaptureSnippet={onCaptureSnippet}
+                  aiJobs={aiJobs}
+                  onAiBoxCreated={onAiBoxCreated}
+                  onSubmitAi={onSubmitAi}
+                  onCancelAi={onCancelAi}
+                  onCloseAi={onCloseAi}
+                  onDeletePage={onDeletePage}
+                  onCopyPageText={onCopyPageText}
+                  onCopyPageImage={onCopyPageImage}
+                  onAskAiAboutPage={onAskAiAboutPage}
                 />
               )}
-            </div>
-
-            {/* Floating Next/Prev Pair */}
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#24242b]/95 backdrop-blur-md px-3 py-1 rounded-md border border-[#383846] text-xs text-zinc-300 z-30 shadow-lg">
-              <button
-                disabled={currentPage <= 2}
-                onClick={() => onPageChange(Math.max(1, currentPage - 2))}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous Spread"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-mono text-[11px]">
-                Spread {Math.ceil(currentPage / 2)} of {Math.ceil(numPages / 2)}
-              </span>
-              <button
-                disabled={currentPage >= numPages - 1}
-                onClick={() => onPageChange(Math.min(numPages, currentPage + 2))}
-                className="p-1 rounded hover:bg-[#34343f] disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next Spread"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         )}

@@ -4,10 +4,15 @@ import { TextLayer } from 'pdfjs-dist';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { ImageOverlay } from './ImageOverlay';
 import { TextNoteOverlay } from './TextNoteOverlay';
+import { AiExplanationOverlay } from './AiExplanationOverlay';
+import { PageContextMenu } from './PageContextMenu';
+import type { AiJobState } from '../hooks/useAiExplanations';
 import { usesInvertedColorSpace } from '../utils/readingTheme';
+import 'pdfjs-dist/web/pdf_viewer.css';
 import type {
   Annotation,
   AttachedImageAnnotation,
+  AiExplanationAnnotation,
   TextNoteAnnotation,
   ReadingTheme,
   ToolType,
@@ -33,10 +38,19 @@ interface PDFPageProps {
   onImageDrop: (pageNumber: number, file: File) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
+  aiJobs: Record<string, AiJobState>;
+  onAiBoxCreated: (annotationId: string) => void;
+  onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
+  onCancelAi: (annotationId: string) => void;
+  onCloseAi: (annotationId: string) => void;
+  onDeletePage: (pageNumber: number) => void;
+  onCopyPageText: (pageNumber: number) => void;
+  onCopyPageImage: (pageNumber: number) => void;
+  onAskAiAboutPage: (pageNumber: number) => void;
   isFlush?: boolean;
 }
 
-export const PDFPage: React.FC<PDFPageProps> = ({
+export const PDFPageComponent: React.FC<PDFPageProps> = ({
   pdfDoc,
   pageNumber,
   scale,
@@ -56,6 +70,15 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onImageDrop,
   onCursorMove,
   onCaptureSnippet,
+  aiJobs,
+  onAiBoxCreated,
+  onSubmitAi,
+  onCancelAi,
+  onCloseAi,
+  onDeletePage,
+  onCopyPageText,
+  onCopyPageImage,
+  onAskAiAboutPage,
   isFlush = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -68,9 +91,60 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   });
   const [isRendered, setIsRendered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const renderTaskRef = useRef<unknown>(null);
 
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(
+    typeof IntersectionObserver === 'undefined'
+  );
+
+  // Measure page dimensions quickly without full rasterization
   useEffect(() => {
+    let cancelled = false;
+    pdfDoc
+      .getPage(pageNumber)
+      .then((page) => {
+        if (cancelled) return;
+        const baseViewport = page.getViewport({ scale });
+        setPageDimensions({
+          width: Math.floor(baseViewport.width),
+          height: Math.floor(baseViewport.height),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDoc, pageNumber, scale]);
+
+  // Observer to trigger canvas & textLayer rendering once near viewport
+  useEffect(() => {
+    if (hasEnteredViewport) return;
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setHasEnteredViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setHasEnteredViewport(true);
+            observer.disconnect();
+          }
+        }
+      },
+      { rootMargin: '800px 0px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasEnteredViewport]);
+
+  useEffect(() => {
+    if (!hasEnteredViewport) return;
+
     let isCancelled = false;
 
     const renderPage = async () => {
@@ -148,7 +222,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         } catch {}
       }
     };
-  }, [pdfDoc, pageNumber, scale]);
+  }, [pdfDoc, pageNumber, scale, hasEnteredViewport]);
 
   // Track cursor coordinates across the page
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -193,23 +267,50 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     (a) => a.pageNumber === pageNumber && a.type === 'text-note'
   ) as TextNoteAnnotation[];
 
+  const pageAiExplanations = annotations.filter(
+    (a) => a.pageNumber === pageNumber && a.type === 'ai-explanation'
+  ) as AiExplanationAnnotation[];
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const menuWidth = 224;
+    const menuHeight = 150;
+    setContextMenuPosition({
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
+    });
+  };
+
   return (
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
+      data-pdf-page-number={pageNumber}
       onMouseMove={handleMouseMove}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onContextMenu={handleContextMenu}
       onClick={() => onSelectAnnotation(null)}
       style={{
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
       }}
-      className={`relative mx-auto ${isFlush ? 'my-0' : 'my-6'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group ${
+      className={`relative mx-auto ${isFlush ? 'my-1' : 'my-4'} bg-white shadow-[0_1px_8px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.14)] rounded-xs transition-all duration-150 group ${
         isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
+      {contextMenuPosition && (
+        <PageContextMenu
+          position={contextMenuPosition}
+          onClose={() => setContextMenuPosition(null)}
+          onDeletePage={() => onDeletePage(pageNumber)}
+          onCopyPageText={() => onCopyPageText(pageNumber)}
+          onCopyPageImage={() => onCopyPageImage(pageNumber)}
+          onAskAi={() => onAskAiAboutPage(pageNumber)}
+        />
+      )}
       {/* Visual Page Number Badge in Margin */}
       {!isFlush && (
         <div className="absolute -top-5 left-1 text-[10px] font-mono text-zinc-500 font-medium select-none tracking-wider">
@@ -219,26 +320,28 @@ export const PDFPage: React.FC<PDFPageProps> = ({
 
       {/* Filtered Container for PDF Canvas & Color Inversion */}
       <div
+        data-pdf-canvas-layer
         className={`w-full h-full relative overflow-hidden ${filterClass}`}
         style={customFilterStyle}
       >
         {/* Rendered PDF Raster Canvas */}
-        <canvas ref={canvasRef} className="block" />
-
-        {/* Selectable & Copiable Text Layer */}
-        <div
-          ref={textLayerRef}
-          className={`textLayer absolute inset-0 overflow-hidden leading-none z-10 ${
-            activeTool === 'select'
-              ? 'select-text pointer-events-auto cursor-text'
-              : 'select-none pointer-events-none'
-          }`}
-          style={{
-            width: `${pageDimensions.width}px`,
-            height: `${pageDimensions.height}px`,
-          }}
-        />
+        <canvas ref={canvasRef} className="block w-full h-full" />
       </div>
+
+      {/* Keep selection feedback outside page filters so it stays visibly blue in every reading theme. */}
+      <div
+        ref={textLayerRef}
+        data-pdf-text-layer
+        className={`textLayer absolute inset-0 overflow-hidden leading-none z-10 ${
+          activeTool === 'select'
+            ? 'select-text pointer-events-auto cursor-text'
+            : 'select-none pointer-events-none'
+        }`}
+        style={{
+          width: `${pageDimensions.width}px`,
+          height: `${pageDimensions.height}px`,
+        }}
+      />
 
       {/* Annotation Canvas (SVG / Freehand / Highlights / Note Creator) */}
       <AnnotationCanvas
@@ -251,9 +354,30 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         strokeWidth={strokeWidth}
         opacity={opacity}
         annotations={annotations}
+        selectedAnnotationId={selectedAnnotationId}
+        onSelectAnnotation={onSelectAnnotation}
+        onUpdateAnnotation={onUpdateAnnotation}
         onAddAnnotation={onAddAnnotation}
         onDeleteAnnotation={onDeleteAnnotation}
         onCaptureSnippet={onCaptureSnippet}
+        onAiBoxCreated={onAiBoxCreated}
+      />
+
+      <AiExplanationOverlay
+        pdfDoc={pdfDoc}
+        pageWidth={pageDimensions.width}
+        pageHeight={pageDimensions.height}
+        activeTool={activeTool}
+        annotations={pageAiExplanations}
+        jobs={aiJobs}
+        onSubmit={onSubmitAi}
+        onCancel={onCancelAi}
+        onCloseJob={onCloseAi}
+        onUpdate={onUpdateAnnotation}
+        onDelete={onDeleteAnnotation}
+        onAddAnnotation={onAddAnnotation}
+        selectedAnnotationId={selectedAnnotationId}
+        onSelectAnnotation={onSelectAnnotation}
       />
 
       {/* Attached Images Layer */}
@@ -298,3 +422,5 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     </div>
   );
 };
+
+export const PDFPage = React.memo(PDFPageComponent);

@@ -9,19 +9,17 @@ import {
   RefreshCw,
   Trash2,
   BookOpen,
-  Sparkles,
   ArrowRight,
   HardDrive,
-  CheckCircle2,
   Folder,
-  Layers,
   Moon,
   Sun,
   ChevronDown,
   Check,
   ArrowUpDown,
+  Settings,
 } from 'lucide-react';
-import type { DashboardPdfItem, SavedDirectory } from '../utils/types';
+import type { DashboardPdfItem, ReadingTheme, SavedDirectory, ThemeSettings, ViewMode } from '../utils/types';
 import {
   isTauri,
   tauriSelectDirectory,
@@ -29,6 +27,7 @@ import {
   tauriGetDefaultDirectories,
   tauriReadFile,
   tauriOpenPdf,
+  handleTitlebarMouseDown,
 } from '../utils/tauriBridge';
 import {
   loadSavedDirectories,
@@ -37,15 +36,28 @@ import {
   recordRecentDoc,
   loadFavorites,
   toggleFavorite as toggleStorageFavorite,
+  loadLibraryFilter,
+  saveLibraryFilter,
+  loadLibrarySort,
+  saveLibrarySort,
 } from '../utils/storage';
+import { SettingsModal } from './SettingsModal';
 
 interface DashboardProps {
-  onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => void;
+  onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => Promise<boolean>;
   onSwitchToReader: () => void;
   hasActiveDoc: boolean;
   activeDocName?: string;
   isDarkTheme: boolean;
   onToggleTheme: () => void;
+  // Theme & Appearance
+  themeSettings?: ThemeSettings;
+  onSelectTheme?: (theme: ReadingTheme) => void;
+  onUpdateThemeSetting?: <K extends keyof ThemeSettings>(key: K, value: ThemeSettings[K]) => void;
+  onResetThemeFilters?: () => void;
+  // View mode
+  viewMode?: ViewMode;
+  onChangeViewMode?: (mode: ViewMode) => void;
 }
 
 type FilterTab = 'all' | 'recent' | 'favorites' | string; // string for specific directory ID
@@ -64,17 +76,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeDocName,
   isDarkTheme,
   onToggleTheme,
+  themeSettings,
+  onSelectTheme,
+  onUpdateThemeSetting,
+  onResetThemeFilters,
+  viewMode,
+  onChangeViewMode,
 }) => {
   const [directories, setDirectories] = useState<SavedDirectory[]>(() => loadSavedDirectories());
   const [pdfItems, setPdfItems] = useState<DashboardPdfItem[]>([]);
   const [recentDocs, setRecentDocs] = useState<DashboardPdfItem[]>(() => loadRecentDocs());
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterTab>(() => loadLibraryFilter());
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [sortBy, setSortBy] = useState<SortOption>(() => loadLibrarySort());
   const [isScanning, setIsScanning] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Keyboard shortcut: Cmd+, / Ctrl+, to toggle settings
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Persist active filter & selected folder tab
+  useEffect(() => {
+    saveLibraryFilter(activeFilter);
+  }, [activeFilter]);
+
+  // Persist library sorting preference
+  useEffect(() => {
+    saveLibrarySort(sortBy);
+  }, [sortBy]);
 
   useEffect(() => {
     if (!isSortOpen) return;
@@ -119,6 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             fileSize: res.file_size,
             modifiedTimestamp: res.modified_timestamp,
             directoryPath: dir.path,
+            numPages: res.num_pages ?? undefined,
           });
         });
       }
@@ -226,7 +268,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           lastReadPage: item.lastReadPage || 1,
         });
         setRecentDocs(loadRecentDocs());
-        onOpenPdf(fileData.data, fileData.fileName, fileData.filePath, item.lastReadPage);
+        await onOpenPdf(fileData.data, fileData.fileName, fileData.filePath, item.lastReadPage);
         return;
       }
     }
@@ -244,7 +286,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           modifiedTimestamp: Date.now(),
         });
         setRecentDocs(loadRecentDocs());
-        onOpenPdf(fileData.data, fileData.fileName, fileData.filePath);
+        await onOpenPdf(fileData.data, fileData.fileName, fileData.filePath);
       }
     }
   };
@@ -262,7 +304,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     recentDocs.forEach((rec) => {
       const existing = map.get(rec.filePath);
       if (existing) {
-        map.set(rec.filePath, { ...existing, ...rec });
+        map.set(rec.filePath, {
+          ...existing,
+          ...rec,
+          modifiedTimestamp: existing.modifiedTimestamp,
+        });
       } else {
         map.set(rec.filePath, rec);
       }
@@ -319,35 +365,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="macos-window h-screen w-screen flex flex-col bg-[#1e1e24] text-[#f0f0f4] overflow-hidden select-none">
-      {/* Top Studio App Header */}
-      <header className="macos-titlebar h-12 flex items-center justify-between px-3 z-30 select-none app-drag-region text-xs">
-        {/* Left branding */}
-        <div className="flex items-center gap-2 app-no-drag">
-          <div className="macos-window-controls-spacer hidden sm:block" />
-          <div className="macos-app-title flex items-center gap-2 text-zinc-200 tracking-tight">
-            <Layers className="w-4 h-4 text-zinc-300" />
-            <div className="leading-tight">
-              <span className="block text-[12px] font-semibold">PDFuck Studio</span>
-              <span className="block text-[10px] text-zinc-500">Library</span>
-            </div>
-          </div>
+      {/* Top Studio App Header (macOS Tahoe Window Bar) */}
+      <header
+        data-tauri-drag-region
+        onMouseDown={handleTitlebarMouseDown}
+        className="macos-titlebar h-12 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3.5 z-30 select-none app-drag-region text-xs cursor-default"
+      >
+        {/* Left window chrome */}
+        <div className="flex items-center gap-2.5 justify-self-start" data-tauri-drag-region>
+          {/* Spacer for native macOS traffic lights on desktop */}
+          {isTauri() && <div className="macos-window-controls-spacer shrink-0" aria-hidden="true" data-tauri-drag-region />}
         </div>
 
-        {/* Center Search Input */}
-        <div className="flex items-center gap-2 app-no-drag w-full max-w-md">
-          <div className="control-field macos-search-field w-full flex items-center gap-1.5 px-2.5 py-1 rounded-md">
+        {/* Center Search Input (dead center in titlebar) */}
+        <div className="flex items-center justify-center w-80 sm:w-96 md:w-[28rem] justify-self-center" data-tauri-drag-region>
+          <div className="control-field macos-search-field w-full flex items-center gap-2 px-2.5 py-1 rounded-lg app-no-drag" data-tauri-drag-region="false">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search library documents..."
-              className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none w-full font-sans"
+              className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-0 outline-none w-full font-sans"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-zinc-500 hover:text-zinc-300 text-[10px]"
+                className="text-zinc-500 hover:text-zinc-300 text-[10px] px-1"
               >
                 Clear
               </button>
@@ -356,14 +400,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Right Actions: Add Folder, Open File & Back to Reader Studio */}
-        <div className="flex items-center gap-1.5 app-no-drag">
+        <div className="flex items-center gap-1.5 app-no-drag justify-self-end" data-tauri-drag-region="false">
           <button
             onClick={onToggleTheme}
             className="btn-icon"
             title={isDarkTheme ? 'Use light appearance' : 'Use dark appearance'}
             aria-label={isDarkTheme ? 'Use light appearance' : 'Use dark appearance'}
           >
-            {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-zinc-600" />}
           </button>
 
           <button
@@ -383,138 +427,147 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
             <span>Browse PDF</span>
           </button>
-
-          {hasActiveDoc && (
-            <button
-              onClick={onSwitchToReader}
-              className="btn-primary ml-1"
-              title={`Return to active document (${activeDocName})`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Resume Reading</span>
-            </button>
-          )}
         </div>
       </header>
 
       {/* Main Studio Body: Sidebar Navigation + Document Grid */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Library Navigator */}
-        <aside className="macos-sidebar w-60 flex flex-col p-3 gap-3 overflow-y-auto select-none">
-          {/* Quick Categories */}
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 px-2 py-1">
-              Library Views
-            </span>
-
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeFilter === 'all'
-                  ? 'bg-[#32323e] text-zinc-100 shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <FileText className="w-3.5 h-3.5 text-zinc-400" />
-                <span>All Documents</span>
-              </div>
-              <span className="font-mono text-[10px] text-zinc-500">{totalPdfsCount}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveFilter('recent')}
-              className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeFilter === 'recent'
-                  ? 'bg-[#32323e] text-zinc-100 shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Recent Reads</span>
-              </div>
-              <span className="font-mono text-[10px] text-zinc-500">
-                {recentDocs.length}
+        {/* Left Library Navigator (Tahoe macOS Sidebar) */}
+        <aside className="macos-sidebar w-60 flex flex-col p-3 gap-3 overflow-hidden select-none">
+          {/* Scrollable Main Navigation: Categories & Folders */}
+          <div className="flex-1 flex flex-col gap-3 overflow-y-auto min-h-0 pr-0.5">
+            {/* Quick Categories */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 px-2 py-1">
+                Library Views
               </span>
-            </button>
 
-            <button
-              onClick={() => setActiveFilter('favorites')}
-              className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeFilter === 'favorites'
-                  ? 'bg-[#32323e] text-zinc-100 shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Star className="w-3.5 h-3.5 text-amber-400" />
-                <span>Favorites</span>
-              </div>
-              <span className="font-mono text-[10px] text-zinc-500">
-                {favoriteIds.length}
-              </span>
-            </button>
-          </div>
-
-          {/* Saved Directories List */}
-          <div className="flex flex-col gap-1 pt-2 border-t border-[#30303a]">
-            <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-                Saved Directories
-              </span>
               <button
-                onClick={() => scanAllDirectories(directories)}
-                disabled={isScanning}
-                className="text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
-                title="Rescan directories"
+                onClick={() => setActiveFilter('all')}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeFilter === 'all'
+                    ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
               >
-                <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+                <div className="flex items-center gap-2">
+                  <FileText className={`w-3.5 h-3.5 ${activeFilter === 'all' ? 'text-blue-500' : 'text-zinc-400'}`} />
+                  <span>All Documents</span>
+                </div>
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'all' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                  {totalPdfsCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveFilter('recent')}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeFilter === 'recent'
+                    ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className={`w-3.5 h-3.5 ${activeFilter === 'recent' ? 'text-blue-500' : 'text-zinc-400'}`} />
+                  <span>Recent Reads</span>
+                </div>
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'recent' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                  {recentDocs.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveFilter('favorites')}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeFilter === 'favorites'
+                    ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>Favorites</span>
+                </div>
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'favorites' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                  {favoriteIds.length}
+                </span>
               </button>
             </div>
 
-            {directories.length === 0 ? (
-              <div className="px-2 py-3 text-[11px] text-zinc-500 text-center">
-                No directories added yet. Click &quot;Add Folder&quot; above.
-              </div>
-            ) : (
-              directories.map((dir) => (
-                <div
-                  key={dir.id}
-                  onClick={() => setActiveFilter(dir.id)}
-                  className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs cursor-pointer group transition-all ${
-                    activeFilter === dir.id
-                      ? 'bg-[#32323e] text-zinc-100'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#2a2a34]'
-                  }`}
+            {/* Saved Directories List */}
+            <div className="flex flex-col gap-1 pt-2 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between px-2 py-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  Folders
+                </span>
+                <button
+                  onClick={() => scanAllDirectories(directories)}
+                  disabled={isScanning}
+                  className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  title="Rescan directories"
                 >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <Folder className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    <span className="truncate font-medium">{dir.name}</span>
-                  </div>
+                  <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
 
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-300">
-                      {dir.pdfCount ?? 0}
-                    </span>
-                    <button
-                      onClick={(e) => handleRemoveDirectory(dir.id, e)}
-                      className="p-1 rounded text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove folder from library"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
+              {directories.length === 0 ? (
+                <div className="px-2 py-3 text-[11px] text-zinc-500 text-center">
+                  No folders added yet. Click &quot;Add Folder&quot; above.
                 </div>
-              ))
-            )}
+              ) : (
+                directories.map((dir) => (
+                  <div
+                    key={dir.id}
+                    onClick={() => setActiveFilter(dir.id)}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer group transition-all ${
+                      activeFilter === dir.id
+                        ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Folder className={`w-3.5 h-3.5 shrink-0 ${activeFilter === dir.id ? 'text-blue-500' : 'text-zinc-400'}`} />
+                      <span className="truncate font-medium">{dir.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-300">
+                        {dir.pdfCount ?? 0}
+                      </span>
+                      <button
+                        onClick={(e) => handleRemoveDirectory(dir.id, e)}
+                        className="p-1 rounded-md text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove folder from library"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Sidebar Footer: Settings Button */}
+          <div className="pt-2 border-t border-[var(--border)] mt-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-100 border border-transparent hover:border-[var(--border)] hover:bg-[var(--secondary)] hover:shadow-xs active:scale-[0.98] transition-all group"
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
+                <span>Settings</span>
+              </div>
+              <span className="text-[10px] text-zinc-500 group-hover:text-zinc-400 font-mono">⌘,</span>
+            </button>
           </div>
         </aside>
 
         {/* Main Document Library Content */}
         <main className="macos-content flex-1 p-6 overflow-y-auto flex flex-col gap-5">
           {/* Controls Bar: Title, Count, Layout, Sorting */}
-          <div className="flex items-center justify-between border-b border-[#343440] pb-3">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-zinc-100 tracking-tight capitalize">
                 {activeFilter === 'all'
@@ -525,40 +578,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   ? 'Favorite Documents'
                   : directories.find((d) => d.id === activeFilter)?.name || 'Directory Documents'}
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-[#2a2a34] text-[10px] font-mono text-zinc-400 border border-[#383846]">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--secondary)] text-[10.5px] font-mono text-zinc-400 border border-[var(--border)]">
                 {filteredItems.length} {filteredItems.length === 1 ? 'file' : 'files'}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Styled Sort Selector */}
+              {/* Tahoe Styled Sort Selector */}
               <div ref={sortMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setIsSortOpen((open) => !open)}
-                  className={`flex items-center gap-2 min-w-42 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-2 min-w-40 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                     isSortOpen
-                      ? 'bg-[#34343f] border-[#484856] text-white shadow-md'
-                      : 'bg-[#24242b] border-[#343440] text-zinc-300 hover:bg-[#2a2a34]'
+                      ? 'bg-[var(--card)] border-[var(--ring)] text-white shadow-md'
+                      : 'bg-[var(--secondary)] border-[var(--border)] text-zinc-300 hover:bg-[var(--card)]'
                   }`}
                   aria-haspopup="menu"
                   aria-expanded={isSortOpen}
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
+                  <ArrowUpDown className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                   <span className="flex-1 text-left">
                     {SORT_OPTIONS.find((option) => option.value === sortBy)?.label}
                   </span>
                   <ChevronDown
-                    className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortOpen ? 'rotate-180' : ''}`}
+                    className={`w-3.5 h-3.5 shrink-0 text-zinc-400 transition-transform ${isSortOpen ? 'rotate-180' : ''}`}
                   />
                 </button>
 
                 {isSortOpen && (
                   <div
                     role="menu"
-                    className="absolute top-full right-0 z-50 mt-2 w-48 p-1.5 rounded-lg bg-[#26262d] border border-[#3a3a46] shadow-2xl backdrop-blur-xl animate-slide-down"
+                    className="absolute top-full right-0 z-50 mt-1.5 w-48 p-1.5 rounded-xl bg-[var(--popover)] border border-[var(--border)] shadow-2xl backdrop-blur-xl animate-slide-down"
                   >
-                    <div className="px-2.5 pt-1 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                    <div className="px-2.5 pt-1 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                       Sort documents
                     </div>
                     {SORT_OPTIONS.map((option) => {
@@ -574,10 +627,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             setSortBy(option.value);
                             setIsSortOpen(false);
                           }}
-                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs transition-colors ${
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                             isSelected
-                              ? 'bg-[#34343f] text-white'
-                              : 'text-zinc-300 hover:bg-[#2a2a34] hover:text-zinc-100'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-zinc-300 hover:bg-black/5 dark:hover:bg-white/5 hover:text-zinc-100'
                           }`}
                         >
                           <OptionIcon className="w-3.5 h-3.5 shrink-0" />
@@ -595,7 +648,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Empty State */}
           {filteredItems.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#24242b] border border-[#383846] flex items-center justify-center text-zinc-400">
+              <div className="w-14 h-14 rounded-2xl bg-[var(--secondary)] border border-[var(--border)] flex items-center justify-center text-zinc-400 shadow-sm">
                 <HardDrive className="w-6 h-6" />
               </div>
               <div className="flex flex-col gap-1 max-w-sm">
@@ -648,6 +701,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span className="truncate max-w-[22rem]">{item.directoryPath || item.filePath || 'Local document'}</span>
                       <span aria-hidden="true">·</span>
                       <span className="shrink-0 tabular-nums">{item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}</span>
+                      {item.numPages !== undefined && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="shrink-0 tabular-nums">
+                            {item.numPages} {item.numPages === 1 ? 'page' : 'pages'}
+                          </span>
+                        </>
+                      )}
                       {item.lastReadPage && <span className="shrink-0">Last read · Page {item.lastReadPage}</span>}
                     </div>
                   </div>
@@ -666,6 +727,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </main>
       </div>
+
+      {/* Floating Circular Resume Reading Button (Bottom Right) */}
+      {hasActiveDoc && (
+        <button
+          onClick={onSwitchToReader}
+          className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full flex items-center justify-center text-white bg-gradient-to-b from-[#3b99ff] to-[#0066eb] shadow-xl hover:scale-108 active:scale-95 transition-all cursor-pointer border border-white/25 group"
+          title={`Resume Reading: ${activeDocName}`}
+          aria-label={`Resume Reading: ${activeDocName}`}
+        >
+          <BookOpen className="w-5 h-5 transition-transform group-hover:scale-110" />
+        </button>
+      )}
+
+      {/* Segmented Settings Panel Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        themeSettings={themeSettings}
+        onSelectTheme={onSelectTheme}
+        onUpdateThemeSetting={onUpdateThemeSetting}
+        onResetThemeFilters={onResetThemeFilters}
+        viewMode={viewMode}
+        onChangeViewMode={onChangeViewMode}
+      />
     </div>
   );
 };

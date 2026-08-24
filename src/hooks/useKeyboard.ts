@@ -22,6 +22,8 @@ interface KeyboardShortcutOptions {
   onCopyPageJpg?: () => void;
   onCopyStitchedSnippets?: () => void;
   onClearSnippets?: () => void;
+  onHighlightSelectedText?: () => void;
+  onDeleteSelectedAnnotation?: () => void;
 }
 
 export function useKeyboard(options: KeyboardShortcutOptions) {
@@ -46,7 +48,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (cmdOrCtrl) {
-        if (e.altKey && e.key.toLowerCase() === 'c') {
+        if (e.shiftKey && e.key.toLowerCase() === 'h') {
+          e.preventDefault();
+          options.onHighlightSelectedText?.();
+        } else if (e.altKey && e.key.toLowerCase() === 'c') {
           e.preventDefault();
           options.onCopyStitchedSnippets?.();
         } else if (e.shiftKey && e.key.toLowerCase() === 's') {
@@ -121,6 +126,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case 't':
             options.onSelectTool('text');
             break;
+          case 'a':
+            options.onSelectTool('ai-box');
+            break;
           case 'e':
             options.onSelectTool('eraser');
             break;
@@ -136,6 +144,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case '?':
           case '/':
             options.onToggleShortcuts();
+            break;
+          case 'backspace':
+          case 'delete':
+            options.onDeleteSelectedAnnotation?.();
             break;
           case 'arrowright':
           case 'j':

@@ -5,34 +5,37 @@ import { Toolbar } from './components/Toolbar';
 import { PDFViewer } from './components/PDFViewer';
 import { Dashboard } from './components/Dashboard';
 import { ColorThemeModal } from './components/ColorThemeModal';
-import { StampPickerModal } from './components/StampPickerModal';
 import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ExportModal } from './components/ExportModal';
-import { Check, Info, Sidebar as SidebarIcon } from 'lucide-react';
+import { DeletePageConfirmationDialog } from './components/DeletePageConfirmationDialog';
+import { Check, Info, LoaderCircle, Sidebar as SidebarIcon } from 'lucide-react';
 
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useSnippets } from './hooks/useSnippets';
 import { useColorTheme } from './hooks/useColorTheme';
+import { useAiExplanations } from './hooks/useAiExplanations';
 import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
-import { createSamplePDF } from './utils/samplePdf';
 import { loadViewMode, saveViewMode, recordRecentDoc } from './utils/storage';
-import { isTauri, tauriOpenPdf, tauriOpenImage } from './utils/tauriBridge';
+import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf } from './utils/tauriBridge';
 import {
   extractPageText,
   copyTextToClipboard,
   copyPageImageToClipboard,
+  deletePageFromPdf,
+  reindexAfterPageDeletion,
   downloadPageAsJpg,
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
+import { createTextHighlightsFromSelection } from './utils/textHighlight';
 import {
   cropCanvasRegion,
   copyStitchedSnippetsToClipboard,
   downloadStitchedSnippets,
 } from './utils/snippetExtractor';
-import type { AppScreen, ToolType, ViewMode, StitchOptions } from './utils/types';
+import type { AiExplanationAnnotation, Annotation, AppScreen, ToolType, ViewMode, StitchOptions } from './utils/types';
 import type { SidebarTabType } from './components/Sidebar';
 
 export function App() {
@@ -47,9 +50,10 @@ export function App() {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
-  const [isStampPickerOpen, setIsStampPickerOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [pagePendingDeletion, setPagePendingDeletion] = useState<number | null>(null);
+  const [isDeletingPage, setIsDeletingPage] = useState<boolean>(false);
 
   // Active Toast Feedback
   const [toastMessage, setToastMessage] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -83,6 +87,7 @@ export function App() {
     outline,
     currentPage,
     docKey,
+    isLoading,
     loadPdf,
     changePage,
     searchResults,
@@ -101,11 +106,19 @@ export function App() {
     updateAnnotation,
     deleteAnnotation,
     clearAllAnnotationsForPage,
+    replaceAnnotations,
     undo: undoAnnotations,
     redo: redoAnnotations,
     canUndo: canUndoAnnotations,
     canRedo: canRedoAnnotations,
   } = useAnnotations(docKey, docInfo);
+
+  const aiExplanations = useAiExplanations({
+    pdfDoc,
+    documentName: docInfo?.fileName || 'document.pdf',
+    docKey,
+    updateAnnotation,
+  });
 
   const {
     snippets,
@@ -120,6 +133,7 @@ export function App() {
     redo: redoSnippets,
     canUndo: canUndoSnippets,
     canRedo: canRedoSnippets,
+    replaceSnippets,
   } = useSnippets(docKey);
 
   const {
@@ -132,6 +146,16 @@ export function App() {
     getCustomFilterStyle,
   } = useColorTheme();
 
+  const [pageNavRequest, setPageNavRequest] = useState<{ page: number; timestamp: number } | null>(null);
+
+  const handleNavigatePage = useCallback(
+    (page: number) => {
+      changePage(page);
+      setPageNavRequest({ page, timestamp: Date.now() });
+    },
+    [changePage]
+  );
+
   const isDarkTheme = usesInvertedColorSpace(themeSettings.theme);
 
   useEffect(() => {
@@ -141,20 +165,26 @@ export function App() {
     };
   }, [isDarkTheme]);
 
-  // Load a demo PDF on initial startup if none is loaded
-  useEffect(() => {
-    const initDemo = async () => {
-      const sampleBytes = await createSamplePDF();
-      loadPdf(sampleBytes, 'Welcome-Document.pdf');
-    };
-    initDemo();
-  }, [loadPdf]);
-
   // Handle View Mode persistence
   const handleChangeViewMode = (mode: ViewMode) => {
     setViewMode(mode);
     saveViewMode(mode);
   };
+
+  const openPdfInReader = useCallback(
+    async (
+      data: Uint8Array | ArrayBuffer,
+      fileName: string,
+      filePath?: string,
+      initialPage?: number
+    ) => {
+      const loaded = await loadPdf(data, fileName, filePath, initialPage);
+      if (loaded) setCurrentScreen('reader');
+      else showToast(`Could not open ${fileName}.`, true);
+      return loaded;
+    },
+    [loadPdf, showToast]
+  );
 
   // Open PDF File (Desktop native dialog or Browser File Input fallback)
   const handleOpenPdf = async () => {
@@ -167,8 +197,7 @@ export function App() {
           fileSize: fileData.data.byteLength,
           modifiedTimestamp: Date.now(),
         });
-        loadPdf(fileData.data, fileData.fileName, fileData.filePath);
-        setCurrentScreen('reader');
+        await openPdfInReader(fileData.data, fileData.fileName, fileData.filePath);
       }
     } else {
       pdfInputRef.current?.click();
@@ -179,7 +208,7 @@ export function App() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         if (reader.result instanceof ArrayBuffer) {
           const bytes = new Uint8Array(reader.result);
           recordRecentDoc({
@@ -188,8 +217,7 @@ export function App() {
             fileSize: file.size,
             modifiedTimestamp: file.lastModified || Date.now(),
           });
-          loadPdf(bytes, file.name);
-          setCurrentScreen('reader');
+          await openPdfInReader(bytes, file.name);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -448,6 +476,121 @@ export function App() {
     [pdfDoc, currentPage, showToast]
   );
 
+  const handleAskAiAboutPage = useCallback(
+    (pageNumber: number) => {
+      if (!pdfDoc) return;
+      const now = Date.now();
+      const annotation: AiExplanationAnnotation = {
+        id: `ai_page_${now}_${Math.random().toString(36).slice(2, 7)}`,
+        pageNumber,
+        type: 'ai-explanation',
+        x: 0.01,
+        y: 0.01,
+        width: 0.98,
+        height: 0.98,
+        prompt: '',
+        response: '',
+        provider: 'codex',
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      addAnnotation(annotation);
+      aiExplanations.openComposer(annotation.id);
+      setSelectedAnnotationId(annotation.id);
+      setActiveTool('select');
+    },
+    [addAnnotation, aiExplanations.openComposer, pdfDoc]
+  );
+
+  const requestDeletePage = useCallback(
+    (pageNumber: number) => {
+      if (!pdfDoc || !rawPdfBytes || !docInfo) return;
+      if (pdfDoc.numPages <= 1) {
+        showToast('A PDF must keep at least one page.', true);
+        return;
+      }
+      setPagePendingDeletion(pageNumber);
+    },
+    [docInfo, pdfDoc, rawPdfBytes, showToast]
+  );
+
+  const handleDeletePage = useCallback(
+    async () => {
+      const pageNumber = pagePendingDeletion;
+      if (pageNumber === null) return;
+      if (!pdfDoc || !rawPdfBytes || !docInfo) return;
+      if (pdfDoc.numPages <= 1) {
+        showToast('A PDF must keep at least one page.', true);
+        setPagePendingDeletion(null);
+        return;
+      }
+
+      // Close the confirmation dialog immediately so the user can continue uninterrupted
+      setPagePendingDeletion(null);
+      setIsDeletingPage(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      try {
+        const updatedBytes = await deletePageFromPdf(rawPdfBytes, pageNumber);
+        const updatedAnnotations = reindexAfterPageDeletion(annotations, pageNumber);
+        const updatedSnippets = reindexAfterPageDeletion(snippets, pageNumber);
+        const nextPage = Math.min(pageNumber, pdfDoc.numPages - 1);
+
+        if (isTauri() && docInfo.filePath) {
+          const persisted = await tauriWritePdf(updatedBytes, docInfo.filePath);
+          if (!persisted) {
+            showToast('Could not save the page deletion to the PDF.', true);
+            return;
+          }
+        }
+
+        const reloaded = await loadPdf(
+          updatedBytes,
+          docInfo.fileName,
+          docInfo.filePath,
+          nextPage,
+          docKey,
+          docInfo.fingerprint,
+          true
+        );
+        if (!reloaded) {
+          showToast('Could not reload the PDF after deleting the page.', true);
+          return;
+        }
+
+        replaceAnnotations(updatedAnnotations);
+        replaceSnippets(updatedSnippets);
+        setSelectedAnnotationId(null);
+        cursorPosRef.current = null;
+        setPageNavRequest({ page: nextPage, timestamp: Date.now() });
+        showToast(
+          isTauri() && docInfo.filePath
+            ? `Page ${pageNumber} deleted and changes saved`
+            : `Page ${pageNumber} deleted`
+        );
+      } catch (error) {
+        console.error('Failed to delete PDF page:', error);
+        showToast('Could not delete the page.', true);
+      } finally {
+        setIsDeletingPage(false);
+      }
+    },
+    [
+      annotations,
+      docInfo,
+      docKey,
+      loadPdf,
+      pagePendingDeletion,
+      pdfDoc,
+      rawPdfBytes,
+      replaceAnnotations,
+      replaceSnippets,
+      showToast,
+      snippets,
+    ]
+  );
+
   // Cursor-aware Clipboard Paste: Pastes image at mouse cursor position on hovered page
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -479,6 +622,23 @@ export function App() {
     return () => window.removeEventListener('paste', handlePaste);
   }, [currentPage, handleAddImage, showToast]);
 
+  const handleHighlightSelectedText = useCallback(() => {
+    const selection = window.getSelection();
+    const highlights = createTextHighlightsFromSelection(selection, selectedColor, opacity);
+
+    if (highlights.length === 0) {
+      showToast('Select PDF text first', true);
+      return;
+    }
+
+    highlights.forEach(addAnnotation);
+    selection?.removeAllRanges();
+    const location = highlights.length === 1
+      ? `Page ${highlights[0].pageNumber}`
+      : `${highlights.length} pages`;
+    showToast(`Highlighted selected text on ${location}`);
+  }, [addAnnotation, opacity, selectedColor, showToast]);
+
   // Global Keyboard Shortcuts
   useKeyboard({
     onOpenPdf: handleOpenPdf,
@@ -492,8 +652,8 @@ export function App() {
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
     onZoomOut: () => setZoom((z) => Math.max(0.3, z - 0.15)),
     onResetZoom: () => setZoom(1.15),
-    onNextPage: () => changePage(currentPage + 1),
-    onPrevPage: () => changePage(currentPage - 1),
+    onNextPage: () => handleNavigatePage(currentPage + 1),
+    onPrevPage: () => handleNavigatePage(currentPage - 1),
     onToggleZen: () => setIsZenMode((prev) => !prev),
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
     onToggleLibrary: () =>
@@ -502,6 +662,13 @@ export function App() {
     onCopyPageJpg: () => handleCopyPageJpg(currentPage),
     onCopyStitchedSnippets: handleQuickCopyStitched,
     onClearSnippets: handleQuickDumpSnippets,
+    onHighlightSelectedText: handleHighlightSelectedText,
+    onDeleteSelectedAnnotation: () => {
+      if (selectedAnnotationId) {
+        deleteAnnotation(selectedAnnotationId);
+        setSelectedAnnotationId(null);
+      }
+    },
   });
 
   return (
@@ -537,6 +704,20 @@ export function App() {
         </div>
       )}
 
+      {isLoading && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-[2px]"
+          role="status"
+          aria-live="polite"
+          aria-label="Opening PDF"
+        >
+          <div className="flex items-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--popover)] px-4 py-2.5 text-xs font-medium text-zinc-200 shadow-xl">
+            <LoaderCircle className="h-4 w-4 animate-spin text-blue-500" />
+            <span>Opening PDF…</span>
+          </div>
+        </div>
+      )}
+
       {/* VIEW 1: DASHBOARD & SAVED DIRECTORIES LIBRARY */}
       {currentScreen === 'dashboard' ? (
         <Dashboard
@@ -545,10 +726,13 @@ export function App() {
           isDarkTheme={isDarkTheme}
           onToggleTheme={toggleInvert}
           onSwitchToReader={() => setCurrentScreen('reader')}
-          onOpenPdf={(data, fileName, filePath, initialPage) => {
-            loadPdf(data, fileName, filePath, initialPage);
-            setCurrentScreen('reader');
-          }}
+          onOpenPdf={openPdfInReader}
+          themeSettings={themeSettings}
+          onSelectTheme={setTheme}
+          onUpdateThemeSetting={updateThemeSetting}
+          onResetThemeFilters={resetThemeFilters}
+          viewMode={viewMode}
+          onChangeViewMode={handleChangeViewMode}
         />
       ) : (
         /* VIEW 2: FULL READER & ANNOTATION STUDIO */
@@ -574,7 +758,7 @@ export function App() {
             onToggleShortcuts={() => setIsShortcutsModalOpen(true)}
             onChangeViewMode={handleChangeViewMode}
             onChangeZoom={(newZoom) => setZoom(newZoom)}
-            onPageChange={(p) => changePage(p)}
+            onPageChange={handleNavigatePage}
             onCopyPageText={() => handleCopyPageText(currentPage)}
             onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
           />
@@ -595,7 +779,8 @@ export function App() {
               filterClass={getPageFilterClass()}
               customFilterStyle={getCustomFilterStyle()}
               onClose={() => setIsSidebarOpen(false)}
-              onPageSelect={(p) => changePage(p)}
+              onPageSelect={handleNavigatePage}
+              onSelectAnnotation={setSelectedAnnotationId}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
               snippets={snippets}
               isSnipActive={activeTool === 'snip'}
@@ -615,10 +800,14 @@ export function App() {
               showToast={showToast}
             />
 
-            {!isSidebarOpen && !isZenMode && (
+            {!isZenMode && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="macos-sidebar-collapse-control canvas-sidebar-toggle"
+                className={`macos-sidebar-collapse-control canvas-sidebar-toggle transition-all duration-200 ease-out ${
+                  !isSidebarOpen
+                    ? 'opacity-100 translate-x-0 pointer-events-auto'
+                    : 'opacity-0 -translate-x-3 pointer-events-none'
+                }`}
                 title="Show Sidebar"
               >
                 <SidebarIcon className="w-3.5 h-3.5" />
@@ -626,12 +815,13 @@ export function App() {
             )}
 
             {/* Primary PDF Canvas Viewport */}
-            <div className="flex-1 min-w-0 relative overflow-hidden flex">
+            <div className="flex-1 min-w-0 relative overflow-hidden flex bg-[var(--workspace)]">
               <PDFViewer
                 pdfDoc={pdfDoc}
                 rawPdfBytes={rawPdfBytes}
                 currentPage={currentPage}
                 numPages={pdfDoc?.numPages || 0}
+                pageNavRequest={pageNavRequest}
                 zoom={zoom}
                 viewMode={viewMode}
                 currentTheme={themeSettings.theme}
@@ -653,11 +843,24 @@ export function App() {
                   cursorPosRef.current = { pageNumber: page, x, y };
                 }}
                 onCaptureSnippet={handleCaptureSnippet}
+                aiJobs={aiExplanations.jobs}
+                onAiBoxCreated={(id) => {
+                  setSelectedAnnotationId(id);
+                  aiExplanations.openComposer(id);
+                  setActiveTool('select');
+                }}
+                onSubmitAi={(annotation, prompt) => void aiExplanations.submit(annotation, prompt)}
+                onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
+                onCloseAi={aiExplanations.close}
+                onDeletePage={requestDeletePage}
+                onCopyPageText={(pageNumber) => void handleCopyPageText(pageNumber)}
+                onCopyPageImage={(pageNumber) => void handleCopyPageJpg(pageNumber)}
+                onAskAiAboutPage={handleAskAiAboutPage}
                 onPdfFileDrop={(file) => {
                   const reader = new FileReader();
-                  reader.onload = () => {
+                  reader.onload = async () => {
                     if (reader.result instanceof ArrayBuffer) {
-                      loadPdf(new Uint8Array(reader.result), file.name);
+                      await openPdfInReader(new Uint8Array(reader.result), file.name);
                     }
                   };
                   reader.readAsArrayBuffer(file);
@@ -675,9 +878,6 @@ export function App() {
                   aria-valuemax={100}
                   aria-valuenow={Math.round((currentPage / pdfDoc.numPages) * 100)}
                 >
-                  <div className="reader-progress-label">
-                    {Math.round((currentPage / pdfDoc.numPages) * 100)}% read
-                  </div>
                   <div className="reader-progress-track">
                     <div
                       className="reader-progress-value"
@@ -700,11 +900,15 @@ export function App() {
               canUndo={activeTool === 'snip' ? canUndoSnippets : canUndoAnnotations}
               canRedo={activeTool === 'snip' ? canRedoSnippets : canRedoAnnotations}
               onSelectTool={handleSelectTool}
-              onSelectColor={(c) => setSelectedColor(c)}
+              onSelectColor={(c) => {
+                setSelectedColor(c);
+                if (selectedAnnotationId) {
+                  updateAnnotation(selectedAnnotationId, { color: c });
+                }
+              }}
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
               onAttachImageClick={handleOpenImage}
-              onOpenStampPicker={() => setIsStampPickerOpen(true)}
               onUndo={handleGlobalUndo}
               onRedo={handleGlobalRedo}
               onClearPageAnnotations={() => clearAllAnnotationsForPage(currentPage)}
@@ -733,18 +937,6 @@ export function App() {
             onResetFilters={resetThemeFilters}
           />
 
-          {/* Stamp & Badge Picker Modal */}
-          <StampPickerModal
-            isOpen={isStampPickerOpen}
-            onClose={() => setIsStampPickerOpen(false)}
-            onSelectStamp={async (dataUrl, name) => {
-              const targetPage = cursorPosRef.current ? cursorPosRef.current.pageNumber : currentPage;
-              const cursorPos = cursorPosRef.current ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y } : null;
-              await handleAddImage(dataUrl, targetPage, name, cursorPos);
-            }}
-            onAttachCustomImage={handleOpenImage}
-          />
-
           {/* Keyboard Shortcuts Reference Modal */}
           <KeyboardShortcutsModal
             isOpen={isShortcutsModalOpen}
@@ -762,6 +954,13 @@ export function App() {
           />
         </>
       )}
+
+      <DeletePageConfirmationDialog
+        pageNumber={pagePendingDeletion}
+        isDeleting={isDeletingPage}
+        onCancel={() => setPagePendingDeletion(null)}
+        onConfirm={() => void handleDeletePage()}
+      />
     </div>
   );
 }

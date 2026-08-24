@@ -8,7 +8,8 @@ export type ToolType =
   | 'image'
   | 'text'
   | 'eraser'
-  | 'snip';
+  | 'snip'
+  | 'ai-box';
 
 export type ReadingTheme = 'default' | 'invert' | 'oled' | 'sepia' | 'nord' | 'matrix';
 
@@ -57,6 +58,7 @@ export interface RectHighlightAnnotation {
   color: string;
   opacity: number;
   createdAt: number;
+  style?: 'box' | 'stroke' | 'underline';
 }
 
 export interface TextHighlightAnnotation {
@@ -68,6 +70,7 @@ export interface TextHighlightAnnotation {
   color: string;
   opacity: number;
   createdAt: number;
+  style?: 'box' | 'underline';
 }
 
 export interface AttachedImageAnnotation {
@@ -86,6 +89,7 @@ export interface AttachedImageAnnotation {
   createdAt: number;
   attachedInInvertedMode?: boolean; // True if attached while in Dark/Invert theme
   invertInLightMode?: boolean; // Invert image colors when viewed or saved in Light/Normal mode
+  extractedText?: string; // Optional extracted raw text from rasterized region or OCR
 }
 
 export interface TextNoteAnnotation {
@@ -100,13 +104,32 @@ export interface TextNoteAnnotation {
   createdAt: number;
 }
 
+export interface AiExplanationAnnotation {
+  id: string;
+  pageNumber: number;
+  type: 'ai-explanation';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  prompt: string;
+  response: string;
+  provider?: 'codex' | 'external' | 'chatgpt' | 'claude' | 'gemini' | 'deepseek' | string;
+  createdAt: number;
+  updatedAt: number;
+  cardX?: number;
+  cardY?: number;
+  isOpen?: boolean;
+}
+
 export type Annotation =
   | DrawingAnnotation
   | LineHighlightAnnotation
   | RectHighlightAnnotation
   | TextHighlightAnnotation
   | AttachedImageAnnotation
-  | TextNoteAnnotation;
+  | TextNoteAnnotation
+  | AiExplanationAnnotation;
 
 export interface HighlightColorPreset {
   id: string;

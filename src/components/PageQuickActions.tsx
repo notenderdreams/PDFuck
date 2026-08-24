@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Camera, Download, Check, FileText, ChevronDown } from 'lucide-react';
+import { Copy, Camera, Download, Check, FileText } from 'lucide-react';
 
 interface PageQuickActionsProps {
   currentPage: number;
@@ -45,9 +45,9 @@ export const PageQuickActions: React.FC<PageQuickActionsProps> = ({
   };
 
   return (
-    <div className="fixed top-14 right-4 z-30 flex items-center gap-1 p-1 rounded-lg bg-[#24242b]/95 border border-[#383846] backdrop-blur-xl shadow-xl select-none animate-slide-down text-xs">
+    <div className="fixed top-14 right-4 z-30 flex items-center gap-1 p-1 rounded-xl bg-[var(--popover)] border border-[var(--border)] shadow-xl select-none animate-slide-down text-xs">
       {/* Page indicator label */}
-      <div className="flex items-center gap-1 px-2 py-0.5 text-zinc-400 font-mono text-[10.5px] border-r border-[#343440] pr-2">
+      <div className="flex items-center gap-1 px-2.5 py-0.5 text-zinc-400 font-mono text-[10.5px] border-r border-[var(--border)] pr-2 font-medium">
         <FileText className="w-3 h-3 text-zinc-400" />
         <span>p.{currentPage}</span>
       </div>
@@ -55,7 +55,7 @@ export const PageQuickActions: React.FC<PageQuickActionsProps> = ({
       {/* Button 1: Copy All Page Text */}
       <button
         onClick={handleCopyText}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-zinc-300 hover:text-white hover:bg-[#32323e] transition-all font-medium active:scale-96"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-all font-medium active:scale-96"
         title={`Extract & Copy all text from Page ${currentPage} (Cmd+Shift+C)`}
       >
         {copiedType === 'text' ? (
@@ -69,7 +69,7 @@ export const PageQuickActions: React.FC<PageQuickActionsProps> = ({
       {/* Button 2: Copy Page as Image */}
       <button
         onClick={handleCopyImage}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-zinc-300 hover:text-white hover:bg-[#32323e] transition-all font-medium active:scale-96"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-all font-medium active:scale-96"
         title={`Copy Page ${currentPage} as PNG/JPG to clipboard (Cmd+Shift+J)`}
       >
         {copiedType === 'image' ? (
@@ -83,7 +83,7 @@ export const PageQuickActions: React.FC<PageQuickActionsProps> = ({
       {/* Button 3: Download Page as JPG */}
       <button
         onClick={handleDownload}
-        className="btn-icon w-6.5 h-6.5 rounded text-zinc-400 hover:text-white"
+        className="btn-icon w-7 h-7 text-zinc-400 hover:text-white"
         title={`Download Page ${currentPage} as JPG`}
       >
         {copiedType === 'download' ? (

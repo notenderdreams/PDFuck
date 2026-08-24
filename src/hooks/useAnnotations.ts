@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { Annotation, AttachedImageAnnotation, DocumentInfo } from '../utils/types';
 import {
-  loadAnnotationsForDocAsync,
-  loadAnnotationsForDocSync,
+  loadAnnotationRecordForDocAsync,
+  loadAnnotationRecordForDocSync,
   saveAnnotationsForDoc,
 } from '../utils/storage';
 
@@ -12,8 +12,12 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [history, setHistory] = useState<Annotation[][]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
-  const isLoadedRef = useRef<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [loadedIdentity, setLoadedIdentity] = useState<string | null>(null);
+  const annotationsRef = useRef<Annotation[]>([]);
+  const mutationVersionRef = useRef(0);
+  const saveGenerationRef = useRef(0);
+  const skipAutosaveForRef = useRef<Annotation[] | null>(null);
 
   const fallbackKeys = useMemo(() => {
     const keys: string[] = [];
@@ -22,54 +26,77 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     if (docInfo?.fingerprint) keys.push(docInfo.fingerprint);
     return keys;
   }, [docInfo?.filePath, docInfo?.fileName, docInfo?.fingerprint]);
+  const storageIdentity = useMemo(
+    () => [docKey, ...fallbackKeys].join('\u0000'),
+    [docKey, fallbackKeys]
+  );
 
   // Load annotations on docKey or document identity change
   useEffect(() => {
     if (!docKey) return;
-    isLoadedRef.current = false;
+    setLoadedIdentity(null);
+    const loadMutationVersion = ++mutationVersionRef.current;
 
     // 1. Instant sync load from localStorage (0ms latency)
-    const savedSync = loadAnnotationsForDocSync(docKey, fallbackKeys);
+    const syncRecord = loadAnnotationRecordForDocSync(docKey, fallbackKeys);
+    const savedSync = syncRecord?.annotations ?? [];
+    annotationsRef.current = savedSync;
+    skipAutosaveForRef.current = savedSync;
     setAnnotations(savedSync);
     setHistory([savedSync]);
     setHistoryIndex(0);
+    setSaveStatus('saved');
+    setLoadedIdentity(storageIdentity);
 
     // 2. Async load from IndexedDB for high-capacity payloads (images/stickers)
     let isCancelled = false;
-    loadAnnotationsForDocAsync(docKey, fallbackKeys).then((savedAsync) => {
-      if (isCancelled || !savedAsync) return;
-      if (savedAsync.length > 0 && (savedSync.length === 0 || savedAsync.length !== savedSync.length)) {
-        setAnnotations(savedAsync);
-        setHistory([savedAsync]);
-        setHistoryIndex(0);
+    loadAnnotationRecordForDocAsync(docKey, fallbackKeys).then((asyncRecord) => {
+      if (
+        isCancelled ||
+        !asyncRecord ||
+        asyncRecord.updatedAt <= (syncRecord?.updatedAt ?? -1) ||
+        mutationVersionRef.current !== loadMutationVersion
+      ) {
+        return;
       }
-    });
 
-    isLoadedRef.current = true;
+      annotationsRef.current = asyncRecord.annotations;
+      skipAutosaveForRef.current = asyncRecord.annotations;
+      setAnnotations(asyncRecord.annotations);
+      setHistory([asyncRecord.annotations]);
+      setHistoryIndex(0);
+    });
 
     return () => {
       isCancelled = true;
     };
-  }, [docKey, fallbackKeys]);
+  }, [docKey, fallbackKeys, storageIdentity]);
 
   // Auto-save on annotations change
   useEffect(() => {
-    if (!isLoadedRef.current || !docKey) return;
+    if (!docKey || loadedIdentity !== storageIdentity) return;
+    if (annotations === skipAutosaveForRef.current) {
+      skipAutosaveForRef.current = null;
+      return;
+    }
+
+    const saveGeneration = ++saveGenerationRef.current;
     setSaveStatus('saving');
 
-    saveAnnotationsForDoc(docKey, annotations, fallbackKeys);
+    void saveAnnotationsForDoc(docKey, annotations, fallbackKeys)
+      .then(() => {
+        if (saveGenerationRef.current === saveGeneration) setSaveStatus('saved');
+      })
+      .catch((error) => {
+        console.error('Failed to auto-save annotations:', error);
+        if (saveGenerationRef.current === saveGeneration) setSaveStatus('error');
+      });
+  }, [annotations, docKey, fallbackKeys, loadedIdentity, storageIdentity]);
 
-    const timer = setTimeout(() => {
-      setSaveStatus('saved');
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [annotations, docKey, fallbackKeys]);
-
-  const annotationsRef = useRef<Annotation[]>([]);
   annotationsRef.current = annotations;
 
   const pushState = useCallback((newAnnotations: Annotation[]) => {
+    mutationVersionRef.current += 1;
     setHistory((prevHistory) => {
       const upToCurrent = prevHistory.slice(0, historyIndex + 1);
       const updated = [...upToCurrent, newAnnotations];
@@ -110,11 +137,20 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     pushState([]);
   }, [pushState]);
 
+  const replaceAnnotations = useCallback((nextAnnotations: Annotation[]) => {
+    mutationVersionRef.current += 1;
+    setAnnotations(nextAnnotations);
+    annotationsRef.current = nextAnnotations;
+    setHistory([nextAnnotations]);
+    setHistoryIndex(0);
+  }, []);
+
   const undo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       const nextState = history[newIndex];
+      mutationVersionRef.current += 1;
       setAnnotations(nextState);
       annotationsRef.current = nextState;
     }
@@ -125,6 +161,7 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       const nextState = history[newIndex];
+      mutationVersionRef.current += 1;
       setAnnotations(nextState);
       annotationsRef.current = nextState;
     }
@@ -211,6 +248,6 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     canUndo,
     canRedo,
     addAttachedImage,
-    setAnnotationsDirectly: setAnnotations,
+    replaceAnnotations,
   };
 }

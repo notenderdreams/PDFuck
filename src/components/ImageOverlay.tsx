@@ -1,6 +1,8 @@
-import React, { useRef } from 'react';
-import { Trash2, RotateCw, Sun, Moon } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Trash2, RotateCw, Sun, Moon, Copy, Check } from 'lucide-react';
 import type { AttachedImageAnnotation, ReadingTheme, ToolType } from '../utils/types';
+import { isTauri, tauriCopyTextToClipboard } from '../utils/tauriBridge';
+import { usesInvertedColorSpace } from '../utils/readingTheme';
 
 interface ImageOverlayProps {
   annotation: AttachedImageAnnotation;
@@ -25,6 +27,7 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
   onUpdate,
   onDelete,
 }) => {
+  const [copiedText, setCopiedText] = useState(false);
   const isDraggingRef = useRef(false);
   const isResizingRef = useRef(false);
   const dragStartPosRef = useRef({ x: 0, y: 0 });
@@ -36,29 +39,25 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
   const widthPx = annotation.width * pageWidth;
   const heightPx = annotation.height * pageHeight;
 
-  const isDarkTheme = currentTheme !== 'default' && currentTheme !== 'sepia';
-  const shouldInvertForLight = Boolean(
-    annotation.invertInLightMode ?? annotation.attachedInInvertedMode
-  );
+  const isDarkTheme = usesInvertedColorSpace(currentTheme);
+  const wasAttachedInDark = Boolean(annotation.attachedInInvertedMode);
+  const autoInvertEnabled = annotation.invertInLightMode !== undefined
+    ? annotation.invertInLightMode
+    : true; // Default auto-invert ON for adaptive reading
 
-  // Compute CSS filter for the image
+  // Compute CSS filter for the image so text/diagrams stay readable across both light and dark themes
   let imageFilterStyle: React.CSSProperties = {};
-  let imageClassName = 'w-full h-full object-contain pointer-events-none rounded transition-all duration-300';
-
-  if (shouldInvertForLight) {
-    if (!isDarkTheme) {
-      // In Light/Normal mode: Invert image colors so dark-mode image fits white paper
-      imageFilterStyle = { filter: 'invert(1) hue-rotate(180deg)' };
-    } else {
-      // In Inverted mode: Leave as-is without counter-inversion so it matches dark paper
-      imageClassName += ' no-counter-invert';
-    }
-  } else {
-    // Normal image: counter-invert when page is dark so it retains true photo colors
-    if (isDarkTheme) {
-      imageClassName += ' preserve-image-color';
+  if (autoInvertEnabled) {
+    if (wasAttachedInDark && !isDarkTheme) {
+      // Created in dark mode (light/white text) -> invert for white paper
+      imageFilterStyle = { filter: 'invert(0.92) hue-rotate(180deg)' };
+    } else if (!wasAttachedInDark && isDarkTheme) {
+      // Created in light mode (dark text) -> invert for dark paper
+      imageFilterStyle = { filter: 'invert(0.92) hue-rotate(180deg)' };
     }
   }
+
+  const imageClassName = 'w-full h-full object-contain pointer-events-none rounded transition-all duration-200';
 
   // Handle Dragging
   const handleMouseDownDrag = (e: React.MouseEvent) => {
@@ -78,8 +77,11 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
       const dx = (moveEvt.clientX - dragStartPosRef.current.x) / pageWidth;
       const dy = (moveEvt.clientY - dragStartPosRef.current.y) / pageHeight;
 
-      const newX = Math.max(0, Math.min(initialAnnPosRef.current.x + dx, 1 - annotation.width));
-      const newY = Math.max(0, Math.min(initialAnnPosRef.current.y + dy, 1 - annotation.height));
+      const maxX = Math.max(0, 1 - initialAnnPosRef.current.width);
+      const maxY = Math.max(0, 1 - initialAnnPosRef.current.height);
+
+      const newX = Math.max(0, Math.min(initialAnnPosRef.current.x + dx, maxX));
+      const newY = Math.max(0, Math.min(initialAnnPosRef.current.y + dy, maxY));
 
       onUpdate(annotation.id, { x: newX, y: newY });
     };
@@ -109,15 +111,32 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
     const handleMouseMove = (moveEvt: MouseEvent) => {
       if (!isResizingRef.current) return;
       const dx = (moveEvt.clientX - dragStartPosRef.current.x) / pageWidth;
-      const newWidth = Math.max(0.05, Math.min(initialAnnPosRef.current.width + dx, 1 - annotation.x));
-      const aspectRatio = annotation.aspectRatio || 1.33;
-      const pixelWidth = newWidth * pageWidth;
-      const pixelHeight = pixelWidth / aspectRatio;
-      const newHeight = pixelHeight / pageHeight;
+      const aspectRatio =
+        annotation.aspectRatio ||
+        (initialAnnPosRef.current.width * pageWidth) /
+          (initialAnnPosRef.current.height * pageHeight) ||
+        1.33;
 
-      if (annotation.y + newHeight <= 1) {
-        onUpdate(annotation.id, { width: newWidth, height: newHeight });
-      }
+      // Calculate maximum dimensions permitted by right and bottom page edges
+      const maxAllowedWidth = Math.max(0.04, 1 - initialAnnPosRef.current.x);
+      const maxAllowedHeight = Math.max(0.04, 1 - initialAnnPosRef.current.y);
+
+      // Constrain width by bottom page edge while locking aspect ratio
+      const maxWidthFromBottom = (maxAllowedHeight * pageHeight * aspectRatio) / pageWidth;
+      const upperLimitWidth = Math.min(maxAllowedWidth, maxWidthFromBottom);
+
+      const targetWidth = Math.max(
+        0.04,
+        Math.min(initialAnnPosRef.current.width + dx, upperLimitWidth)
+      );
+      const targetPixelWidth = targetWidth * pageWidth;
+      const targetPixelHeight = targetPixelWidth / aspectRatio;
+      const targetHeight = targetPixelHeight / pageHeight;
+
+      onUpdate(annotation.id, {
+        width: targetWidth,
+        height: targetHeight,
+      });
     };
 
     const handleMouseUp = () => {
@@ -128,6 +147,28 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleCopyRawText = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!annotation.extractedText) return;
+    try {
+      if (isTauri()) {
+        await tauriCopyTextToClipboard(annotation.extractedText);
+      } else {
+        await navigator.clipboard.writeText(annotation.extractedText);
+      }
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(annotation.extractedText);
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+    }
   };
 
   return (
@@ -183,15 +224,20 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
               !annotation.aspectRatio ||
               Math.abs(annotation.aspectRatio - actualRatio) > 0.05
             ) {
-              const currentPixelW = annotation.width * pageWidth;
+              const maxAllowedW = Math.max(0.04, 1 - annotation.x);
+              const maxAllowedH = Math.max(0.04, 1 - annotation.y);
+              const maxWidthFromBottom = (maxAllowedH * pageHeight * actualRatio) / pageWidth;
+              const upperLimitW = Math.min(maxAllowedW, maxWidthFromBottom);
+
+              const currentPixelW = Math.min(annotation.width, upperLimitW) * pageWidth;
               const correctedPixelH = currentPixelW / actualRatio;
               const correctedHeight = correctedPixelH / pageHeight;
-              if (annotation.y + correctedHeight <= 1.05) {
-                onUpdate(annotation.id, {
-                  aspectRatio: actualRatio,
-                  height: Math.min(correctedHeight, 0.95),
-                });
-              }
+
+              onUpdate(annotation.id, {
+                aspectRatio: actualRatio,
+                width: currentPixelW / pageWidth,
+                height: correctedHeight,
+              });
             }
           }
         }}
@@ -202,9 +248,21 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
         <>
           {/* Quick Floating Action Bar on top */}
           <div
-            className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-lg bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
+            className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-xl bg-[#141418]/95 border border-white/20 backdrop-blur-xl shadow-2xl z-50 animate-slide-up whitespace-nowrap"
             onMouseDown={(e) => e.stopPropagation()}
           >
+            {/* Copy Raw Text (available when rasterized from text region) */}
+            {annotation.extractedText && (
+              <button
+                onClick={handleCopyRawText}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
+                title="Copy extracted raw text from this region"
+              >
+                {copiedText ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3 text-white" />}
+                <span>{copiedText ? 'Copied' : 'Copy Text'}</span>
+              </button>
+            )}
+
             {/* Opacity slider */}
             <input
               type="range"
@@ -218,28 +276,28 @@ export const ImageOverlay: React.FC<ImageOverlayProps> = ({
               title="Image Opacity"
             />
 
-            {/* Smart Invert in Light Mode Toggle */}
+            {/* Smart Auto-Invert Mode Toggle */}
             <button
               onClick={() =>
-                onUpdate(annotation.id, { invertInLightMode: !shouldInvertForLight })
+                onUpdate(annotation.id, { invertInLightMode: !autoInvertEnabled })
               }
-              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-medium border transition-all ${
-                shouldInvertForLight
-                  ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 shadow-xs'
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-medium border transition-all ${
+                autoInvertEnabled
+                  ? 'bg-blue-500/20 border-blue-500/40 text-blue-300 shadow-xs'
                   : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
               }`}
               title={
-                shouldInvertForLight
-                  ? 'Auto-Invert in Light Mode: ACTIVE (Image will invert for white paper)'
-                  : 'Auto-Invert in Light Mode: OFF (Image will stay original)'
+                autoInvertEnabled
+                  ? 'Auto-Invert: ACTIVE (Image dynamically adapts to light/dark themes)'
+                  : 'Auto-Invert: OFF (Image remains static)'
               }
             >
-              {shouldInvertForLight ? (
-                <Moon className="w-3 h-3 text-purple-400" />
+              {autoInvertEnabled ? (
+                <Moon className="w-3 h-3 text-blue-400" />
               ) : (
                 <Sun className="w-3 h-3 text-zinc-400" />
               )}
-              <span>{shouldInvertForLight ? 'Auto-Invert ON' : 'Auto-Invert OFF'}</span>
+              <span>{autoInvertEnabled ? 'Auto-Invert ON' : 'Auto-Invert OFF'}</span>
             </button>
 
             {/* Rotate */}

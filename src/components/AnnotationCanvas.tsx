@@ -1,10 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { Trash2, X, Underline, Square, GripHorizontal } from 'lucide-react';
 import type {
   Annotation,
+  AiExplanationAnnotation,
   DrawingAnnotation,
   LineHighlightAnnotation,
   RectHighlightAnnotation,
   StrokePoint,
+  TextHighlightAnnotation,
   TextNoteAnnotation,
   ToolType,
 } from '../utils/types';
@@ -19,22 +22,13 @@ interface AnnotationCanvasProps {
   strokeWidth: number;
   opacity: number;
   annotations: Annotation[];
+  selectedAnnotationId?: string | null;
+  onSelectAnnotation?: (id: string | null) => void;
+  onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   onAddAnnotation: (ann: Annotation) => void;
   onDeleteAnnotation: (id: string) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
-}
-
-// Distance from point to line segment helper
-function distToSegment(
-  p: { x: number; y: number },
-  v: { x: number; y: number },
-  w: { x: number; y: number }
-) {
-  const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
-  if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
-  let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+  onAiBoxCreated?: (annotationId: string) => void;
 }
 
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
@@ -47,9 +41,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   strokeWidth,
   opacity,
   annotations,
+  selectedAnnotationId,
+  onSelectAnnotation,
+  onUpdateAnnotation,
   onAddAnnotation,
   onDeleteAnnotation,
   onCaptureSnippet,
+  onAiBoxCreated,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,13 +65,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   // Snippet / Crop Rectangle State
   const [snipStart, setSnipStart] = useState<StrokePoint | null>(null);
   const [snipCurrent, setSnipCurrent] = useState<StrokePoint | null>(null);
+  const [aiStart, setAiStart] = useState<StrokePoint | null>(null);
+  const [aiCurrent, setAiCurrent] = useState<StrokePoint | null>(null);
 
   // Text Note Input Popup State
   const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
   const [textInputValue, setTextInputValue] = useState<string>('');
-
-  // Eraser Brush Indicator Position
-  const [eraserCursorPos, setEraserCursorPos] = useState<{ x: number; y: number } | null>(null);
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
@@ -81,6 +78,39 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
+
+  const selectedHighlight = pageAnnotations.find(
+    (a) =>
+      a.id === selectedAnnotationId &&
+      (a.type === 'highlight-rect' || a.type === 'highlight-text')
+  ) as RectHighlightAnnotation | TextHighlightAnnotation | undefined;
+
+  let selectedHighlightPos = { x: 0, y: 0 };
+  if (selectedHighlight) {
+    if (selectedHighlight.type === 'highlight-rect') {
+      selectedHighlightPos = {
+        x: selectedHighlight.x * pageWidth,
+        y: selectedHighlight.y * pageHeight,
+      };
+    } else if (selectedHighlight.type === 'highlight-text') {
+      const minX = Math.min(...selectedHighlight.rects.map((r) => r.x));
+      const minY = Math.min(...selectedHighlight.rects.map((r) => r.y));
+      selectedHighlightPos = {
+        x: minX * pageWidth,
+        y: minY * pageHeight,
+      };
+    }
+  }
+
+  const QUICK_HIGHLIGHT_COLORS = [
+    '#facc15', // Yellow
+    '#fbbf24', // Amber
+    '#4ade80', // Green
+    '#38bdf8', // Blue
+    '#fb7185', // Coral
+    '#c084fc', // Purple
+    '#f87171', // Red
+  ];
 
   // Flash feedback state after capturing a snippet
   const [capturedFlashRect, setCapturedFlashRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -118,71 +148,110 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     };
   };
 
-  // Helper for eraser tool: finds any annotation near point (px, py) and deletes it
-  const performEraseAt = (px: number, py: number) => {
-    const ERASE_RADIUS = 22;
+  // Handle moving / dragging of rectangle highlights via toolbar handle
+  const isDraggingHighlightRef = useRef(false);
 
-    for (const ann of pageAnnotations) {
-      if (ann.type === 'pen' || ann.type === 'highlight-pen') {
-        const drawAnn = ann as DrawingAnnotation;
-        for (const pt of drawAnn.points) {
-          const ptX = pt.x * pageWidth;
-          const ptY = pt.y * pageHeight;
-          if (Math.hypot(px - ptX, py - ptY) <= ERASE_RADIUS + drawAnn.strokeWidth) {
-            onDeleteAnnotation(ann.id);
-            break;
-          }
-        }
-      } else if (ann.type === 'highlight-line') {
-        const lineAnn = ann as LineHighlightAnnotation;
-        const x1 = lineAnn.startX * pageWidth;
-        const y1 = lineAnn.startY * pageHeight;
-        const x2 = lineAnn.endX * pageWidth;
-        const y2 = lineAnn.endY * pageHeight;
-        const dist = distToSegment({ x: px, y: py }, { x: x1, y: y1 }, { x: x2, y: y2 });
-        if (dist <= ERASE_RADIUS + (lineAnn.strokeWidth || 10) / 2) {
-          onDeleteAnnotation(ann.id);
-        }
-      } else if (ann.type === 'highlight-rect') {
-        const hRect = ann as RectHighlightAnnotation;
-        const rx = hRect.x * pageWidth;
-        const ry = hRect.y * pageHeight;
-        const rw = hRect.width * pageWidth;
-        const rh = hRect.height * pageHeight;
+  const handleHighlightDragStart = (
+    e: React.PointerEvent,
+    rect: RectHighlightAnnotation
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectAnnotation?.(rect.id);
 
-        if (
-          px >= rx - ERASE_RADIUS &&
-          px <= rx + rw + ERASE_RADIUS &&
-          py >= ry - ERASE_RADIUS &&
-          py <= ry + rh + ERASE_RADIUS
-        ) {
-          onDeleteAnnotation(ann.id);
-        }
-      } else if (ann.type === 'text-note') {
-        const note = ann as TextNoteAnnotation;
-        const nx = note.x * pageWidth;
-        const ny = note.y * pageHeight;
-        if (Math.hypot(px - nx, py - ny) <= ERASE_RADIUS + 40) {
-          onDeleteAnnotation(ann.id);
-        }
-      }
-    }
+    isDraggingHighlightRef.current = true;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const initialX = rect.x;
+    const initialY = rect.y;
+    const rectWidth = rect.width;
+    const rectHeight = rect.height;
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isDraggingHighlightRef.current) return;
+      const dx = (moveEvt.clientX - startClientX) / pageWidth;
+      const dy = (moveEvt.clientY - startClientY) / pageHeight;
+
+      const maxX = Math.max(0, 1 - rectWidth);
+      const maxY = Math.max(0, 1 - rectHeight);
+
+      const newX = Math.max(0, Math.min(initialX + dx, maxX));
+      const newY = Math.max(0, Math.min(initialY + dy, maxY));
+
+      onUpdateAnnotation?.(rect.id, { x: newX, y: newY });
+    };
+
+    const handlePointerUp = () => {
+      isDraggingHighlightRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
+  // Handle resizing of rectangle highlights via bottom-right corner handle
+  const isResizingHighlightRef = useRef(false);
+
+  const handleHighlightResizeStart = (
+    e: React.PointerEvent,
+    rect: RectHighlightAnnotation
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectAnnotation?.(rect.id);
+
+    isResizingHighlightRef.current = true;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const initialX = rect.x;
+    const initialY = rect.y;
+    const initialWidth = rect.width;
+    const initialHeight = rect.height;
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isResizingHighlightRef.current) return;
+      const dx = (moveEvt.clientX - startClientX) / pageWidth;
+      const dy = (moveEvt.clientY - startClientY) / pageHeight;
+
+      const maxWidth = Math.max(0.01, 1 - initialX);
+      const maxHeight = Math.max(0.005, 1 - initialY);
+
+      const newWidth = Math.max(0.01, Math.min(initialWidth + dx, maxWidth));
+      const newHeight = Math.max(0.005, Math.min(initialHeight + dy, maxHeight));
+
+      onUpdateAnnotation?.(rect.id, { width: newWidth, height: newHeight });
+    };
+
+    const handlePointerUp = () => {
+      isResizingHighlightRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    if (activeTool === 'select' || activeTool === 'image') return;
+    if (activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser') return;
     isMouseDownRef.current = true;
 
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
 
-    const { x, y, px, py } = getNormalizedCoords(e);
+    const { x, y } = getNormalizedCoords(e);
 
-    if (activeTool === 'eraser') {
-      performEraseAt(px, py);
-    } else if (activeTool === 'highlight-line') {
+    if (activeTool === 'highlight-line') {
       isInteractingRef.current = true;
       setLineStart({ x, y });
       setLineCurrent({ x, y });
@@ -197,6 +266,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       isInteractingRef.current = true;
       setSnipStart({ x, y });
       setSnipCurrent({ x, y });
+    } else if (activeTool === 'ai-box') {
+      isInteractingRef.current = true;
+      setAiStart({ x, y });
+      setAiCurrent({ x, y });
     } else if (activeTool === 'text') {
       setTextInputPos({ x, y });
       setTextInputValue('');
@@ -204,15 +277,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const { x, y, px, py } = getNormalizedCoords(e);
-
-    if (activeTool === 'eraser') {
-      setEraserCursorPos({ x: px, y: py });
-      if (isMouseDownRef.current) {
-        performEraseAt(px, py);
-      }
-      return;
-    }
+    const { x, y } = getNormalizedCoords(e);
 
     if (!isInteractingRef.current) return;
 
@@ -232,6 +297,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       setRectCurrent({ x, y });
     } else if (activeTool === 'snip') {
       setSnipCurrent({ x, y });
+    } else if (activeTool === 'ai-box') {
+      setAiCurrent({ x, y });
     }
   };
 
@@ -243,7 +310,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     } catch {}
 
     isMouseDownRef.current = false;
-    if (activeTool === 'eraser') return;
 
     if (!isInteractingRef.current) return;
     isInteractingRef.current = false;
@@ -327,6 +393,32 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       }
       setSnipStart(null);
       setSnipCurrent(null);
+    } else if (activeTool === 'ai-box' && aiStart && aiCurrent) {
+      const x = Math.min(aiStart.x, aiCurrent.x);
+      const y = Math.min(aiStart.y, aiCurrent.y);
+      const width = Math.abs(aiCurrent.x - aiStart.x);
+      const height = Math.abs(aiCurrent.y - aiStart.y);
+      if (width * pageWidth > 12 && height * pageHeight > 12) {
+        const now = Date.now();
+        const annotation: AiExplanationAnnotation = {
+          id: `ai_box_${now}_${Math.random().toString(36).slice(2, 7)}`,
+          pageNumber,
+          type: 'ai-explanation',
+          x,
+          y,
+          width,
+          height,
+          prompt: '',
+          response: '',
+          provider: 'codex',
+          createdAt: now,
+          updatedAt: now,
+        };
+        onAddAnnotation(annotation);
+        onAiBoxCreated?.(annotation.id);
+      }
+      setAiStart(null);
+      setAiCurrent(null);
     }
   };
 
@@ -345,6 +437,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     setCurrentStroke(null);
     setLineStart(null);
     setLineCurrent(null);
+    setAiStart(null);
+    setAiCurrent(null);
   };
 
   const handleSaveTextNote = () => {
@@ -381,50 +475,175 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       className={`absolute inset-0 z-20 select-none touch-none ${
-        activeTool === 'select' || activeTool === 'image'
+        activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser'
           ? 'pointer-events-none'
-          : activeTool === 'eraser'
-          ? 'cursor-none pointer-events-auto'
           : 'cursor-crosshair pointer-events-auto'
       }`}
     >
-      {/* Visual Eraser Brush Circle Indicator */}
-      {activeTool === 'eraser' && eraserCursorPos && (
-        <div
-          style={{
-            left: `${eraserCursorPos.x}px`,
-            top: `${eraserCursorPos.y}px`,
-            width: '36px',
-            height: '36px',
-            transform: 'translate(-50%, -50%)',
-          }}
-          className="absolute rounded-full border-2 border-red-400/80 bg-red-500/20 pointer-events-none shadow-md backdrop-blur-2xs animate-pulse-glow z-50"
-        />
-      )}
 
       <svg
         className="w-full h-full absolute inset-0 pointer-events-none"
         style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
       >
+        {/* Render highlights created from selected PDF text. */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-text')
+          .map((a) => {
+            const textHighlight = a as TextHighlightAnnotation;
+            const isSelected = selectedAnnotationId === textHighlight.id;
+            const isUnderline = textHighlight.style === 'underline';
+            return (
+              <g
+                key={textHighlight.id}
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(textHighlight.id);
+                  }
+                }}
+              >
+                {textHighlight.rects.map((rect, index) => (
+                  <React.Fragment key={`${textHighlight.id}_${index}`}>
+                    {isUnderline ? (
+                      <line
+                        className={colorFilterClass}
+                        x1={rect.x * pageWidth}
+                        y1={(rect.y + rect.height) * pageHeight - 1.5}
+                        x2={(rect.x + rect.width) * pageWidth}
+                        y2={(rect.y + rect.height) * pageHeight - 1.5}
+                        stroke={textHighlight.color}
+                        strokeWidth={2.5}
+                        strokeOpacity={0.9}
+                        strokeLinecap="round"
+                      />
+                    ) : (
+                      <rect
+                        className={colorFilterClass}
+                        x={rect.x * pageWidth}
+                        y={rect.y * pageHeight}
+                        width={rect.width * pageWidth}
+                        height={rect.height * pageHeight}
+                        fill={textHighlight.color}
+                        fillOpacity={textHighlight.opacity || 0.45}
+                        style={{ mixBlendMode: highlightBlendMode }}
+                      />
+                    )}
+                    {isUnderline && (
+                      <rect
+                        x={rect.x * pageWidth}
+                        y={rect.y * pageHeight}
+                        width={rect.width * pageWidth}
+                        height={rect.height * pageHeight}
+                        fill="transparent"
+                      />
+                    )}
+                    {isSelected && (
+                      <rect
+                        x={rect.x * pageWidth - 1.5}
+                        y={rect.y * pageHeight - 1.5}
+                        width={rect.width * pageWidth + 3}
+                        height={rect.height * pageHeight + 3}
+                        fill="none"
+                        stroke="#0080f0"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 2"
+                        className="pointer-events-none"
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </g>
+            );
+          })}
+
         {/* Render Existing Rect Highlights */}
         {pageAnnotations
           .filter((a) => a.type === 'highlight-rect')
           .map((a) => {
             const rect = a as RectHighlightAnnotation;
+            const isSelected = selectedAnnotationId === rect.id;
+            const isStroke = rect.style === 'stroke';
+            const isUnderline = rect.style === 'underline';
             return (
-              <rect
+              <g
                 key={rect.id}
-                className={colorFilterClass}
-                x={rect.x * pageWidth}
-                y={rect.y * pageHeight}
-                width={rect.width * pageWidth}
-                height={rect.height * pageHeight}
-                fill={rect.color}
-                fillOpacity={rect.opacity || 0.4}
-                rx={3}
-                style={{ mixBlendMode: highlightBlendMode }}
-              />
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(rect.id);
+                  }
+                }}
+              >
+                {isStroke ? (
+                  <rect
+                    className={colorFilterClass || ''}
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill="none"
+                    stroke={rect.color}
+                    strokeWidth={2.5}
+                    strokeOpacity={0.9}
+                  />
+                ) : isUnderline ? (
+                  <line
+                    className={colorFilterClass}
+                    x1={rect.x * pageWidth}
+                    y1={(rect.y + rect.height) * pageHeight - 1.5}
+                    x2={(rect.x + rect.width) * pageWidth}
+                    y2={(rect.y + rect.height) * pageHeight - 1.5}
+                    stroke={rect.color}
+                    strokeWidth={2.5}
+                    strokeOpacity={0.9}
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <rect
+                    className={colorFilterClass || ''}
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill={rect.color}
+                    fillOpacity={rect.opacity || 0.4}
+                    style={{ mixBlendMode: highlightBlendMode }}
+                  />
+                )}
+                {(isStroke || isUnderline) && (
+                  <rect
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill="transparent"
+                  />
+                )}
+                {isSelected && (
+                  <rect
+                    x={rect.x * pageWidth - 1.5}
+                    y={rect.y * pageHeight - 1.5}
+                    width={rect.width * pageWidth + 3}
+                    height={rect.height * pageHeight + 3}
+                    fill="none"
+                    stroke="#0080f0"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    className="pointer-events-none"
+                  />
+                )}
+              </g>
             );
+          })}
+
+        {/* AI regions remain outlined so document content stays readable. */}
+        {pageAnnotations
+          .filter((a) => a.type === 'ai-explanation')
+          .map((a) => {
+            const box = a as AiExplanationAnnotation;
+            return <rect key={box.id} x={box.x * pageWidth} y={box.y * pageHeight} width={box.width * pageWidth} height={box.height * pageHeight} fill="rgba(59,130,246,0.05)" stroke="#3b82f6" strokeWidth={1.5} />;
           })}
 
         {/* Render Existing Straight Line Highlights */}
@@ -517,8 +736,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             fillOpacity={opacity}
             stroke={selectedColor}
             strokeWidth={1}
-            strokeDasharray="4 2"
-            rx={3}
             style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
@@ -533,11 +750,21 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               height={Math.abs(snipCurrent.y - snipStart.y) * pageHeight}
               fill="rgba(59, 130, 246, 0.15)"
               stroke="#3b82f6"
-              strokeWidth={2}
-              strokeDasharray="6 3"
-              rx={3}
+              strokeWidth={1}
             />
           </g>
+        )}
+
+        {activeTool === 'ai-box' && aiStart && aiCurrent && (
+          <rect
+            x={Math.min(aiStart.x, aiCurrent.x) * pageWidth}
+            y={Math.min(aiStart.y, aiCurrent.y) * pageHeight}
+            width={Math.abs(aiCurrent.x - aiStart.x) * pageWidth}
+            height={Math.abs(aiCurrent.y - aiStart.y) * pageHeight}
+            fill="rgba(59, 130, 246, 0.12)"
+            stroke="#3b82f6"
+            strokeWidth={2}
+          />
         )}
 
         {/* Captured Flash Effect on Snippet Release */}
@@ -639,6 +866,126 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               Add Note
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Bottom-Right Corner Resize Handle for Selected Rect Highlight */}
+      {selectedHighlight && selectedHighlight.type === 'highlight-rect' && (
+        <div
+          style={{
+            left: `${(selectedHighlight.x + selectedHighlight.width) * pageWidth}px`,
+            top: `${(selectedHighlight.y + selectedHighlight.height) * pageHeight}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+          onPointerDown={(e) => handleHighlightResizeStart(e, selectedHighlight as RectHighlightAnnotation)}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="absolute z-40 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize shadow-md hover:scale-125 transition-transform pointer-events-auto select-none touch-none"
+          title="Drag to resize highlight"
+          aria-label="Drag to resize highlight"
+        />
+      )}
+
+      {/* Floating Quick Action Menu for Selected Highlight */}
+      {selectedHighlight && (
+        <div
+          style={{
+            left: `${Math.max(8, Math.min(selectedHighlightPos.x, pageWidth - 240))}px`,
+            top: `${Math.max(8, selectedHighlightPos.y - 38)}px`,
+          }}
+          className="absolute z-50 flex items-center gap-1.5 p-1 px-1.5 rounded-lg bg-[var(--popover)]/95 border border-[var(--border)] shadow-xl backdrop-blur-md pointer-events-auto select-none"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {/* Drag Grip Handle for Rect Highlight */}
+          {selectedHighlight.type === 'highlight-rect' && (
+            <div
+              onPointerDown={(e) => handleHighlightDragStart(e, selectedHighlight as RectHighlightAnnotation)}
+              className="flex items-center justify-center px-1.5 py-1 rounded-md bg-black/8 hover:bg-black/15 dark:bg-white/5 dark:hover:bg-white/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-grab active:cursor-grabbing transition-colors touch-none"
+              title="Drag to move highlight"
+              aria-label="Drag to move highlight"
+            >
+              <GripHorizontal className="w-3.5 h-3.5" />
+            </div>
+          )}
+
+          {/* Color Swatches */}
+          <div className="flex items-center gap-1 pr-1.5 border-r border-[var(--border)]">
+            {QUICK_HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onUpdateAnnotation?.(selectedHighlight.id, { color: c })}
+                className={`w-4 h-4 rounded-full border transition-transform hover:scale-115 ${
+                  selectedHighlight.color.toLowerCase() === c.toLowerCase()
+                    ? 'ring-2 ring-blue-500 scale-110 border-white/60'
+                    : 'border-black/20 hover:border-white/40'
+                }`}
+                style={{ backgroundColor: c }}
+                title="Change color"
+              />
+            ))}
+          </div>
+
+          {/* Stroke / Box Toggle for Rect Highlight or Underline / Box Toggle for Text Highlight */}
+          {selectedHighlight.type === 'highlight-rect' ? (
+            <button
+              type="button"
+              onClick={() => {
+                const nextStyle = selectedHighlight.style === 'stroke' ? 'box' : 'stroke';
+                onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+              }}
+              className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
+                selectedHighlight.style === 'stroke'
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
+              }`}
+              title={selectedHighlight.style === 'stroke' ? 'Switch to Filled Box Highlight' : 'Switch to Outline / Stroke'}
+              aria-label={selectedHighlight.style === 'stroke' ? 'Switch to Filled Box Highlight' : 'Switch to Outline / Stroke'}
+            >
+              <Square className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const nextStyle = selectedHighlight.style === 'underline' ? 'box' : 'underline';
+                onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+              }}
+              className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
+                selectedHighlight.style === 'underline'
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
+              }`}
+              title={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
+              aria-label={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
+            >
+              <Underline className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Delete Button */}
+          <button
+            type="button"
+            onClick={() => {
+              onDeleteAnnotation(selectedHighlight.id);
+              onSelectAnnotation?.(null);
+            }}
+            className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            title="Delete highlight"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Close Button */}
+          <button
+            type="button"
+            onClick={() => onSelectAnnotation?.(null)}
+            className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)] transition-colors"
+            title="Deselect"
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
       )}
     </div>
