@@ -10,6 +10,22 @@ describe('normalizeAiResponseMarkdown', () => {
     expect(normalizeAiResponseMarkdown(source)).toBe('Mean $\\mu_X$ and density \n$$\nf_X(x)=e^{-x}\n$$\n.');
   });
 
+  test('unwraps nested \\boxed{\\boxed{...}} and renders ChatGPT bracket math', () => {
+    const source = `# Final answer
+
+[
+\\boxed{\\boxed{117\\text{ cars}}}
+]`;
+    const normalized = normalizeAiResponseMarkdown(source);
+    expect(normalized).toContain('$$\n\\boxed{117\\text{ cars}}\n$$');
+    expect(normalized).not.toContain('\\boxed{\\boxed');
+
+    const html = renderToStaticMarkup(React.createElement(AiResponseRenderer, { response: source }));
+    expect(html).toContain('class="katex-display"');
+    expect(html).toContain('117');
+    expect(html).toContain('cars');
+  });
+
   test('renders model Markdown as lists and accessible KaTeX markup', () => {
     const response = String.raw`This defines a Gaussian.
 

@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import {
+  AlertCircle,
   Check,
+  Clipboard,
+  ClipboardPaste,
   Copy,
   GripHorizontal,
   Image as ImageIcon,
@@ -14,10 +17,7 @@ import {
 import type { AiJobState } from '../hooks/useAiExplanations';
 import type { AiExplanationAnnotation, Annotation, AttachedImageAnnotation } from '../utils/types';
 import { rasterizeResponseCard } from '../utils/cardRasterizer';
-
-const AiResponseRenderer = React.lazy(() =>
-  import('./AiResponseRenderer').then((module) => ({ default: module.AiResponseRenderer }))
-);
+import { AiResponseRenderer } from './AiResponseRenderer';
 
 interface Props {
   pdfDoc?: PDFDocumentProxy | null;
@@ -45,6 +45,14 @@ const QUICK_PROMPTS = [
   'Define technical terms',
 ];
 
+const EXTERNAL_PROVIDERS = [
+  { id: 'chatgpt', label: 'ChatGPT' },
+  { id: 'claude', label: 'Claude' },
+  { id: 'deepseek', label: 'DeepSeek' },
+  { id: 'gemini', label: 'Gemini' },
+  { id: 'external', label: 'External AI' },
+];
+
 export const AiExplanationOverlay: React.FC<Props> = ({
   pageWidth,
   pageHeight,
@@ -61,7 +69,9 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 }) => {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
+  const [pastingModeId, setPastingModeId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [clipboardNotice, setClipboardNotice] = useState<{ id: string; message: string } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dragPositions, setDragPositions] = useState<Record<string, { left: number; top: number }>>({});
   const dragStartRef = useRef<{
@@ -73,6 +83,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const promptInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const externalResponseTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   // Auto-resize prompt textarea when needed
   useEffect(() => {
@@ -113,7 +124,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     currentLeft: number,
     currentTop: number
   ) => {
-    if ((e.target as HTMLElement).closest('button, input, textarea, a, [role="button"]')) {
+    if ((e.target as HTMLElement).closest('button, input, textarea, a, select, [role="button"]')) {
       return;
     }
     e.preventDefault();
@@ -135,8 +146,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   const handleDragPointerMove = (
     e: React.PointerEvent,
-    annotation: AiExplanationAnnotation,
-    cardWidth: number
+    annotation: AiExplanationAnnotation
   ) => {
     if (activeDragId !== annotation.id) return;
     const dx = e.clientX - dragStartRef.current.clientX;
@@ -233,8 +243,69 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     }
   };
 
+  const handleQuickPasteFromClipboard = async (annotation: AiExplanationAnnotation) => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        const promptText = (drafts[annotation.id] ?? annotation.prompt ?? DEFAULT_PROMPT).trim();
+        const provider = drafts[`provider_${annotation.id}`] || 'external';
+        onUpdate(annotation.id, {
+          prompt: promptText,
+          response: text.trim(),
+          provider,
+          isOpen: true,
+          updatedAt: Date.now(),
+        });
+        setClipboardNotice(null);
+        setPastingModeId(null);
+        onCloseJob(annotation.id);
+        return;
+      } else {
+        setClipboardNotice({
+          id: annotation.id,
+          message: 'No text found in clipboard. If you copied an image or screenshot, please copy text to paste.',
+        });
+        setTimeout(() => {
+          setClipboardNotice((curr) => (curr?.id === annotation.id ? null : curr));
+        }, 4000);
+      }
+    } catch (err) {
+      setClipboardNotice({
+        id: annotation.id,
+        message: 'Could not access clipboard text. Please copy text first.',
+      });
+      setTimeout(() => {
+        setClipboardNotice((curr) => (curr?.id === annotation.id ? null : curr));
+      }, 4000);
+    }
+  };
+
+  const handleSaveExternalResponse = (annotation: AiExplanationAnnotation) => {
+    const responseText = (drafts[`paste_resp_${annotation.id}`] ?? '').trim();
+    if (!responseText) return;
+
+    const promptText = (
+      drafts[`paste_prompt_${annotation.id}`] ??
+      drafts[annotation.id] ??
+      annotation.prompt ??
+      DEFAULT_PROMPT
+    ).trim();
+
+    const provider = drafts[`provider_${annotation.id}`] || 'external';
+
+    onUpdate(annotation.id, {
+      prompt: promptText,
+      response: responseText,
+      provider,
+      isOpen: true,
+      updatedAt: Date.now(),
+    });
+    setPastingModeId(null);
+    onCloseJob(annotation.id);
+  };
+
   return (
-    <div className="absolute inset-0 z-30 pointer-events-none">
+    <div className="absolute inset-0 z-20 pointer-events-none">
       {/* 1. Interactive Selection Hitboxes for AI Regions on Canvas */}
       {annotations.map((annotation) => {
         const isSelected = selectedAnnotationId === annotation.id;
@@ -266,7 +337,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         );
       })}
 
-      {/* 2. Persistent AI Sticky Windows (Rendered inside reader page) */}
+      {/* 2. Persistent AI Sticky Windows (Rendered inside reader area) */}
       {annotations.map((annotation) => {
         const job = jobs[annotation.id];
         const isRunning = job?.phase === 'running';
@@ -276,11 +347,12 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         if (!isOpen) return null;
 
         const isSelected = selectedAnnotationId === annotation.id;
+        const isPasting = pastingModeId === annotation.id;
         const cardWidth = isPromptComposer
-          ? Math.min(420, Math.max(280, pageWidth - 24))
-          : Math.min(440, Math.max(300, pageWidth - 24));
+          ? Math.min(440, Math.max(280, pageWidth - 24))
+          : Math.min(460, Math.max(300, pageWidth - 24));
 
-        // Calculate card position strictly clamped inside page bounds
+        // Calculate card position
         let cardLeft: number;
         let cardTop: number;
 
@@ -301,7 +373,6 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             cardLeft = Math.max(8, Math.min(selectionLeft, pageWidth - cardWidth - 8));
             cardTop = selectionBottom + 10;
           } else {
-            // Default placement in margin next to selection
             const rightSpace = pageWidth - selectionRight;
             if (rightSpace >= cardWidth * 0.6) {
               cardLeft = selectionRight + 16;
@@ -320,6 +391,9 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         }
 
         const isEditing = editingResponseId === annotation.id;
+        const providerName =
+          EXTERNAL_PROVIDERS.find((p) => p.id === annotation.provider)?.label ||
+          (annotation.provider && annotation.provider !== 'codex' ? annotation.provider : null);
 
         return (
           <div
@@ -353,7 +427,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             {!isPromptComposer && (
               <div
                 onPointerDown={(e) => handleDragPointerDown(e, annotation, cardLeft, cardTop)}
-                onPointerMove={(e) => handleDragPointerMove(e, annotation, cardWidth)}
+                onPointerMove={(e) => handleDragPointerMove(e, annotation)}
                 onPointerUp={(e) => handleDragPointerUp(e, annotation)}
                 onPointerCancel={(e) => handleDragPointerUp(e, annotation)}
                 className="flex items-center justify-between gap-2 px-3.5 py-2 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs cursor-grab active:cursor-grabbing"
@@ -362,6 +436,11 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                   <GripHorizontal className="w-3.5 h-3.5 text-[var(--muted-foreground)] opacity-70 hover:opacity-100 shrink-0" />
                   <span className="text-[var(--foreground)] font-medium tracking-tight">AI Assistant</span>
+                  {providerName && (
+                    <span className="text-[9.5px] font-medium font-mono text-purple-400 bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 rounded-md">
+                      {providerName}
+                    </span>
+                  )}
                   {isRunning && (
                     <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
@@ -447,9 +526,145 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                         </button>
                       </div>
                     </div>
+                  ) : isPasting ? (
+                    /* External AI Response Paste Form */
+                    <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-[var(--popover)] border border-[var(--border)] shadow-2xl animate-fade-in">
+                      <div className="flex items-center justify-between pb-1 border-b border-[var(--border)]">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+                          <ClipboardPaste className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Attach External AI Response</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPastingModeId(null)}
+                          className="text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                        >
+                          Back
+                        </button>
+                      </div>
+
+                      {/* Question / Context Input */}
+                      <div className="flex flex-col gap-1">
+                        <label
+                          htmlFor={`paste-prompt-${annotation.id}`}
+                          className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+                        >
+                          Question / Heading (Optional)
+                        </label>
+                        <input
+                          id={`paste-prompt-${annotation.id}`}
+                          type="text"
+                          value={drafts[`paste_prompt_${annotation.id}`] ?? drafts[annotation.id] ?? annotation.prompt}
+                          onChange={(e) => {
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [`paste_prompt_${annotation.id}`]: e.target.value,
+                            }));
+                          }}
+                          placeholder="e.g. Explain this section"
+                          className="w-full bg-[var(--input)] border border-[var(--border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                      </div>
+
+                      {/* AI Response Textarea */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <label
+                            htmlFor={`paste-resp-${annotation.id}`}
+                            className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+                          >
+                            AI Response (Markdown & Math)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const text = await navigator.clipboard.readText();
+                                if (text) {
+                                  setDrafts((prev) => ({
+                                    ...prev,
+                                    [`paste_resp_${annotation.id}`]: text,
+                                  }));
+                                }
+                              } catch {}
+                            }}
+                            className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
+                            title="Paste from clipboard"
+                          >
+                            <Clipboard className="w-3 h-3" /> Paste
+                          </button>
+                        </div>
+                        <textarea
+                          ref={(el) => {
+                            externalResponseTextareaRefs.current[annotation.id] = el;
+                          }}
+                          id={`paste-resp-${annotation.id}`}
+                          autoFocus
+                          rows={6}
+                          value={drafts[`paste_resp_${annotation.id}`] ?? ''}
+                          onChange={(e) => {
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [`paste_resp_${annotation.id}`]: e.target.value,
+                            }));
+                          }}
+                          placeholder="Paste response from ChatGPT, Claude, DeepSeek, Gemini, etc..."
+                          className="w-full bg-[var(--input)] border border-[var(--border)] rounded-md p-2 text-xs text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans resize-y leading-relaxed"
+                        />
+                      </div>
+
+                      {/* Source Provider Tags */}
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className="text-[10px] text-[var(--muted-foreground)]">Provider:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {EXTERNAL_PROVIDERS.map((p) => {
+                            const isCurrent = (drafts[`provider_${annotation.id}`] || 'external') === p.id;
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setDrafts((prev) => ({
+                                    ...prev,
+                                    [`provider_${annotation.id}`]: p.id,
+                                  }));
+                                }}
+                                className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                                  isCurrent
+                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-medium'
+                                    : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-transparent'
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-[var(--border)]">
+                        <button
+                          type="button"
+                          onClick={() => setPastingModeId(null)}
+                          className="px-2.5 py-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!(drafts[`paste_resp_${annotation.id}`] ?? '').trim()}
+                          onClick={() => handleSaveExternalResponse(annotation)}
+                          className="btn-primary px-3 py-1 text-xs flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Attach Response
+                        </button>
+                      </div>
+                    </div>
                   ) : (
+                    /* Standard AI Composer */
                     <div className="ai-prompt-composer-content flex flex-col gap-2">
-                      <div className="ai-prompt-presets flex flex-wrap gap-1.5 px-0.5">
+                      <div className="ai-prompt-presets flex flex-wrap items-center gap-1.5 px-0.5">
                         {QUICK_PROMPTS.map((qp) => (
                           <button
                             key={qp}
@@ -498,17 +713,41 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                           placeholder="Ask about this selection…"
                           className="ai-prompt-composer-input w-full resize-none text-sm leading-6 font-sans"
                         />
-                        <button
-                          type="button"
-                          className="ai-prompt-send"
-                          disabled={!(drafts[annotation.id] ?? annotation.prompt).trim()}
-                          onClick={() => onSubmit(annotation, drafts[annotation.id] ?? annotation.prompt)}
-                          title="Explain selection (Enter)"
-                          aria-label="Send prompt"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Gray Neutral Clipboard Paste Button */}
+                          <button
+                            type="button"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors border border-transparent hover:border-[var(--border)]"
+                            onClick={() => void handleQuickPasteFromClipboard(annotation)}
+                            title="Paste AI response from clipboard"
+                            aria-label="Paste response from clipboard"
+                          >
+                            <ClipboardPaste className="w-3.5 h-3.5" />
+                          </button>
+                          {/* Accent Blue Send Button */}
+                          <button
+                            type="button"
+                            className="ai-prompt-send"
+                            disabled={!(drafts[annotation.id] ?? annotation.prompt).trim()}
+                            onClick={() => onSubmit(annotation, drafts[annotation.id] ?? annotation.prompt)}
+                            title="Explain selection (Enter)"
+                            aria-label="Send prompt"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Clipboard Non-Text / Image Warning Notice */}
+                      {clipboardNotice?.id === annotation.id && (
+                        <div
+                          className="text-[11px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/25 p-2 rounded-lg flex items-start gap-1.5 animate-slide-down"
+                          role="alert"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <span>{clipboardNotice.message}</span>
+                        </div>
+                      )}
 
                       {job?.phase === 'error' && (
                         <div
@@ -553,15 +792,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                     />
                   ) : (
                     <div className="py-0.5 px-0.5">
-                      <React.Suspense
-                        fallback={
-                          <div className="text-xs text-zinc-400 p-2">
-                            Rendering explanation…
-                          </div>
-                        }
-                      >
-                        <AiResponseRenderer response={annotation.response} />
-                      </React.Suspense>
+                      <AiResponseRenderer response={annotation.response} />
                     </div>
                   )}
                 </div>

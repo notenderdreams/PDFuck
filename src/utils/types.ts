@@ -114,7 +114,7 @@ export interface AiExplanationAnnotation {
   height: number;
   prompt: string;
   response: string;
-  provider: 'codex';
+  provider?: 'codex' | 'external' | 'chatgpt' | 'claude' | 'gemini' | 'deepseek' | string;
   createdAt: number;
   updatedAt: number;
   cardX?: number;
