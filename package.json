@@ -1,6 +1,6 @@
 {
   "name": "pdfuck",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Ultra-Smooth High-Performance Desktop PDF Reader, Inverting & Annotation Studio",
   "type": "module",
   "private": true,

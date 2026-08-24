@@ -1,6 +1,6 @@
 [package]
 name = "pdfuck"
-version = "1.0.0"
+version = "0.1.0"
 description = "PDFuck — Pro Desktop PDF Reader & Annotation Studio"
 authors = ["PDFuck Team"]
 edition = "2021"

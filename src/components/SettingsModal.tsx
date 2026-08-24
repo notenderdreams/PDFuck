@@ -487,7 +487,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </h1>
                     <div className="mt-2.5">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono text-[10px] border border-[var(--border)] font-medium">
-                        Version 1.0.0
+                        Version 0.1.0
                       </span>
                     </div>
                   </div>
