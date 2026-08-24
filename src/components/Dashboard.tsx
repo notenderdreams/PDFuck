@@ -35,6 +35,10 @@ import {
   recordRecentDoc,
   loadFavorites,
   toggleFavorite as toggleStorageFavorite,
+  loadLibraryFilter,
+  saveLibraryFilter,
+  loadLibrarySort,
+  saveLibrarySort,
 } from '../utils/storage';
 
 interface DashboardProps {
@@ -67,12 +71,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [pdfItems, setPdfItems] = useState<DashboardPdfItem[]>([]);
   const [recentDocs, setRecentDocs] = useState<DashboardPdfItem[]>(() => loadRecentDocs());
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterTab>(() => loadLibraryFilter());
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [sortBy, setSortBy] = useState<SortOption>(() => loadLibrarySort());
   const [isScanning, setIsScanning] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Persist active filter & selected folder tab
+  useEffect(() => {
+    saveLibraryFilter(activeFilter);
+  }, [activeFilter]);
+
+  // Persist library sorting preference
+  useEffect(() => {
+    saveLibrarySort(sortBy);
+  }, [sortBy]);
 
   useEffect(() => {
     if (!isSortOpen) return;

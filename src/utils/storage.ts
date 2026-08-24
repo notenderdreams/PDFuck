@@ -9,6 +9,8 @@ const STORAGE_KEYS = {
   FAVORITES: 'pdfuck_favorite_doc_ids',
   ANNOTATIONS_PREFIX: 'pdfuck_annotations_',
   LAST_PAGE_PREFIX: 'pdfuck_last_page_',
+  LIBRARY_FILTER: 'pdfuck_library_active_filter',
+  LIBRARY_SORT: 'pdfuck_library_sort_by',
 };
 
 // --- IndexedDB Engine for Large Annotation Payloads (Images, Stickers, Ink) ---
@@ -403,5 +405,42 @@ export function toggleFavorite(docId: string): boolean {
     return !isFav;
   } catch {
     return false;
+  }
+}
+
+export function loadLibraryFilter(): string {
+  try {
+    const val = localStorage.getItem(STORAGE_KEYS.LIBRARY_FILTER);
+    return val || 'all';
+  } catch {
+    return 'all';
+  }
+}
+
+export function saveLibraryFilter(filter: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.LIBRARY_FILTER, filter);
+  } catch (e) {
+    console.warn('Failed to save library filter to localStorage', e);
+  }
+}
+
+export function loadLibrarySort(): 'recent' | 'name' | 'size' {
+  try {
+    const val = localStorage.getItem(STORAGE_KEYS.LIBRARY_SORT);
+    if (val === 'recent' || val === 'name' || val === 'size') {
+      return val;
+    }
+    return 'recent';
+  } catch {
+    return 'recent';
+  }
+}
+
+export function saveLibrarySort(sortBy: 'recent' | 'name' | 'size'): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.LIBRARY_SORT, sortBy);
+  } catch (e) {
+    console.warn('Failed to save library sort to localStorage', e);
   }
 }
