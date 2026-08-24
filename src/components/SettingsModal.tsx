@@ -18,7 +18,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { ReadingTheme, ThemeSettings, ViewMode } from '../utils/types';
-import { isTauri, openExternalUrl } from '../utils/tauriBridge';
+import { openExternalUrl } from '../utils/tauriBridge';
 
 type SettingsTab = 'general' | 'appearance' | 'ai' | 'shortcuts' | 'about';
 
@@ -277,19 +277,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium text-zinc-200 block">Desktop App Integration</span>
-                      <span className="text-[11px] text-zinc-400">
-                        {isTauri() ? 'Running in desktop mode.' : 'Running in browser mode.'}
-                      </span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--secondary)] text-zinc-300 font-medium text-[10px] border border-[var(--border)]">
-                      {isTauri() ? 'Desktop' : 'Web'}
-                    </span>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -403,32 +390,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--foreground)] mb-1">AI Assistant & Explanation</h3>
                   <p className="text-zinc-400 text-[11px] leading-relaxed">
-                    Configure document question answering and LaTeX/markdown explanation generation.
+                    Ask questions about a page and get help understanding what you are reading.
                   </p>
                 </div>
 
                 <div className="flex flex-col gap-3 p-3.5 rounded-xl bg-[var(--card)] border border-[var(--border)]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="font-medium text-zinc-200 block">AI Reasoning Engine</span>
+                      <span className="font-medium text-zinc-200 block">Codex CLI Preview</span>
                       <span className="text-[11px] text-zinc-400">
-                        Provides step-by-step solutions, formula parsing, and document summaries.
+                        For now, PDFuck uses Codex CLI for explanations. If you are already signed in, it will use that session. You do not need to sign in again here.
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-[var(--secondary)] text-zinc-300 font-medium text-[10px] border border-[var(--border)]">
-                      Ready
+                      Preview
                     </span>
                   </div>
+                </div>
 
-                  <div className="pt-2 border-t border-[var(--border)] flex flex-col gap-2">
-                    <span className="text-[11px] font-medium text-zinc-300">Supported Prompt Modes:</span>
-                    <ul className="text-[11px] text-zinc-400 list-disc list-inside space-y-1">
-                      <li>Step-by-step problem solver with full KaTeX math notation</li>
-                      <li>Clear and concise paragraph explanations</li>
-                      <li>Document text translation & glossary expansion</li>
-                      <li>One-click rasterization of AI responses onto document pages</li>
-                    </ul>
-                  </div>
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex flex-col gap-2">
+                  <span className="text-base font-bold tracking-tight text-blue-400">Coming soon: built-in AI</span>
+                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+                    We are working on a proper AI integration with a simpler setup and more ways to get help while you read.
+                  </p>
                 </div>
               </div>
             )}
