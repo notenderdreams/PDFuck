@@ -25,6 +25,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,10 +33,36 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   if (!isOpen) return null;
+
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (!val.trim()) {
+      onSearch('');
+      return;
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      onSearch(val);
+    }, 200);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        onSearch(query);
+      }
       if (e.shiftKey) {
         onPrev();
       } else {
@@ -54,10 +81,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            onSearch(e.target.value);
-          }}
+          onChange={(e) => handleQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Find in document..."
           className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-0 outline-none w-44 font-sans"
