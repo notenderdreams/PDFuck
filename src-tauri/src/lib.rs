@@ -832,6 +832,9 @@ pub fn run() {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
+                        // Some valid-in-practice PDFs have an outdated trailer Size value.
+                        // lopdf repairs it while loading; keep that routine warning out of the app log.
+                        .level_for("lopdf", log::LevelFilter::Error)
                         .build(),
                 )?;
             }
