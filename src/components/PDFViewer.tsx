@@ -6,6 +6,7 @@ import type { Annotation, ReadingTheme, ToolType, ViewMode } from '../utils/type
 import type { AiExplanationAnnotation } from '../utils/types';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
+import { isAnnotationHitByEraser } from '../utils/eraserUtils';
 
 const EMPTY_ANNOTATIONS: Annotation[] = [];
 
@@ -114,6 +115,73 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
     return map;
   }, [annotations]);
+
+  // Global Eraser Tool State & Cross-Page Sweeping
+  const [eraserPos, setEraserPos] = useState<{ x: number; y: number } | null>(null);
+  const isErasingRef = useRef(false);
+
+  const performGlobalEraseAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const container = viewerContainerRef.current;
+      if (!container) return;
+
+      const ERASE_RADIUS = 22;
+      const pageElements = container.querySelectorAll<HTMLElement>('[data-pdf-page-number]');
+
+      pageElements.forEach((pageEl) => {
+        const rect = pageEl.getBoundingClientRect();
+        if (
+          clientX + ERASE_RADIUS >= rect.left &&
+          clientX - ERASE_RADIUS <= rect.right &&
+          clientY + ERASE_RADIUS >= rect.top &&
+          clientY - ERASE_RADIUS <= rect.bottom
+        ) {
+          const pageNumber = Number(pageEl.getAttribute('data-pdf-page-number'));
+          const pageWidth = rect.width;
+          const pageHeight = rect.height;
+          const px = clientX - rect.left;
+          const py = clientY - rect.top;
+
+          const pageAnns = annotationsByPage.get(pageNumber) || EMPTY_ANNOTATIONS;
+          for (const ann of pageAnns) {
+            if (isAnnotationHitByEraser(ann, px, py, pageWidth, pageHeight, ERASE_RADIUS)) {
+              onDeleteAnnotation(ann.id);
+            }
+          }
+        }
+      });
+    },
+    [annotationsByPage, onDeleteAnnotation]
+  );
+
+  useEffect(() => {
+    if (activeTool !== 'eraser') {
+      setEraserPos(null);
+      isErasingRef.current = false;
+      return;
+    }
+
+    const handleGlobalPointerUp = () => {
+      isErasingRef.current = false;
+    };
+
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+      if (isErasingRef.current) {
+        setEraserPos({ x: e.clientX, y: e.clientY });
+        performGlobalEraseAt(e.clientX, e.clientY);
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+    };
+  }, [activeTool, performGlobalEraseAt]);
 
   // Track Spacebar for Space+Drag Panning (Hand Tool mode)
   useEffect(() => {
@@ -356,6 +424,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     const target = e.target as HTMLElement;
     const isBackgroundClick =
       e.button === 0 &&
+      !isSpacePressed &&
+      activeTool !== 'eraser' &&
       (target === viewerContainerRef.current ||
         target.classList.contains('canvas-background-layer') ||
         target.classList.contains('canvas-workspace-area'));
@@ -418,6 +488,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
+  // Handle Eraser pointer events on viewer container
+  const handleViewerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTool === 'eraser' && e.button === 0 && !isSpacePressed) {
+      isErasingRef.current = true;
+      setEraserPos({ x: e.clientX, y: e.clientY });
+      performGlobalEraseAt(e.clientX, e.clientY);
+    }
+  };
+
+  const handleViewerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTool === 'eraser') {
+      setEraserPos({ x: e.clientX, y: e.clientY });
+      if (isErasingRef.current || e.buttons === 1) {
+        performGlobalEraseAt(e.clientX, e.clientY);
+      }
+    }
+  };
+
+  const handleViewerPointerLeave = () => {
+    if (activeTool === 'eraser' && !isErasingRef.current) {
+      setEraserPos(null);
+    }
+  };
+
   // If no PDF is loaded, show welcoming Hero drop zone
   if (!pdfDoc) {
     return (
@@ -459,22 +553,41 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     );
   }
 
-  // Compute cursor style based on space/pan state
+  // Compute cursor style based on space/pan/eraser state
   const cursorStyle = isPanning
     ? 'cursor-grabbing'
     : isSpacePressed
     ? 'cursor-grab'
+    : activeTool === 'eraser'
+    ? 'cursor-none'
     : '';
 
   return (
     <main
       ref={viewerContainerRef}
       onMouseDown={handleStartPan}
+      onPointerDown={handleViewerPointerDown}
+      onPointerMove={handleViewerPointerMove}
+      onPointerLeave={handleViewerPointerLeave}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`pdf-viewer-viewport flex-1 overflow-y-auto overflow-x-auto bg-[#1c1c22] relative select-none ${cursorStyle}`}
     >
+      {/* Visual Eraser Brush Circle Indicator - Single global indicator across all pages */}
+      {activeTool === 'eraser' && eraserPos && (
+        <div
+          style={{
+            left: `${eraserPos.x}px`,
+            top: `${eraserPos.y}px`,
+            width: '36px',
+            height: '36px',
+            transform: 'translate(-50%, -50%)',
+          }}
+          className="fixed pointer-events-none rounded-full border-2 border-red-400/80 bg-red-500/20 shadow-md backdrop-blur-2xs animate-pulse-glow z-50"
+        />
+      )}
+
       {/* Spacebar Pan Glass Interceptor (captures clicks everywhere over text/layers when space is held) */}
       {isSpacePressed && (
         <div

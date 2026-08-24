@@ -31,19 +31,6 @@ interface AnnotationCanvasProps {
   onAiBoxCreated?: (annotationId: string) => void;
 }
 
-// Distance from point to line segment helper
-function distToSegment(
-  p: { x: number; y: number },
-  v: { x: number; y: number },
-  w: { x: number; y: number }
-) {
-  const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
-  if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
-  let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
-}
-
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   pageNumber,
   pageWidth,
@@ -84,9 +71,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   // Text Note Input Popup State
   const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
   const [textInputValue, setTextInputValue] = useState<string>('');
-
-  // Eraser Brush Indicator Position
-  const [eraserCursorPos, setEraserCursorPos] = useState<{ x: number; y: number } | null>(null);
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
@@ -164,96 +148,18 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     };
   };
 
-  // Helper for eraser tool: finds any annotation near point (px, py) and deletes it
-  const performEraseAt = (px: number, py: number) => {
-    const ERASE_RADIUS = 22;
-
-    for (const ann of pageAnnotations) {
-      if (ann.type === 'pen' || ann.type === 'highlight-pen') {
-        const drawAnn = ann as DrawingAnnotation;
-        for (const pt of drawAnn.points) {
-          const ptX = pt.x * pageWidth;
-          const ptY = pt.y * pageHeight;
-          if (Math.hypot(px - ptX, py - ptY) <= ERASE_RADIUS + drawAnn.strokeWidth) {
-            onDeleteAnnotation(ann.id);
-            break;
-          }
-        }
-      } else if (ann.type === 'highlight-line') {
-        const lineAnn = ann as LineHighlightAnnotation;
-        const x1 = lineAnn.startX * pageWidth;
-        const y1 = lineAnn.startY * pageHeight;
-        const x2 = lineAnn.endX * pageWidth;
-        const y2 = lineAnn.endY * pageHeight;
-        const dist = distToSegment({ x: px, y: py }, { x: x1, y: y1 }, { x: x2, y: y2 });
-        if (dist <= ERASE_RADIUS + (lineAnn.strokeWidth || 10) / 2) {
-          onDeleteAnnotation(ann.id);
-        }
-      } else if (ann.type === 'highlight-rect') {
-        const hRect = ann as RectHighlightAnnotation;
-        const rx = hRect.x * pageWidth;
-        const ry = hRect.y * pageHeight;
-        const rw = hRect.width * pageWidth;
-        const rh = hRect.height * pageHeight;
-
-        if (
-          px >= rx - ERASE_RADIUS &&
-          px <= rx + rw + ERASE_RADIUS &&
-          py >= ry - ERASE_RADIUS &&
-          py <= ry + rh + ERASE_RADIUS
-        ) {
-          onDeleteAnnotation(ann.id);
-        }
-      } else if (ann.type === 'highlight-text') {
-        const textHighlight = ann as TextHighlightAnnotation;
-        const isNearHighlight = textHighlight.rects.some((rect) => {
-          const rx = rect.x * pageWidth;
-          const ry = rect.y * pageHeight;
-          const rw = rect.width * pageWidth;
-          const rh = rect.height * pageHeight;
-          return (
-            px >= rx - ERASE_RADIUS &&
-            px <= rx + rw + ERASE_RADIUS &&
-            py >= ry - ERASE_RADIUS &&
-            py <= ry + rh + ERASE_RADIUS
-          );
-        });
-        if (isNearHighlight) {
-          onDeleteAnnotation(ann.id);
-        }
-      } else if (ann.type === 'text-note') {
-        const note = ann as TextNoteAnnotation;
-        const nx = note.x * pageWidth;
-        const ny = note.y * pageHeight;
-        if (Math.hypot(px - nx, py - ny) <= ERASE_RADIUS + 40) {
-          onDeleteAnnotation(ann.id);
-        }
-      } else if (ann.type === 'ai-explanation') {
-        const box = ann as AiExplanationAnnotation;
-        if (
-          px >= box.x * pageWidth - ERASE_RADIUS &&
-          px <= (box.x + box.width) * pageWidth + ERASE_RADIUS &&
-          py >= box.y * pageHeight - ERASE_RADIUS &&
-          py <= (box.y + box.height) * pageHeight + ERASE_RADIUS
-        ) onDeleteAnnotation(ann.id);
-      }
-    }
-  };
-
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    if (activeTool === 'select' || activeTool === 'image') return;
+    if (activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser') return;
     isMouseDownRef.current = true;
 
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
 
-    const { x, y, px, py } = getNormalizedCoords(e);
+    const { x, y } = getNormalizedCoords(e);
 
-    if (activeTool === 'eraser') {
-      performEraseAt(px, py);
-    } else if (activeTool === 'highlight-line') {
+    if (activeTool === 'highlight-line') {
       isInteractingRef.current = true;
       setLineStart({ x, y });
       setLineCurrent({ x, y });
@@ -279,15 +185,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const { x, y, px, py } = getNormalizedCoords(e);
-
-    if (activeTool === 'eraser') {
-      setEraserCursorPos({ x: px, y: py });
-      if (isMouseDownRef.current) {
-        performEraseAt(px, py);
-      }
-      return;
-    }
+    const { x, y } = getNormalizedCoords(e);
 
     if (!isInteractingRef.current) return;
 
@@ -320,7 +218,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     } catch {}
 
     isMouseDownRef.current = false;
-    if (activeTool === 'eraser') return;
 
     if (!isInteractingRef.current) return;
     isInteractingRef.current = false;
@@ -486,26 +383,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       className={`absolute inset-0 z-20 select-none touch-none ${
-        activeTool === 'select' || activeTool === 'image'
+        activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser'
           ? 'pointer-events-none'
-          : activeTool === 'eraser'
-          ? 'cursor-none pointer-events-auto'
           : 'cursor-crosshair pointer-events-auto'
       }`}
     >
-      {/* Visual Eraser Brush Circle Indicator */}
-      {activeTool === 'eraser' && eraserCursorPos && (
-        <div
-          style={{
-            left: `${eraserCursorPos.x}px`,
-            top: `${eraserCursorPos.y}px`,
-            width: '36px',
-            height: '36px',
-            transform: 'translate(-50%, -50%)',
-          }}
-          className="absolute rounded-full border-2 border-red-400/80 bg-red-500/20 pointer-events-none shadow-md backdrop-blur-2xs animate-pulse-glow z-50"
-        />
-      )}
 
       <svg
         className="w-full h-full absolute inset-0 pointer-events-none"

@@ -367,6 +367,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         pdfDoc={pdfDoc}
         pageWidth={pageDimensions.width}
         pageHeight={pageDimensions.height}
+        activeTool={activeTool}
         annotations={pageAiExplanations}
         jobs={aiJobs}
         onSubmit={onSubmitAi}

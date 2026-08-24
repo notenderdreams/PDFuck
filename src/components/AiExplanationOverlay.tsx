@@ -8,14 +8,13 @@ import {
   Copy,
   GripHorizontal,
   Image as ImageIcon,
-  Pencil,
   RotateCcw,
   Trash2,
   X,
   Send,
 } from 'lucide-react';
 import type { AiJobState } from '../hooks/useAiExplanations';
-import type { AiExplanationAnnotation, Annotation, AttachedImageAnnotation } from '../utils/types';
+import type { AiExplanationAnnotation, Annotation, AttachedImageAnnotation, ToolType } from '../utils/types';
 import { rasterizeResponseCard } from '../utils/cardRasterizer';
 import { AiResponseRenderer } from './AiResponseRenderer';
 
@@ -23,6 +22,7 @@ interface Props {
   pdfDoc?: PDFDocumentProxy | null;
   pageWidth: number;
   pageHeight: number;
+  activeTool?: ToolType;
   annotations: AiExplanationAnnotation[];
   jobs: Record<string, AiJobState>;
   onSubmit: (annotation: AiExplanationAnnotation, prompt: string) => void;
@@ -102,23 +102,14 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
     const promptTextareaRef = useRef<HTMLTextAreaElement | null>(null);
     const externalResponseTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-    // Local states for prompt composer, responses, and editing
+    // Local states for prompt composer and responses
     const [promptText, setPromptText] = useState(annotation.prompt || '');
     const [isPasting, setIsPasting] = useState(false);
     const [pastePrompt, setPastePrompt] = useState(annotation.prompt || '');
     const [pasteResp, setPasteResp] = useState('');
     const [provider, setProvider] = useState(annotation.provider || 'external');
-    const [isEditingResponse, setIsEditingResponse] = useState(false);
-    const [responseDraft, setResponseDraft] = useState(annotation.response || '');
     const [copied, setCopied] = useState(false);
     const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
-
-    // Sync external response changes
-    useEffect(() => {
-      if (annotation.response) {
-        setResponseDraft(annotation.response);
-      }
-    }, [annotation.response]);
 
     // Keep prompt in sync if annotation changes externally
     useEffect(() => {
@@ -286,7 +277,7 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
     };
 
     const handleRasterizeResponse = async () => {
-      const rawResponse = responseDraft || annotation.response;
+      const rawResponse = annotation.response;
       if (!rawResponse || !cardRef.current) return;
       try {
         const isDark = document.documentElement.getAttribute('data-ui-theme') === 'dark';
@@ -666,19 +657,9 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
                 </div>
               </div>
 
-              {isEditingResponse ? (
-                <textarea
-                  autoFocus
-                  rows={8}
-                  value={responseDraft}
-                  onChange={(event) => setResponseDraft(event.target.value)}
-                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-[var(--foreground)] leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
-                />
-              ) : (
-                <div className="py-0.5 px-0.5">
-                  <AiResponseRenderer response={annotation.response} />
-                </div>
-              )}
+              <div className="py-0.5 px-0.5">
+                <AiResponseRenderer response={annotation.response} />
+              </div>
             </div>
           )}
         </div>
@@ -708,29 +689,6 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
                 aria-label="Copy Response"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-              <button
-                type="button"
-                className="macos-ai-action-btn"
-                title={isEditingResponse ? 'Save edit' : 'Edit response'}
-                onClick={() => {
-                  if (isEditingResponse) {
-                    onUpdate(annotation.id, {
-                      response: responseDraft,
-                      updatedAt: Date.now(),
-                    });
-                    setIsEditingResponse(false);
-                  } else {
-                    setIsEditingResponse(true);
-                  }
-                }}
-                aria-label={isEditingResponse ? 'Save edit' : 'Edit response'}
-              >
-                {isEditingResponse ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <Pencil className="w-3.5 h-3.5" />
-                )}
               </button>
               <button
                 type="button"
@@ -769,6 +727,7 @@ AiExplanationCard.displayName = 'AiExplanationCard';
 export const AiExplanationOverlay: React.FC<Props> = ({
   pageWidth,
   pageHeight,
+  activeTool,
   annotations,
   jobs,
   onSubmit,
@@ -889,7 +848,9 @@ export const AiExplanationOverlay: React.FC<Props> = ({
           <div
             key={`ai-hitbox-${annotation.id}`}
             data-ai-annotation-id={annotation.id}
-            className={`absolute pointer-events-auto cursor-pointer transition-all duration-150 ${
+            className={`absolute cursor-pointer transition-all duration-150 ${
+              activeTool === 'eraser' ? 'pointer-events-none' : 'pointer-events-auto'
+            } ${
               isSelected ? 'ring-2 ring-blue-500/80 bg-blue-500/10' : 'hover:bg-blue-500/10'
             }`}
             style={{
