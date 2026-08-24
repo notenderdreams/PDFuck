@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, X, Underline, GripHorizontal } from 'lucide-react';
+import { Trash2, X, Underline, Square, GripHorizontal } from 'lucide-react';
 import type {
   Annotation,
   AiExplanationAnnotation,
@@ -184,6 +184,52 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
     const handlePointerUp = () => {
       isDraggingHighlightRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
+  // Handle resizing of rectangle highlights via bottom-right corner handle
+  const isResizingHighlightRef = useRef(false);
+
+  const handleHighlightResizeStart = (
+    e: React.PointerEvent,
+    rect: RectHighlightAnnotation
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectAnnotation?.(rect.id);
+
+    isResizingHighlightRef.current = true;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const initialX = rect.x;
+    const initialY = rect.y;
+    const initialWidth = rect.width;
+    const initialHeight = rect.height;
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isResizingHighlightRef.current) return;
+      const dx = (moveEvt.clientX - startClientX) / pageWidth;
+      const dy = (moveEvt.clientY - startClientY) / pageHeight;
+
+      const maxWidth = Math.max(0.01, 1 - initialX);
+      const maxHeight = Math.max(0.005, 1 - initialY);
+
+      const newWidth = Math.max(0.01, Math.min(initialWidth + dx, maxWidth));
+      const newHeight = Math.max(0.005, Math.min(initialHeight + dy, maxHeight));
+
+      onUpdateAnnotation?.(rect.id, { width: newWidth, height: newHeight });
+    };
+
+    const handlePointerUp = () => {
+      isResizingHighlightRef.current = false;
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -517,6 +563,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           .map((a) => {
             const rect = a as RectHighlightAnnotation;
             const isSelected = selectedAnnotationId === rect.id;
+            const isStroke = rect.style === 'stroke';
             const isUnderline = rect.style === 'underline';
             return (
               <g
@@ -529,7 +576,19 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                   }
                 }}
               >
-                {isUnderline ? (
+                {isStroke ? (
+                  <rect
+                    className={colorFilterClass || ''}
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill="none"
+                    stroke={rect.color}
+                    strokeWidth={2.5}
+                    strokeOpacity={0.9}
+                  />
+                ) : isUnderline ? (
                   <line
                     className={colorFilterClass}
                     x1={rect.x * pageWidth}
@@ -553,7 +612,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                     style={{ mixBlendMode: highlightBlendMode }}
                   />
                 )}
-                {isUnderline && (
+                {(isStroke || isUnderline) && (
                   <rect
                     x={rect.x * pageWidth}
                     y={rect.y * pageHeight}
@@ -810,6 +869,22 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         </div>
       )}
 
+      {/* Bottom-Right Corner Resize Handle for Selected Rect Highlight */}
+      {selectedHighlight && selectedHighlight.type === 'highlight-rect' && (
+        <div
+          style={{
+            left: `${(selectedHighlight.x + selectedHighlight.width) * pageWidth}px`,
+            top: `${(selectedHighlight.y + selectedHighlight.height) * pageHeight}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+          onPointerDown={(e) => handleHighlightResizeStart(e, selectedHighlight as RectHighlightAnnotation)}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="absolute z-40 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize shadow-md hover:scale-125 transition-transform pointer-events-auto select-none touch-none"
+          title="Drag to resize highlight"
+          aria-label="Drag to resize highlight"
+        />
+      )}
+
       {/* Floating Quick Action Menu for Selected Highlight */}
       {selectedHighlight && (
         <div
@@ -826,7 +901,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           {selectedHighlight.type === 'highlight-rect' && (
             <div
               onPointerDown={(e) => handleHighlightDragStart(e, selectedHighlight as RectHighlightAnnotation)}
-              className="flex items-center justify-center p-1 rounded-md text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] cursor-grab active:cursor-grabbing transition-colors pr-1.5 border-r border-[var(--border)] touch-none"
+              className="flex items-center justify-center px-1.5 py-1 rounded-md bg-black/8 hover:bg-black/15 dark:bg-white/5 dark:hover:bg-white/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-grab active:cursor-grabbing transition-colors touch-none"
               title="Drag to move highlight"
               aria-label="Drag to move highlight"
             >
@@ -852,23 +927,42 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             ))}
           </div>
 
-          {/* Underline / Box Style Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              const nextStyle = selectedHighlight.style === 'underline' ? 'box' : 'underline';
-              onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
-            }}
-            className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
-              selectedHighlight.style === 'underline'
-                ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
-            }`}
-            title={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
-            aria-label={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
-          >
-            <Underline className="w-3.5 h-3.5" />
-          </button>
+          {/* Stroke / Box Toggle for Rect Highlight or Underline / Box Toggle for Text Highlight */}
+          {selectedHighlight.type === 'highlight-rect' ? (
+            <button
+              type="button"
+              onClick={() => {
+                const nextStyle = selectedHighlight.style === 'stroke' ? 'box' : 'stroke';
+                onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+              }}
+              className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
+                selectedHighlight.style === 'stroke'
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
+              }`}
+              title={selectedHighlight.style === 'stroke' ? 'Switch to Filled Box Highlight' : 'Switch to Outline / Stroke'}
+              aria-label={selectedHighlight.style === 'stroke' ? 'Switch to Filled Box Highlight' : 'Switch to Outline / Stroke'}
+            >
+              <Square className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const nextStyle = selectedHighlight.style === 'underline' ? 'box' : 'underline';
+                onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+              }}
+              className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
+                selectedHighlight.style === 'underline'
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
+              }`}
+              title={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
+              aria-label={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
+            >
+              <Underline className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Delete Button */}
           <button

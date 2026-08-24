@@ -98,7 +98,17 @@ export async function exportAnnotatedPDF(
         // PDF coordinates are (0,0) at bottom-left
         const y = pageHeight - (hRect.y * pageHeight + height);
 
-        if (hRect.style === 'underline') {
+        if (hRect.style === 'stroke') {
+          page.drawRectangle({
+            x,
+            y,
+            width,
+            height,
+            borderColor: rgb(color.r, color.g, color.b),
+            borderWidth: 2,
+            opacity: 0.9,
+          });
+        } else if (hRect.style === 'underline') {
           page.drawLine({
             start: { x, y: y + 1 },
             end: { x: x + width, y: y + 1 },

@@ -58,7 +58,7 @@ export interface RectHighlightAnnotation {
   color: string;
   opacity: number;
   createdAt: number;
-  style?: 'box' | 'underline';
+  style?: 'box' | 'stroke' | 'underline';
 }
 
 export interface TextHighlightAnnotation {
