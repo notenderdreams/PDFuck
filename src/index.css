@@ -545,6 +545,7 @@
   -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(102%);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
+  overscroll-behavior: contain;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.15),
     0 18px 42px -6px rgba(0, 0, 0, 0.4),

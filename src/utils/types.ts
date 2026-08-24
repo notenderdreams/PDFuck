@@ -115,6 +115,9 @@ export interface AiExplanationAnnotation {
   provider: 'codex';
   createdAt: number;
   updatedAt: number;
+  cardX?: number;
+  cardY?: number;
+  isOpen?: boolean;
 }
 
 export type Annotation =

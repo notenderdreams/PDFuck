@@ -7,7 +7,6 @@ import {
   Image as ImageIcon,
   Pencil,
   RotateCcw,
-  Sparkles,
   Trash2,
   X,
   Send,
@@ -60,143 +59,73 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   selectedAnnotationId,
   onSelectAnnotation,
 }) => {
-  const [openId, setOpenId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [editingResponse, setEditingResponse] = useState(false);
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
-  const [isDragging, setIsDragging] = useState(false);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [dragPositions, setDragPositions] = useState<Record<string, { left: number; top: number }>>({});
   const dragStartRef = useRef<{
     clientX: number;
     clientY: number;
-    initialX: number;
-    initialY: number;
-  }>({ clientX: 0, clientY: 0, initialX: 0, initialY: 0 });
+    initialLeft: number;
+    initialTop: number;
+  }>({ clientX: 0, clientY: 0, initialLeft: 0, initialTop: 0 });
 
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const prevActiveRef = useRef<AiExplanationAnnotation | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const promptInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
-  const activeJobId = Object.keys(jobs).find((id) =>
-    annotations.some((annotation) => annotation.id === id)
-  );
-  const activeId = activeJobId || openId;
-  const active = annotations.find((annotation) => annotation.id === activeId);
-  const job = active ? jobs[active.id] : undefined;
-
+  // Auto-resize prompt textarea when needed
   useEffect(() => {
-    if (activeJobId && openId !== activeJobId) {
-      setOpenId(activeJobId);
+    for (const annotation of annotations) {
+      const input = promptInputRefs.current[annotation.id];
+      if (!input || annotation.response || jobs[annotation.id]?.phase === 'running') continue;
+      input.style.height = '0px';
+      input.style.height = `${Math.min(Math.max(input.scrollHeight, 48), 120)}px`;
     }
-  }, [activeJobId, openId]);
+  }, [annotations, drafts, jobs]);
 
+  // Handle escape key
   useEffect(() => {
-    if (
-      selectedAnnotationId &&
-      annotations.some((annotation) => annotation.id === selectedAnnotationId)
-    ) {
-      setOpenId(selectedAnnotationId);
-    }
-  }, [annotations, selectedAnnotationId]);
-
-  // Clean up previous unsubmitted AI selections when switching away
-  useEffect(() => {
-    const prev = prevActiveRef.current;
-    if (prev && prev.id !== active?.id) {
-      if (!prev.response && jobs[prev.id]?.phase !== 'running') {
-        onDelete(prev.id);
-        onCloseJob(prev.id);
-      }
-    }
-    prevActiveRef.current = active ?? null;
-  }, [active, jobs, onCloseJob, onDelete]);
-
-  // Clean up unsubmitted AI selection on unmount
-  useEffect(() => {
-    return () => {
-      const current = prevActiveRef.current;
-      if (current && !current.response && jobs[current.id]?.phase !== 'running') {
-        onDelete(current.id);
-        onCloseJob(current.id);
-      }
-    };
-  }, [jobs, onCloseJob, onDelete]);
-
-  // Reset local state when active annotation changes
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-    setEditingResponse(false);
-    setDrafts((current) =>
-      current[active.id] === undefined
-        ? { ...current, [active.id]: active.prompt }
-        : current
-    );
-  }, [active?.id]);
-
-  useEffect(() => {
-    const input = promptInputRef.current;
-    if (!input || active?.response || job?.phase === 'running') return;
-    input.style.height = '0px';
-    input.style.height = `${Math.min(Math.max(input.scrollHeight, 48), 120)}px`;
-  }, [active?.id, active?.response, drafts, job?.phase]);
-
-  useEffect(() => {
-    if (!activeId) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (job?.phase === 'running') void onCancel(activeId);
-        else onCloseJob(activeId);
-        if (active && !active.response && job?.phase !== 'running') {
-          onDelete(active.id);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedAnnotationId) {
+        const selectedAnn = annotations.find((a) => a.id === selectedAnnotationId);
+        if (selectedAnn) {
+          if (jobs[selectedAnn.id]?.phase === 'running') {
+            void onCancel(selectedAnn.id);
+          }
+          if (!selectedAnn.response && jobs[selectedAnn.id]?.phase !== 'running') {
+            onDelete(selectedAnn.id);
+            onCloseJob(selectedAnn.id);
+          } else {
+            onUpdate(selectedAnn.id, { isOpen: false, updatedAt: Date.now() });
+          }
+          onSelectAnnotation?.(null);
         }
-        setOpenId(null);
-        onSelectAnnotation?.(null);
       }
     };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [annotations, jobs, onCancel, onCloseJob, onDelete, onSelectAnnotation, onUpdate, selectedAnnotationId]);
 
-  useEffect(() => {
-    if (!active || isDragging) return;
-
-    const dismissOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      if (popoverRef.current?.contains(target)) return;
-      if (target?.closest(`[data-ai-annotation-id="${active.id}"]`)) return;
-
-      if (job?.phase === 'running') void onCancel(active.id);
-      onCloseJob(active.id);
-      if (!active.response && job?.phase !== 'running') {
-        onDelete(active.id);
-      }
-      setOpenId(null);
-      onSelectAnnotation?.(null);
-    };
-
-    window.addEventListener('pointerdown', dismissOnOutsidePointer);
-    return () => window.removeEventListener('pointerdown', dismissOnOutsidePointer);
-  }, [active, isDragging, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
-
-  const handleDragPointerDown = (e: React.PointerEvent) => {
+  const handleDragPointerDown = (
+    e: React.PointerEvent,
+    annotation: AiExplanationAnnotation,
+    currentLeft: number,
+    currentTop: number
+  ) => {
     if ((e.target as HTMLElement).closest('button, input, textarea, a, [role="button"]')) {
       return;
     }
     e.preventDefault();
     e.stopPropagation();
-    if (!active) return;
-    setIsDragging(true);
+    setActiveDragId(annotation.id);
+    onSelectAnnotation?.(annotation.id);
 
-    const currentOffset = dragOffsets[active.id] ?? { x: 0, y: 0 };
     dragStartRef.current = {
       clientX: e.clientX,
       clientY: e.clientY,
-      initialX: currentOffset.x,
-      initialY: currentOffset.y,
+      initialLeft: currentLeft,
+      initialTop: currentTop,
     };
 
     try {
@@ -204,60 +133,53 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     } catch {}
   };
 
-  const handleDragPointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || !active) return;
+  const handleDragPointerMove = (
+    e: React.PointerEvent,
+    annotation: AiExplanationAnnotation,
+    cardWidth: number
+  ) => {
+    if (activeDragId !== annotation.id) return;
     const dx = e.clientX - dragStartRef.current.clientX;
     const dy = e.clientY - dragStartRef.current.clientY;
 
-    setDragOffsets((prev) => ({
+    const newLeft = dragStartRef.current.initialLeft + dx;
+    const newTop = dragStartRef.current.initialTop + dy;
+
+    setDragPositions((prev) => ({
       ...prev,
-      [active.id]: {
-        x: dragStartRef.current.initialX + dx,
-        y: dragStartRef.current.initialY + dy,
-      },
+      [annotation.id]: { left: newLeft, top: newTop },
     }));
   };
 
-  const handleDragPointerUp = (e: React.PointerEvent) => {
-    if (isDragging) {
-      setIsDragging(false);
+  const handleDragPointerUp = (
+    e: React.PointerEvent,
+    annotation: AiExplanationAnnotation
+  ) => {
+    if (activeDragId === annotation.id) {
+      setActiveDragId(null);
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {}
+
+      const pos = dragPositions[annotation.id];
+      if (pos) {
+        onUpdate(annotation.id, {
+          cardX: pos.left / pageWidth,
+          cardY: pos.top / pageHeight,
+          updatedAt: Date.now(),
+        });
+      }
     }
   };
-
-  const isPromptComposer = Boolean(active && !active.response && job?.phase !== 'running');
-  const popoverWidth = isPromptComposer
-    ? Math.min(460, Math.max(300, pageWidth - 24))
-    : Math.min(500, Math.max(340, pageWidth - 20));
-
-  let popoverStyle: React.CSSProperties | undefined = undefined;
-
-  if (active) {
-    const selectionLeft = active.x * pageWidth;
-    const baseX = Math.max(8, Math.min(selectionLeft, pageWidth - popoverWidth - 8));
-    const belowSelection = (active.y + active.height) * pageHeight + 10;
-    const baseY = isPromptComposer
-      ? Math.min(belowSelection, Math.max(8, pageHeight - 174))
-      : Math.max(8, Math.min(active.y * pageHeight, Math.max(8, pageHeight - 240)));
-
-    const offset = dragOffsets[active.id] ?? { x: 0, y: 0 };
-
-    popoverStyle = {
-      width: `${popoverWidth}px`,
-      left: `${baseX + offset.x}px`,
-      top: `${baseY + offset.y}px`,
-    };
-  }
 
   const handleRasterizeResponse = async (targetAnnotation: AiExplanationAnnotation) => {
     const rawResponse = drafts[`response_${targetAnnotation.id}`] ?? targetAnnotation.response;
     if (!rawResponse) return;
+    const cardEl = cardRefs.current[targetAnnotation.id];
     try {
       const isDark = document.documentElement.getAttribute('data-ui-theme') === 'dark';
       const raster = await rasterizeResponseCard(
-        popoverRef.current,
+        cardEl,
         targetAnnotation.prompt || 'Explain this section',
         rawResponse,
         isDark
@@ -293,7 +215,6 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       onAddAnnotation(imageAnnotation);
       onDelete(targetAnnotation.id);
       onCloseJob(targetAnnotation.id);
-      setOpenId(null);
       onSelectAnnotation?.(imageAnnotation.id);
     } catch (err) {
       console.error('Failed to rasterize AI response:', err);
@@ -314,9 +235,9 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   return (
     <div className="absolute inset-0 z-30 pointer-events-none">
-      {/* Interactive Selection Hitboxes for AI Boxes */}
+      {/* 1. Interactive Selection Hitboxes for AI Regions on Canvas */}
       {annotations.map((annotation) => {
-        const isSelected = selectedAnnotationId === annotation.id || active?.id === annotation.id;
+        const isSelected = selectedAnnotationId === annotation.id;
 
         return (
           <div
@@ -335,7 +256,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             }}
             onClick={(event) => {
               event.stopPropagation();
-              setOpenId(annotation.id);
+              onUpdate(annotation.id, { isOpen: true, updatedAt: Date.now() });
               onSelectAnnotation?.(annotation.id);
             }}
             role="button"
@@ -345,319 +266,392 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         );
       })}
 
-      {/* The composer or explanation popover is anchored to the selected region. */}
-      {active && (
-        <div
-          ref={popoverRef}
-          style={popoverStyle}
-          role="dialog"
-          aria-label="AI region explanation"
-          className={`absolute pointer-events-auto flex flex-col ${
-            isPromptComposer
-              ? 'ai-prompt-composer-stack'
-              : 'macos-ai-popover max-h-[min(80vh,620px)] overflow-hidden'
-          }`}
-          onPointerDown={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {!isPromptComposer && (
-            <div
-              onPointerDown={handleDragPointerDown}
-              onPointerMove={handleDragPointerMove}
-              onPointerUp={handleDragPointerUp}
-              onPointerCancel={handleDragPointerUp}
-              className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs cursor-grab active:cursor-grabbing"
-              title="Drag to reposition window"
-            >
-              <div className="flex items-center gap-1.5 text-xs font-semibold">
-                <GripHorizontal className="w-3.5 h-3.5 text-[var(--muted-foreground)] opacity-70 hover:opacity-100 shrink-0" />
-                <span className="flex items-center justify-center w-4.5 h-4.5 rounded-md bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-xs">
-                  <Sparkles className="w-2.5 h-2.5" />
-                </span>
-                <span className="text-zinc-100 font-medium tracking-tight">AI Assistant</span>
-                {job?.phase === 'running' && (
-                  <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
-                    Thinking…
-                  </span>
-                )}
-              </div>
+      {/* 2. Persistent AI Sticky Windows (Rendered inside reader page) */}
+      {annotations.map((annotation) => {
+        const job = jobs[annotation.id];
+        const isRunning = job?.phase === 'running';
+        const isPromptComposer = !annotation.response && !isRunning;
+        const isOpen = annotation.isOpen !== false || isPromptComposer || isRunning || selectedAnnotationId === annotation.id;
 
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="macos-ai-action-btn w-6 h-6 rounded-md"
-                  onClick={() => {
-                    if (job?.phase === 'running') void onCancel(active.id);
-                    if (!active.response && job?.phase !== 'running') {
-                      onDelete(active.id);
-                    }
-                    setOpenId(null);
-                    onSelectAnnotation?.(null);
-                    onCloseJob(active.id);
-                  }}
-                  aria-label="Close"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
+        if (!isOpen) return null;
 
-          {/* SCROLLABLE BODY (Handles arbitrarily long responses smoothly) */}
+        const isSelected = selectedAnnotationId === annotation.id;
+        const cardWidth = isPromptComposer
+          ? Math.min(420, Math.max(280, pageWidth - 24))
+          : Math.min(440, Math.max(300, pageWidth - 24));
+
+        // Calculate card position strictly clamped inside page bounds
+        let cardLeft: number;
+        let cardTop: number;
+
+        const liveDrag = dragPositions[annotation.id];
+        if (liveDrag) {
+          cardLeft = liveDrag.left;
+          cardTop = liveDrag.top;
+        } else if (annotation.cardX !== undefined && annotation.cardY !== undefined) {
+          cardLeft = annotation.cardX * pageWidth;
+          cardTop = annotation.cardY * pageHeight;
+        } else {
+          const selectionLeft = annotation.x * pageWidth;
+          const selectionRight = (annotation.x + annotation.width) * pageWidth;
+          const selectionTop = annotation.y * pageHeight;
+          const selectionBottom = (annotation.y + annotation.height) * pageHeight;
+
+          if (isPromptComposer) {
+            cardLeft = Math.max(8, Math.min(selectionLeft, pageWidth - cardWidth - 8));
+            cardTop = selectionBottom + 10;
+          } else {
+            // Default placement in margin next to selection
+            const rightSpace = pageWidth - selectionRight;
+            if (rightSpace >= cardWidth * 0.6) {
+              cardLeft = selectionRight + 16;
+              cardTop = selectionTop;
+            } else {
+              const leftSpace = selectionLeft;
+              if (leftSpace >= cardWidth * 0.6) {
+                cardLeft = selectionLeft - cardWidth - 16;
+                cardTop = selectionTop;
+              } else {
+                cardLeft = selectionRight + 16;
+                cardTop = selectionTop;
+              }
+            }
+          }
+        }
+
+        const isEditing = editingResponseId === annotation.id;
+
+        return (
           <div
-            className={`flex-1 min-h-0 flex flex-col gap-3 select-text ${
+            key={`ai-card-${annotation.id}`}
+            ref={(el) => {
+              cardRefs.current[annotation.id] = el;
+            }}
+            style={{
+              width: `${cardWidth}px`,
+              left: `${cardLeft}px`,
+              top: `${cardTop}px`,
+            }}
+            role="dialog"
+            aria-label="AI explanation note"
+            className={`absolute pointer-events-auto flex flex-col overscroll-contain z-30 ${
               isPromptComposer
-                ? ''
-                : 'p-3.5 overflow-y-auto overflow-x-hidden macos-thin-scrollbar'
+                ? 'ai-prompt-composer-stack'
+                : `macos-ai-popover max-h-[min(78vh,600px)] overflow-hidden ${
+                    isSelected ? 'ring-1 ring-blue-500/40 shadow-2xl' : ''
+                  }`
             }`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelectAnnotation?.(annotation.id);
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onWheel={(event) => event.stopPropagation()}
           >
-            {/* Body: Prompting or Thinking State */}
-            {(!active.response || job) && (
-              <>
-                {job?.phase === 'running' ? (
-                  <div className="flex flex-col gap-3">
-                    <div
-                      className="ai-question-section self-end max-w-[85%] bg-blue-500/10 text-blue-900 dark:text-blue-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm border border-blue-500/20 leading-relaxed font-medium shadow-sm"
-                    >
-                      {drafts[active.id] ?? active.prompt ?? DEFAULT_PROMPT}
-                    </div>
-
-                    {/* Clean Text-Driven Shimmer Thinking Box */}
-                    <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2.5">
-                      <div className="macos-ai-thinking-shimmer" />
-                      <div className="flex flex-col gap-2 relative z-10">
-                        <div className="flex items-center justify-between">
-                          <span className="ai-text-shimmer text-xs">
-                            Thinking & generating explanation…
-                          </span>
-                          <span className="text-[10px] text-zinc-500 font-mono">
-                            Analyzing context
-                          </span>
-                        </div>
-
-                        {/* Clean Shimmer Skeleton Lines */}
-                        <div className="flex flex-col gap-1.5 pt-0.5">
-                          <div className="ai-skeleton-line w-full" />
-                          <div className="ai-skeleton-line w-4/5" />
-                          <div className="ai-skeleton-line w-3/5" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        className="btn-secondary px-3 py-1.5 text-xs"
-                        onClick={() => void onCancel(active.id)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="ai-prompt-composer-content flex flex-col gap-2">
-                    <div className="ai-prompt-presets flex flex-wrap gap-1.5 px-0.5">
-                      {QUICK_PROMPTS.map((qp) => (
-                        <button
-                          key={qp}
-                          type="button"
-                          onClick={() => {
-                            setDrafts((current) => ({ ...current, [active.id]: qp }));
-                            onUpdate(active.id, { prompt: qp, updatedAt: Date.now() });
-                          }}
-                          className="ai-prompt-preset"
-                        >
-                          {qp}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="ai-prompt-composer">
-                      <textarea
-                        ref={promptInputRef}
-                        id={`ai-prompt-${active.id}`}
-                        autoFocus
-                        rows={2}
-                        aria-label="Ask AI about this selection"
-                        value={drafts[active.id] ?? active.prompt}
-                        onChange={(event) => {
-                          setDrafts((current) => ({
-                            ...current,
-                            [active.id]: event.target.value,
-                          }));
-                          onUpdate(active.id, {
-                            prompt: event.target.value,
-                            updatedAt: Date.now(),
-                          });
-                        }}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key === 'Enter' &&
-                            (event.metaKey || event.ctrlKey || !event.shiftKey)
-                          ) {
-                            event.preventDefault();
-                            const promptText = (drafts[active.id] ?? active.prompt).trim();
-                            if (promptText) onSubmit(active, promptText);
-                          }
-                        }}
-                        placeholder="Ask about this selection…"
-                        className="ai-prompt-composer-input w-full resize-none text-sm leading-6 font-sans"
-                      />
-                      <button
-                        type="button"
-                        className="ai-prompt-send"
-                        disabled={!(drafts[active.id] ?? active.prompt).trim()}
-                        onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
-                        title="Explain selection (Enter)"
-                        aria-label="Send prompt"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {job?.phase === 'error' && (
-                      <div
-                        className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg"
-                        role="alert"
-                      >
-                        {job.message}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Settled AI Response View */}
-            {active.response && !job && (
-              <div className="flex flex-col gap-4">
-                <div
-                  data-ai-question="true"
-                  className="ai-question-section self-end max-w-[85%] bg-blue-500/10 text-blue-900 dark:text-blue-100 text-[13px] px-3.5 py-2.5 rounded-2xl rounded-tr-sm border border-blue-500/20 leading-relaxed font-medium shadow-sm"
-                >
-                  {active.prompt}
+            {/* Window Header with Drag Handle */}
+            {!isPromptComposer && (
+              <div
+                onPointerDown={(e) => handleDragPointerDown(e, annotation, cardLeft, cardTop)}
+                onPointerMove={(e) => handleDragPointerMove(e, annotation, cardWidth)}
+                onPointerUp={(e) => handleDragPointerUp(e, annotation)}
+                onPointerCancel={(e) => handleDragPointerUp(e, annotation)}
+                className="flex items-center justify-between gap-2 px-3.5 py-2 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs cursor-grab active:cursor-grabbing"
+                title="Drag to move sticky note"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-semibold">
+                  <GripHorizontal className="w-3.5 h-3.5 text-[var(--muted-foreground)] opacity-70 hover:opacity-100 shrink-0" />
+                  <span className="text-[var(--foreground)] font-medium tracking-tight">AI Assistant</span>
+                  {isRunning && (
+                    <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
+                      Thinking…
+                    </span>
+                  )}
                 </div>
 
-                {editingResponse ? (
-                  <textarea
-                    autoFocus
-                    rows={8}
-                    value={drafts[`response_${active.id}`] ?? active.response}
-                    onChange={(event) => {
-                      setDrafts((current) => ({
-                        ...current,
-                        [`response_${active.id}`]: event.target.value,
-                      }));
-                      onUpdate(active.id, {
-                        response: event.target.value,
-                        updatedAt: Date.now(),
-                      });
-                    }}
-                    className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-zinc-100 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
-                  />
-                ) : (
-                  <div className="py-0.5 px-0.5">
-                    <React.Suspense
-                      fallback={
-                        <div className="text-xs text-zinc-400 p-2">
-                          Rendering explanation…
-                        </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="macos-ai-action-btn w-6 h-6 rounded-md"
+                    onClick={() => {
+                      if (isRunning) void onCancel(annotation.id);
+                      if (!annotation.response && !isRunning) {
+                        onDelete(annotation.id);
+                        onCloseJob(annotation.id);
+                      } else {
+                        onUpdate(annotation.id, { isOpen: false, updatedAt: Date.now() });
                       }
-                    >
-                      <AiResponseRenderer response={active.response} />
-                    </React.Suspense>
+                      onSelectAnnotation?.(null);
+                    }}
+                    aria-label="Close"
+                    title="Close sticky note"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Scrollable Body */}
+            <div
+              className={`flex-1 min-h-0 flex flex-col gap-3 select-text overscroll-contain ${
+                isPromptComposer
+                  ? ''
+                  : 'p-3.5 overflow-y-auto overflow-x-hidden macos-thin-scrollbar'
+              }`}
+              onWheel={(event) => event.stopPropagation()}
+            >
+              {/* Prompt Composer or Thinking State */}
+              {(!annotation.response || isRunning) && (
+                <>
+                  {isRunning ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/60 p-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                          Question
+                        </div>
+                        <div className="text-xs font-medium text-[var(--foreground)] leading-relaxed">
+                          {drafts[annotation.id] ?? annotation.prompt ?? DEFAULT_PROMPT}
+                        </div>
+                      </div>
+
+                      {/* Clean Text-Driven Shimmer Thinking Box */}
+                      <div className="macos-ai-thinking-box p-3.5 flex flex-col gap-2.5">
+                        <div className="macos-ai-thinking-shimmer" />
+                        <div className="flex flex-col gap-2 relative z-10">
+                          <div className="flex items-center justify-between">
+                            <span className="ai-text-shimmer text-xs">
+                              Thinking & generating explanation…
+                            </span>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              Analyzing context
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 pt-0.5">
+                            <div className="ai-skeleton-line w-full" />
+                            <div className="ai-skeleton-line w-4/5" />
+                            <div className="ai-skeleton-line w-3/5" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          className="btn-secondary px-3 py-1.5 text-xs"
+                          onClick={() => void onCancel(annotation.id)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ai-prompt-composer-content flex flex-col gap-2">
+                      <div className="ai-prompt-presets flex flex-wrap gap-1.5 px-0.5">
+                        {QUICK_PROMPTS.map((qp) => (
+                          <button
+                            key={qp}
+                            type="button"
+                            onClick={() => {
+                              setDrafts((current) => ({ ...current, [annotation.id]: qp }));
+                              onUpdate(annotation.id, { prompt: qp, updatedAt: Date.now() });
+                            }}
+                            className="ai-prompt-preset"
+                          >
+                            {qp}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="ai-prompt-composer">
+                        <textarea
+                          ref={(el) => {
+                            promptInputRefs.current[annotation.id] = el;
+                          }}
+                          id={`ai-prompt-${annotation.id}`}
+                          autoFocus
+                          rows={2}
+                          aria-label="Ask AI about this selection"
+                          value={drafts[annotation.id] ?? annotation.prompt}
+                          onChange={(event) => {
+                            setDrafts((current) => ({
+                              ...current,
+                              [annotation.id]: event.target.value,
+                            }));
+                            onUpdate(annotation.id, {
+                              prompt: event.target.value,
+                              updatedAt: Date.now(),
+                            });
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === 'Enter' &&
+                              (event.metaKey || event.ctrlKey || !event.shiftKey)
+                            ) {
+                              event.preventDefault();
+                              const promptText = (drafts[annotation.id] ?? annotation.prompt).trim();
+                              if (promptText) onSubmit(annotation, promptText);
+                            }
+                          }}
+                          placeholder="Ask about this selection…"
+                          className="ai-prompt-composer-input w-full resize-none text-sm leading-6 font-sans"
+                        />
+                        <button
+                          type="button"
+                          className="ai-prompt-send"
+                          disabled={!(drafts[annotation.id] ?? annotation.prompt).trim()}
+                          onClick={() => onSubmit(annotation, drafts[annotation.id] ?? annotation.prompt)}
+                          title="Explain selection (Enter)"
+                          aria-label="Send prompt"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {job?.phase === 'error' && (
+                        <div
+                          className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg"
+                          role="alert"
+                        >
+                          {job.message}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Settled AI Response View */}
+              {annotation.response && !isRunning && (
+                <div className="flex flex-col gap-3">
+                  <div
+                    data-ai-question="true"
+                    className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/60 p-3"
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                      Question
+                    </div>
+                    <div className="text-xs font-medium text-[var(--foreground)] leading-relaxed">
+                      {annotation.prompt || drafts[annotation.id] || DEFAULT_PROMPT}
+                    </div>
                   </div>
-                )}
+
+                  {isEditing ? (
+                    <textarea
+                      autoFocus
+                      rows={8}
+                      value={drafts[`response_${annotation.id}`] ?? annotation.response}
+                      onChange={(event) => {
+                        setDrafts((current) => ({
+                          ...current,
+                          [`response_${annotation.id}`]: event.target.value,
+                        }));
+                      }}
+                      className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--input)] p-2.5 text-xs text-[var(--foreground)] leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
+                    />
+                  ) : (
+                    <div className="py-0.5 px-0.5">
+                      <React.Suspense
+                        fallback={
+                          <div className="text-xs text-zinc-400 p-2">
+                            Rendering explanation…
+                          </div>
+                        }
+                      >
+                        <AiResponseRenderer response={annotation.response} />
+                      </React.Suspense>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sticky Action Footer */}
+            {annotation.response && !isRunning && (
+              <div className="flex items-center justify-between px-3.5 py-2 border-t border-[var(--border)] shrink-0 bg-[var(--secondary)]/40 backdrop-blur-xs select-none">
+                <div className="text-[10px] text-zinc-400 font-mono">
+                  {Math.round(annotation.response.split(/\s+/).filter(Boolean).length)} words
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="macos-ai-action-btn"
+                    title="Rasterize explanation into adjustable image on page"
+                    onClick={() => void handleRasterizeResponse(annotation)}
+                    aria-label="Rasterize as Image"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="macos-ai-action-btn"
+                    title={copiedId === annotation.id ? 'Copied to clipboard' : 'Copy response'}
+                    onClick={() => void handleCopyText(annotation.response, annotation.id)}
+                    aria-label="Copy Response"
+                  >
+                    {copiedId === annotation.id ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="macos-ai-action-btn"
+                    title={isEditing ? 'Save edit' : 'Edit response'}
+                    onClick={() => {
+                      if (isEditing) {
+                        onUpdate(annotation.id, {
+                          response: drafts[`response_${annotation.id}`] ?? annotation.response,
+                          updatedAt: Date.now(),
+                        });
+                        setEditingResponseId(null);
+                      } else {
+                        setEditingResponseId(annotation.id);
+                      }
+                    }}
+                    aria-label={isEditing ? 'Save edit' : 'Edit response'}
+                  >
+                    {isEditing ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Pencil className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="macos-ai-action-btn"
+                    title="Regenerate"
+                    onClick={() => {
+                      setDrafts((current) => ({ ...current, [annotation.id]: annotation.prompt }));
+                      onCloseJob(annotation.id);
+                      onSubmit(annotation, annotation.prompt);
+                    }}
+                    aria-label="Regenerate"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="macos-ai-action-btn macos-ai-action-btn-danger"
+                    title="Delete"
+                    onClick={() => {
+                      onDelete(annotation.id);
+                      onCloseJob(annotation.id);
+                    }}
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
-
-          {/* STICKY FOOTER (Action Toolbar for Settled Response) */}
-          {active.response && !job && (
-            <div className="flex items-center justify-between px-3.5 py-2 border-t border-[var(--border)] shrink-0 bg-[var(--secondary)]/40 backdrop-blur-xs select-none">
-              <div className="text-[10px] text-zinc-400 font-mono">
-                {Math.round(active.response.split(/\s+/).filter(Boolean).length)} words
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="macos-ai-action-btn"
-                  title="Rasterize explanation into adjustable image on page"
-                  onClick={() => void handleRasterizeResponse(active)}
-                  aria-label="Rasterize as Image"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className="macos-ai-action-btn"
-                  title={copiedId === active.id ? 'Copied to clipboard' : 'Copy response'}
-                  onClick={() => void handleCopyText(active.response, active.id)}
-                  aria-label="Copy Response"
-                >
-                  {copiedId === active.id ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="macos-ai-action-btn"
-                  title={editingResponse ? 'Save edit' : 'Edit response'}
-                  onClick={() => {
-                    if (editingResponse) {
-                      onUpdate(active.id, {
-                        response: drafts[`response_${active.id}`] ?? active.response,
-                        updatedAt: Date.now(),
-                      });
-                    }
-                    setEditingResponse(!editingResponse);
-                  }}
-                  aria-label={editingResponse ? 'Save edit' : 'Edit response'}
-                >
-                  {editingResponse ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Pencil className="w-3.5 h-3.5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="macos-ai-action-btn"
-                  title="Regenerate"
-                  onClick={() => {
-                    setDrafts((current) => ({ ...current, [active.id]: active.prompt }));
-                    setOpenId(null);
-                    onCloseJob(active.id);
-                    requestAnimationFrame(() => setOpenId(active.id));
-                    onSubmit(active, active.prompt);
-                  }}
-                  aria-label="Regenerate"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className="macos-ai-action-btn macos-ai-action-btn-danger"
-                  title="Delete"
-                  onClick={() => {
-                    onDelete(active.id);
-                    onCloseJob(active.id);
-                    setOpenId(null);
-                  }}
-                  aria-label="Delete"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 };

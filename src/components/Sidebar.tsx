@@ -134,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       aria-label="Navigation Sidebar"
-      className={`macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-30 select-none shadow-2xl border-r border-[var(--border)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`macos-sidebar absolute inset-y-0 left-0 w-68 sm:w-72 flex flex-col z-40 select-none shadow-2xl border-r border-[var(--border)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         isOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
       }`}
     >
