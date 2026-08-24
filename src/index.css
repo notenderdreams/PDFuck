@@ -870,14 +870,36 @@
 
 [data-ui-theme] input,
 [data-ui-theme] select,
-[data-ui-theme] textarea { caret-color: var(--primary); }
-[data-ui-theme] :focus-visible { outline: 2px solid var(--ring); outline-offset: 1.5px; }
+[data-ui-theme] textarea {
+  caret-color: var(--primary);
+  outline: none !important;
+  outline-style: none !important;
+}
+
+[data-ui-theme] :focus-visible:not(input):not(textarea):not(select):not(.control-field):not(.macos-search-field):not(.control-field *) {
+  outline: 2px solid var(--ring);
+  outline-offset: 1.5px;
+}
+
+[data-ui-theme] input:focus,
+[data-ui-theme] input:focus-visible,
+[data-ui-theme] textarea:focus,
+[data-ui-theme] textarea:focus-visible,
+[data-ui-theme] select:focus,
+[data-ui-theme] select:focus-visible,
+[data-ui-theme] .control-field:focus,
+[data-ui-theme] .control-field:focus-visible,
+[data-ui-theme] .control-field:focus-within,
+[data-ui-theme] .macos-search-field:focus,
+[data-ui-theme] .macos-search-field:focus-visible,
+[data-ui-theme] .macos-search-field:focus-within,
 [data-ui-theme] .ai-prompt-composer-input:focus,
 [data-ui-theme] .ai-prompt-composer-input:focus-visible {
-  border: 0;
-  outline: none;
-  outline-offset: 0;
-  box-shadow: none;
+  outline: none !important;
+  outline-offset: 0 !important;
+  outline-style: none !important;
+  box-shadow: none !important;
+  -webkit-focus-ring-color: transparent !important;
 }
 
 /* macOS window materials -------------------------------------------------- */
@@ -948,6 +970,9 @@
 }
 
 .reader-document-title > div { max-width: min(17rem, 100%); }
+
+.macos-segmented-group,
+.macos-page-control,
 .reader-titlebar-center .macos-page-control {
   flex: 0 0 auto;
   border: 0.5px solid rgba(0, 0, 0, 0.12) !important;
@@ -957,8 +982,9 @@
   overflow: hidden;
 }
 
-[data-ui-theme='dark'] .reader-titlebar-center .macos-page-control,
-[data-ui-theme='dark'] .macos-page-control {
+[data-ui-theme='dark'] .macos-segmented-group,
+[data-ui-theme='dark'] .macos-page-control,
+[data-ui-theme='dark'] .reader-titlebar-center .macos-page-control {
   background: #111115 !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
@@ -981,20 +1007,6 @@
 }
 
 .macos-topbar-icon:active { transform: scale(0.95); }
-
-/* Reader toolbar groups */
-.reader-titlebar .macos-toolbar-group:not(.macos-page-control) {
-  border: 0.5px solid var(--border);
-  background: color-mix(in srgb, var(--card) 76%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  overflow: hidden;
-}
-
-.reader-titlebar .macos-toolbar-group-action,
-.reader-titlebar .macos-toolbar-group-icon {
-  border-radius: 6px;
-}
 
 .macos-sidebar-collapse-control {
   display: inline-flex;
@@ -1140,14 +1152,20 @@
   left: 0;
   pointer-events: none;
   border-radius: 6px;
-  background: var(--card);
-  border: 0.5px solid var(--border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
-  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-              width 240ms cubic-bezier(0.16, 1, 0.3, 1),
-              height 240ms cubic-bezier(0.16, 1, 0.3, 1),
+  background: #ffffff;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              width 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              height 220ms cubic-bezier(0.16, 1, 0.3, 1),
               opacity 150ms ease;
   z-index: 1;
+}
+
+[data-ui-theme='dark'] .macos-tab-sliding-indicator {
+  background: #24242c !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 0.5px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
 .macos-dock-item {
@@ -1407,15 +1425,6 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
 }
 
-.macos-page-control {
-  background: color-mix(in srgb, #000 8%, var(--workspace));
-  border: 0.5px solid var(--border);
-  border-radius: 8px;
-  padding: 3px 8px;
-  gap: 6px;
-  min-height: 2.125rem;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.7);
-}
 .macos-page-control input { background: transparent !important; color: var(--foreground) !important; padding: 2px 4px; }
 .macos-reader-inline-action {
   display: inline-flex;
@@ -1459,13 +1468,29 @@
   background: var(--secondary) !important;
   border: 0.5px solid var(--border) !important;
   border-radius: 8px !important;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .control-field:focus-within {
   background: var(--card) !important;
-  border-color: var(--ring) !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 25%, transparent) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.control-field input,
+.macos-search-field input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.control-field input:focus,
+.macos-search-field input:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .macos-search-field {

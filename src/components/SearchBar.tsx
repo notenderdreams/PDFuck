@@ -60,7 +60,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Find in document..."
-          className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none w-44 font-sans"
+          className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-0 outline-none w-44 font-sans"
         />
         {isSearching && <Loader2 className="w-3 h-3 text-zinc-400 animate-spin" />}
       </div>

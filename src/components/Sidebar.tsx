@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Tab Header Strip (Tahoe Segmented Navigation) */}
       <div className="p-2.5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
-        <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)] relative">
+        <div className="macos-segmented-group flex items-center gap-0.5 p-1 rounded-lg relative">
           {/* Smooth Sliding Tab Highlighter Box */}
           <div
             className="macos-tab-sliding-indicator"

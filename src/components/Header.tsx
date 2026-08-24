@@ -225,7 +225,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* View Mode Segmented Controls with Smooth Sliding Highlighter Box */}
-        <div className="flex items-center gap-1 bg-[var(--secondary)] p-1 rounded-lg border border-[var(--border)] relative hidden md:flex">
+        <div className="macos-segmented-group flex items-center gap-0.5 p-1 rounded-lg relative hidden md:flex">
           <div
             className="macos-tab-sliding-indicator"
             style={{
@@ -286,35 +286,38 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="reader-toolbar-divider hidden sm:block" aria-hidden="true" />
 
         {/* Zoom Controls */}
-        <div className="macos-toolbar-group macos-reader-zoom flex items-center px-2 py-1 gap-1 font-mono text-[11px] text-zinc-300">
+        <div className="flex items-center gap-0.5 font-mono text-[11px] text-zinc-300">
           <button
             onClick={() => onChangeZoom(Math.max(0.4, zoom - 0.15))}
-            className="hover:text-white px-1 text-zinc-400"
+            className="w-6 h-6 rounded-md flex items-center justify-center text-zinc-400 hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition-colors"
             title="Zoom Out (Cmd -)"
           >
             -
           </button>
           <button
             onClick={() => onChangeZoom(1.0)}
-            className="w-9 text-center hover:text-white hover:bg-white/10 rounded py-0.5 transition-colors cursor-pointer"
+            className="min-w-[2.25rem] px-1.5 py-0.5 rounded-md text-center text-zinc-300 hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition-colors cursor-pointer"
             title="Reset Zoom to 100% (Cmd 0)"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={() => onChangeZoom(Math.min(3.0, zoom + 0.15))}
-            className="hover:text-white px-1 text-zinc-400"
+            className="w-6 h-6 rounded-md flex items-center justify-center text-zinc-400 hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition-colors"
             title="Zoom In (Cmd +)"
           >
             +
           </button>
         </div>
 
-        <div className="macos-toolbar-group hidden lg:flex">
-          <button onClick={onToggleZen} className="macos-toolbar-group-icon" title="Fullscreen Focus (F)">
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {/* Fullscreen Focus (Zen Mode) */}
+        <button
+          onClick={onToggleZen}
+          className="macos-topbar-icon hidden lg:inline-flex"
+          title="Fullscreen Focus (F)"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+        </button>
 
         {/* Primary Save PDF Button */}
         <button

@@ -343,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search library documents..."
-              className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none w-full font-sans"
+              className="bg-transparent text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-0 outline-none w-full font-sans"
             />
             {searchQuery && (
               <button
