@@ -7,6 +7,8 @@ import type { AiExplanationAnnotation } from '../utils/types';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
 
+const EMPTY_ANNOTATIONS: Annotation[] = [];
+
 interface PDFViewerProps {
   pdfDoc: PDFDocumentProxy | null;
   rawPdfBytes: Uint8Array | null;
@@ -92,11 +94,26 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   // Programmatic scroll flags to eliminate feedback loops between scroll events and onPageChange
   const isProgrammaticScrollRef = useRef(false);
   const programmaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentPageRef = useRef<number>(currentPage);
+  currentPageRef.current = currentPage;
   const lastReportedPageRef = useRef<number>(currentPage);
   const lastNavTimestampRef = useRef<number>(0);
   const prevDocRef = useRef<PDFDocumentProxy | null>(null);
   const prevViewModeRef = useRef<ViewMode>(viewMode);
   const prevPropCurrentPageRef = useRef<number>(currentPage);
+
+  const annotationsByPage = React.useMemo(() => {
+    const map = new Map<number, Annotation[]>();
+    for (const ann of annotations) {
+      const list = map.get(ann.pageNumber);
+      if (list) {
+        list.push(ann);
+      } else {
+        map.set(ann.pageNumber, [ann]);
+      }
+    }
+    return map;
+  }, [annotations]);
 
   // Track Spacebar for Space+Drag Panning (Hand Tool mode)
   useEffect(() => {
@@ -181,8 +198,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         }
 
         if (isNewDoc || isNewMode) {
-          if (currentPage > 1) {
-            scrollToPage(currentPage, 'instant');
+          const targetPage = currentPageRef.current;
+          if (targetPage > 1) {
+            scrollToPage(targetPage, 'instant');
           }
         }
       };
@@ -191,7 +209,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       const timer = setTimeout(centerAndRestore, 120);
       return () => clearTimeout(timer);
     }
-  }, [pdfDoc, viewMode, currentPage, scrollToPage]);
+  }, [pdfDoc, viewMode, scrollToPage]);
 
   // Handle explicit page jump requests (from sidebar thumbnail click, outline click, search result click, etc.)
   useEffect(() => {
@@ -252,7 +270,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
         let focalPage: number | null = null;
         let maxOverlap = 0;
-        let maxOverlapPage = currentPage;
+        let maxOverlapPage = lastReportedPageRef.current;
 
         for (let i = 0; i < pageElements.length; i++) {
           const el = pageElements[i];
@@ -290,7 +308,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       container.removeEventListener('scroll', handleScroll);
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [viewMode, pdfDoc, onPageChange, currentPage]);
+  }, [viewMode, pdfDoc, onPageChange]);
 
   // Mouse Wheel: Pinch-to-zoom and intuitive single-page turn on boundary scroll
   useEffect(() => {
@@ -491,7 +509,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 selectedColor={selectedColor}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
-                annotations={annotations}
+                annotations={annotationsByPage.get(pageNum) || EMPTY_ANNOTATIONS}
                 selectedAnnotationId={selectedAnnotationId}
                 onSelectAnnotation={onSelectAnnotation}
                 onAddAnnotation={onAddAnnotation}
@@ -529,7 +547,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               selectedColor={selectedColor}
               strokeWidth={strokeWidth}
               opacity={opacity}
-              annotations={annotations}
+              annotations={annotationsByPage.get(currentPage) || EMPTY_ANNOTATIONS}
               selectedAnnotationId={selectedAnnotationId}
               onSelectAnnotation={onSelectAnnotation}
               onAddAnnotation={onAddAnnotation}
@@ -567,7 +585,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 selectedColor={selectedColor}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
-                annotations={annotations}
+                annotations={
+                  annotationsByPage.get(currentPage % 2 === 0 ? currentPage - 1 : currentPage) ||
+                  EMPTY_ANNOTATIONS
+                }
                 selectedAnnotationId={selectedAnnotationId}
                 onSelectAnnotation={onSelectAnnotation}
                 onAddAnnotation={onAddAnnotation}
@@ -600,7 +621,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   selectedColor={selectedColor}
                   strokeWidth={strokeWidth}
                   opacity={opacity}
-                  annotations={annotations}
+                  annotations={
+                    annotationsByPage.get(currentPage % 2 === 0 ? currentPage : currentPage + 1) ||
+                    EMPTY_ANNOTATIONS
+                  }
                   selectedAnnotationId={selectedAnnotationId}
                   onSelectAnnotation={onSelectAnnotation}
                   onAddAnnotation={onAddAnnotation}

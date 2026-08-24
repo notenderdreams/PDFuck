@@ -28,9 +28,10 @@ export function usePDFDocument() {
       filePath?: string,
       initialPageNumber?: number,
       documentKeyOverride?: string,
-      documentFingerprintOverride?: string
+      documentFingerprintOverride?: string,
+      silent: boolean = false
     ) => {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       setError(null);
       try {
         // PDF.js may transfer its input buffer to the worker. Keep an owned copy
@@ -113,7 +114,7 @@ export function usePDFDocument() {
         setError(err instanceof Error ? err.message : 'Failed to load PDF');
         return false;
       } finally {
-        setIsLoading(false);
+        if (!silent) setIsLoading(false);
       }
     },
     []

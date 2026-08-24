@@ -526,7 +526,11 @@ export function App() {
         return;
       }
 
+      // Close the confirmation dialog immediately so the user can continue uninterrupted
+      setPagePendingDeletion(null);
       setIsDeletingPage(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       try {
         const updatedBytes = await deletePageFromPdf(rawPdfBytes, pageNumber);
         const updatedAnnotations = reindexAfterPageDeletion(annotations, pageNumber);
@@ -547,7 +551,8 @@ export function App() {
           docInfo.filePath,
           nextPage,
           docKey,
-          docInfo.fingerprint
+          docInfo.fingerprint,
+          true
         );
         if (!reloaded) {
           showToast('Could not reload the PDF after deleting the page.', true);
@@ -559,11 +564,10 @@ export function App() {
         setSelectedAnnotationId(null);
         cursorPosRef.current = null;
         setPageNavRequest({ page: nextPage, timestamp: Date.now() });
-        setPagePendingDeletion(null);
         showToast(
           isTauri() && docInfo.filePath
-            ? `Deleted Page ${pageNumber} and saved the PDF.`
-            : `Deleted Page ${pageNumber}. Save the PDF to keep this change.`
+            ? `Page ${pageNumber} deleted and changes saved`
+            : `Page ${pageNumber} deleted`
         );
       } catch (error) {
         console.error('Failed to delete PDF page:', error);

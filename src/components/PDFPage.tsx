@@ -50,7 +50,7 @@ interface PDFPageProps {
   isFlush?: boolean;
 }
 
-export const PDFPage: React.FC<PDFPageProps> = ({
+export const PDFPageComponent: React.FC<PDFPageProps> = ({
   pdfDoc,
   pageNumber,
   scale,
@@ -94,7 +94,57 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const renderTaskRef = useRef<unknown>(null);
 
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(
+    typeof IntersectionObserver === 'undefined'
+  );
+
+  // Measure page dimensions quickly without full rasterization
   useEffect(() => {
+    let cancelled = false;
+    pdfDoc
+      .getPage(pageNumber)
+      .then((page) => {
+        if (cancelled) return;
+        const baseViewport = page.getViewport({ scale });
+        setPageDimensions({
+          width: Math.floor(baseViewport.width),
+          height: Math.floor(baseViewport.height),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDoc, pageNumber, scale]);
+
+  // Observer to trigger canvas & textLayer rendering once near viewport
+  useEffect(() => {
+    if (hasEnteredViewport) return;
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setHasEnteredViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setHasEnteredViewport(true);
+            observer.disconnect();
+          }
+        }
+      },
+      { rootMargin: '800px 0px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasEnteredViewport]);
+
+  useEffect(() => {
+    if (!hasEnteredViewport) return;
+
     let isCancelled = false;
 
     const renderPage = async () => {
@@ -172,7 +222,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         } catch {}
       }
     };
-  }, [pdfDoc, pageNumber, scale]);
+  }, [pdfDoc, pageNumber, scale, hasEnteredViewport]);
 
   // Track cursor coordinates across the page
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -371,3 +421,5 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     </div>
   );
 };
+
+export const PDFPage = React.memo(PDFPageComponent);

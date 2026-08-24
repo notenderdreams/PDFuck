@@ -229,7 +229,7 @@ export async function deletePageFromPdf(
   pdfBytes: Uint8Array,
   pageNumber: number
 ): Promise<Uint8Array> {
-  const document = await PDFDocument.load(pdfBytes);
+  const document = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pageCount = document.getPageCount();
   if (pageCount <= 1) throw new Error('A PDF must keep at least one page.');
   if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > pageCount) {
@@ -237,7 +237,7 @@ export async function deletePageFromPdf(
   }
 
   document.removePage(pageNumber - 1);
-  return document.save();
+  return document.save({ useObjectStreams: true });
 }
 
 /** Remove entries attached to a deleted page and shift later ones, preserving unpaged entries. */
