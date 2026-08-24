@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import 'katex/dist/katex.min.css';
 import { normalizeAiResponseMarkdown } from '../utils/aiResponseMarkdown';
+import { openExternalUrl } from '../utils/tauriBridge';
 
 interface AiResponseRendererProps {
   response: string;
@@ -19,8 +20,19 @@ export const AiResponseRenderer: React.FC<AiResponseRendererProps> = ({ response
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[[rehypeKatex, { strict: false, throwOnError: false }]]}
         components={{
-          a: ({ children, ...props }) => (
-            <a {...props} target="_blank" rel="noreferrer">
+          a: ({ children, href, ...props }) => (
+            <a
+              {...props}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                if (href) {
+                  e.preventDefault();
+                  void openExternalUrl(href);
+                }
+              }}
+            >
               {children}
             </a>
           ),

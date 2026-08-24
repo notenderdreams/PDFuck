@@ -796,9 +796,36 @@ fn copy_text_to_clipboard(text: String) -> bool {
     clipboard.set_text(text).is_ok()
 }
 
+fn is_valid_external_url(url: &str) -> bool {
+    let trimmed = url.trim();
+    trimmed.starts_with("https://") || trimmed.starts_with("http://") || trimmed.starts_with("mailto:")
+}
+
+#[tauri::command]
+fn open_url(url: String) -> bool {
+    if !is_valid_external_url(&url) {
+        return false;
+    }
+    let target = url.trim();
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open").arg(target).spawn().is_ok()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd").args(["/C", "start", "", target]).spawn().is_ok()
+    }
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        Command::new("xdg-open").arg(target).spawn().is_ok()
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(AiRunnerState::default())
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -826,6 +853,7 @@ pub fn run() {
             set_ai_provider_executable,
             run_ai_explanation,
             cancel_ai_explanation,
+            open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

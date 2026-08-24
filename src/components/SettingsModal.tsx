@@ -18,7 +18,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { ReadingTheme, ThemeSettings, ViewMode } from '../utils/types';
-import { isTauri } from '../utils/tauriBridge';
+import { isTauri, openExternalUrl } from '../utils/tauriBridge';
 
 type SettingsTab = 'general' | 'appearance' | 'ai' | 'shortcuts' | 'about';
 
@@ -530,7 +530,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     href="https://github.com/notenderdreams/PDFuck"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative p-3.5 rounded-xl bg-[var(--workspace)] border border-[var(--border)] hover:bg-[var(--secondary)] hover:border-[var(--muted-foreground)]/30 transition-all flex flex-col items-center justify-center text-center gap-1.5 group shadow-2xs hover:-translate-y-0.5"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void openExternalUrl('https://github.com/notenderdreams/PDFuck');
+                    }}
+                    className="relative p-3.5 rounded-xl bg-[var(--workspace)] border border-[var(--border)] hover:bg-[var(--secondary)] hover:border-[var(--muted-foreground)]/30 transition-all flex flex-col items-center justify-center text-center gap-1.5 group shadow-2xs hover:-translate-y-0.5 cursor-pointer"
                   >
                     <ArrowUpRight className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-[var(--subtle-foreground)] group-hover:text-[var(--foreground)] transition-colors" />
                     <div className="w-9 h-9 rounded-lg bg-[var(--secondary)] border border-[var(--border)] text-[var(--foreground)] flex items-center justify-center group-hover:text-[var(--primary)] group-hover:border-[var(--primary)]/30 transition-all">
@@ -551,7 +555,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     href="https://github.com/notenderdreams/PDFuck/issues"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative p-3.5 rounded-xl bg-[var(--workspace)] border border-[var(--border)] hover:bg-[var(--secondary)] hover:border-[var(--muted-foreground)]/30 transition-all flex flex-col items-center justify-center text-center gap-1.5 group shadow-2xs hover:-translate-y-0.5"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void openExternalUrl('https://github.com/notenderdreams/PDFuck/issues');
+                    }}
+                    className="relative p-3.5 rounded-xl bg-[var(--workspace)] border border-[var(--border)] hover:bg-[var(--secondary)] hover:border-[var(--muted-foreground)]/30 transition-all flex flex-col items-center justify-center text-center gap-1.5 group shadow-2xs hover:-translate-y-0.5 cursor-pointer"
                   >
                     <ArrowUpRight className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-[var(--subtle-foreground)] group-hover:text-[var(--foreground)] transition-colors" />
                     <div className="w-9 h-9 rounded-lg bg-[var(--secondary)] border border-[var(--border)] text-[var(--foreground)] flex items-center justify-center group-hover:text-[var(--primary)] group-hover:border-[var(--primary)]/30 transition-all">
@@ -572,7 +580,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     href="https://github.com/notenderdreams"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative p-3.5 rounded-xl bg-[var(--workspace)] border border-[var(--border)] hover:bg-[var(--secondary)] hover:border-[var(--muted-foreground)]/30 transition-all flex flex-col items-center justify-center text-center gap-1.5 group shadow-2xs hover:-translate-y-0.5"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void openExternalUrl('https://github.com/notenderdreams');
+                    }}
+                    className="relative p-3.5 rounded-xl bg-[var(--workspace)] border border-[var(--border)] hover:bg-[var(--secondary)] hover:border-[var(--muted-foreground)]/30 transition-all flex flex-col items-center justify-center text-center gap-1.5 group shadow-2xs hover:-translate-y-0.5 cursor-pointer"
                   >
                     <ArrowUpRight className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-[var(--subtle-foreground)] group-hover:text-[var(--foreground)] transition-colors" />
                     <div className="w-9 h-9 rounded-lg bg-[var(--secondary)] border border-[var(--border)] text-[var(--foreground)] flex items-center justify-center group-hover:text-[var(--primary)] group-hover:border-[var(--primary)]/30 transition-all">
