@@ -3,6 +3,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import {
   Check,
   Copy,
+  GripHorizontal,
   Image as ImageIcon,
   Pencil,
   RotateCcw,
@@ -63,6 +64,15 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingResponse, setEditingResponse] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{
+    clientX: number;
+    clientY: number;
+    initialX: number;
+    initialY: number;
+  }>({ clientX: 0, clientY: 0, initialX: 0, initialY: 0 });
+
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
   const prevActiveRef = useRef<AiExplanationAnnotation | null>(null);
@@ -152,7 +162,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || isDragging) return;
 
     const dismissOnOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Element | null;
@@ -170,7 +180,52 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
     window.addEventListener('pointerdown', dismissOnOutsidePointer);
     return () => window.removeEventListener('pointerdown', dismissOnOutsidePointer);
-  }, [active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
+  }, [active, isDragging, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
+
+  const handleDragPointerDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button, input, textarea, a, [role="button"]')) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    if (!active) return;
+    setIsDragging(true);
+
+    const currentOffset = dragOffsets[active.id] ?? { x: 0, y: 0 };
+    dragStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      initialX: currentOffset.x,
+      initialY: currentOffset.y,
+    };
+
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleDragPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging || !active) return;
+    const dx = e.clientX - dragStartRef.current.clientX;
+    const dy = e.clientY - dragStartRef.current.clientY;
+
+    setDragOffsets((prev) => ({
+      ...prev,
+      [active.id]: {
+        x: dragStartRef.current.initialX + dx,
+        y: dragStartRef.current.initialY + dy,
+      },
+    }));
+  };
+
+  const handleDragPointerUp = (e: React.PointerEvent) => {
+    if (isDragging) {
+      setIsDragging(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
 
   const isPromptComposer = Boolean(active && !active.response && job?.phase !== 'running');
   const popoverWidth = isPromptComposer
@@ -187,10 +242,12 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       ? Math.min(belowSelection, Math.max(8, pageHeight - 174))
       : Math.max(8, Math.min(active.y * pageHeight, Math.max(8, pageHeight - 240)));
 
+    const offset = dragOffsets[active.id] ?? { x: 0, y: 0 };
+
     popoverStyle = {
       width: `${popoverWidth}px`,
-      left: `${baseX}px`,
-      top: `${baseY}px`,
+      left: `${baseX + offset.x}px`,
+      top: `${baseY + offset.y}px`,
     };
   }
 
@@ -305,8 +362,16 @@ export const AiExplanationOverlay: React.FC<Props> = ({
           onClick={(event) => event.stopPropagation()}
         >
           {!isPromptComposer && (
-            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs">
-              <div className="flex items-center gap-2 text-xs font-semibold">
+            <div
+              onPointerDown={handleDragPointerDown}
+              onPointerMove={handleDragPointerMove}
+              onPointerUp={handleDragPointerUp}
+              onPointerCancel={handleDragPointerUp}
+              className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs cursor-grab active:cursor-grabbing"
+              title="Drag to reposition window"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                <GripHorizontal className="w-3.5 h-3.5 text-[var(--muted-foreground)] opacity-70 hover:opacity-100 shrink-0" />
                 <span className="flex items-center justify-center w-4.5 h-4.5 rounded-md bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-xs">
                   <Sparkles className="w-2.5 h-2.5" />
                 </span>
