@@ -919,15 +919,15 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               const nextStyle = selectedHighlight.style === 'underline' ? 'box' : 'underline';
               onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
             }}
-            className={`px-1.5 py-0.5 rounded flex items-center gap-1 text-[11px] font-medium transition-colors border ${
+            className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
               selectedHighlight.style === 'underline'
                 ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
             }`}
-            title={selectedHighlight.style === 'underline' ? 'Switch to Box' : 'Switch to Underline'}
+            title={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
+            aria-label={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
           >
             <Underline className="w-3.5 h-3.5" />
-            <span className="text-[10px]">Underline</span>
           </button>
 
           {/* Delete Button */}
