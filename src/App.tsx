@@ -829,6 +829,7 @@ export function App() {
                 onCaptureSnippet={handleCaptureSnippet}
                 aiJobs={aiExplanations.jobs}
                 onAiBoxCreated={(id) => {
+                  setSelectedAnnotationId(id);
                   aiExplanations.openComposer(id);
                   setActiveTool('select');
                 }}

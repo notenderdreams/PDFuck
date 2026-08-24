@@ -65,6 +65,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const prevActiveRef = useRef<AiExplanationAnnotation | null>(null);
+
   const activeJobId = Object.keys(jobs).find((id) =>
     annotations.some((annotation) => annotation.id === id)
   );
@@ -86,6 +88,29 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       setOpenId(selectedAnnotationId);
     }
   }, [annotations, selectedAnnotationId]);
+
+  // Clean up previous unsubmitted AI selections when switching away
+  useEffect(() => {
+    const prev = prevActiveRef.current;
+    if (prev && prev.id !== active?.id) {
+      if (!prev.response && jobs[prev.id]?.phase !== 'running') {
+        onDelete(prev.id);
+        onCloseJob(prev.id);
+      }
+    }
+    prevActiveRef.current = active ?? null;
+  }, [active, jobs, onCloseJob, onDelete]);
+
+  // Clean up unsubmitted AI selection on unmount
+  useEffect(() => {
+    return () => {
+      const current = prevActiveRef.current;
+      if (current && !current.response && jobs[current.id]?.phase !== 'running') {
+        onDelete(current.id);
+        onCloseJob(current.id);
+      }
+    };
+  }, [jobs, onCloseJob, onDelete]);
 
   // Reset local state when active annotation changes
   useEffect(() => {
@@ -113,6 +138,9 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       if (event.key === 'Escape') {
         if (job?.phase === 'running') void onCancel(activeId);
         else onCloseJob(activeId);
+        if (active && !active.response && job?.phase !== 'running') {
+          onDelete(active.id);
+        }
         setOpenId(null);
         onSelectAnnotation?.(null);
       }
@@ -121,42 +149,28 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     return () => {
       window.removeEventListener('keydown', closeOnEscape);
     };
-  }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete]);
+  }, [activeId, active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
 
   useEffect(() => {
-    if (!active || (active.response && job?.phase !== 'running')) return;
+    if (!active) return;
 
     const dismissOnOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Element | null;
       if (popoverRef.current?.contains(target)) return;
       if (target?.closest(`[data-ai-annotation-id="${active.id}"]`)) return;
 
-      const pageRect = popoverRef.current?.parentElement?.getBoundingClientRect();
-      if (pageRect) {
-        const selectionLeft = pageRect.left + active.x * pageWidth;
-        const selectionTop = pageRect.top + active.y * pageHeight;
-        const selectionRight = selectionLeft + active.width * pageWidth;
-        const selectionBottom = selectionTop + active.height * pageHeight;
-        if (
-          event.clientX >= selectionLeft &&
-          event.clientX <= selectionRight &&
-          event.clientY >= selectionTop &&
-          event.clientY <= selectionBottom
-        ) {
-          return;
-        }
-      }
-
       if (job?.phase === 'running') void onCancel(active.id);
       onCloseJob(active.id);
-      onDelete(active.id);
+      if (!active.response && job?.phase !== 'running') {
+        onDelete(active.id);
+      }
       setOpenId(null);
       onSelectAnnotation?.(null);
     };
 
     window.addEventListener('pointerdown', dismissOnOutsidePointer);
     return () => window.removeEventListener('pointerdown', dismissOnOutsidePointer);
-  }, [active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation, pageHeight, pageWidth]);
+  }, [active, job?.phase, onCancel, onCloseJob, onDelete, onSelectAnnotation]);
 
   const isPromptComposer = Boolean(active && !active.response && job?.phase !== 'running');
   const popoverWidth = isPromptComposer
@@ -243,7 +257,38 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   return (
     <div className="absolute inset-0 z-30 pointer-events-none">
-      {/* The composer is deliberately anchored to the selected region, not a detached window. */}
+      {/* Interactive Selection Hitboxes for AI Boxes */}
+      {annotations.map((annotation) => {
+        const isSelected = selectedAnnotationId === annotation.id || active?.id === annotation.id;
+
+        return (
+          <div
+            key={`ai-hitbox-${annotation.id}`}
+            data-ai-annotation-id={annotation.id}
+            className={`absolute pointer-events-auto cursor-pointer transition-all duration-150 ${
+              isSelected
+                ? 'ring-2 ring-blue-500/80 bg-blue-500/10'
+                : 'hover:bg-blue-500/10'
+            }`}
+            style={{
+              left: `${annotation.x * pageWidth}px`,
+              top: `${annotation.y * pageHeight}px`,
+              width: `${annotation.width * pageWidth}px`,
+              height: `${annotation.height * pageHeight}px`,
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpenId(annotation.id);
+              onSelectAnnotation?.(annotation.id);
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={annotation.response ? 'Open AI explanation' : 'Open AI prompt'}
+          />
+        );
+      })}
+
+      {/* The composer or explanation popover is anchored to the selected region. */}
       {active && (
         <div
           ref={popoverRef}
@@ -259,42 +304,50 @@ export const AiExplanationOverlay: React.FC<Props> = ({
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          {!isPromptComposer && <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs">
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <span className="flex items-center justify-center w-4.5 h-4.5 rounded-md bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-xs">
-                <Sparkles className="w-2.5 h-2.5" />
-              </span>
-              <span className="text-zinc-100 font-medium tracking-tight">AI Assistant</span>
-              {job?.phase === 'running' && (
-                <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
-                  Thinking…
+          {!isPromptComposer && (
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs">
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <span className="flex items-center justify-center w-4.5 h-4.5 rounded-md bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-xs">
+                  <Sparkles className="w-2.5 h-2.5" />
                 </span>
-              )}
-            </div>
+                <span className="text-zinc-100 font-medium tracking-tight">AI Assistant</span>
+                {job?.phase === 'running' && (
+                  <span className="text-[10px] font-medium text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
+                    Thinking…
+                  </span>
+                )}
+              </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                className="macos-ai-action-btn w-6 h-6 rounded-md"
-                onClick={() => {
-                  if (job?.phase === 'running') void onCancel(active.id);
-                  setOpenId(null);
-                  onSelectAnnotation?.(null);
-                  onCloseJob(active.id);
-                }}
-                aria-label="Close"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className="macos-ai-action-btn w-6 h-6 rounded-md"
+                  onClick={() => {
+                    if (job?.phase === 'running') void onCancel(active.id);
+                    if (!active.response && job?.phase !== 'running') {
+                      onDelete(active.id);
+                    }
+                    setOpenId(null);
+                    onSelectAnnotation?.(null);
+                    onCloseJob(active.id);
+                  }}
+                  aria-label="Close"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-          </div>}
+          )}
 
           {/* SCROLLABLE BODY (Handles arbitrarily long responses smoothly) */}
-          <div className={`flex-1 min-h-0 flex flex-col gap-3 select-text ${
-            isPromptComposer
-              ? ''
-              : 'p-3.5 overflow-y-auto overflow-x-hidden macos-thin-scrollbar'
-          }`}>
+          <div
+            className={`flex-1 min-h-0 flex flex-col gap-3 select-text ${
+              isPromptComposer
+                ? ''
+                : 'p-3.5 overflow-y-auto overflow-x-hidden macos-thin-scrollbar'
+            }`}
+          >
             {/* Body: Prompting or Thinking State */}
             {(!active.response || job) && (
               <>
@@ -330,6 +383,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
                     <div className="flex justify-end gap-1.5 pt-1">
                       <button
+                        type="button"
                         className="btn-secondary px-3 py-1.5 text-xs"
                         onClick={() => void onCancel(active.id)}
                       >
@@ -387,6 +441,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                         className="ai-prompt-composer-input w-full resize-none text-sm leading-6 font-sans"
                       />
                       <button
+                        type="button"
                         className="ai-prompt-send"
                         disabled={!(drafts[active.id] ?? active.prompt).trim()}
                         onClick={() => onSubmit(active, drafts[active.id] ?? active.prompt)}
@@ -463,6 +518,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   className="macos-ai-action-btn"
                   title="Rasterize explanation into adjustable image on page"
                   onClick={() => void handleRasterizeResponse(active)}
@@ -471,6 +527,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                   <ImageIcon className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  type="button"
                   className="macos-ai-action-btn"
                   title={copiedId === active.id ? 'Copied to clipboard' : 'Copy response'}
                   onClick={() => void handleCopyText(active.response, active.id)}
@@ -483,6 +540,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                   )}
                 </button>
                 <button
+                  type="button"
                   className="macos-ai-action-btn"
                   title={editingResponse ? 'Save edit' : 'Edit response'}
                   onClick={() => {
@@ -503,6 +561,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                   )}
                 </button>
                 <button
+                  type="button"
                   className="macos-ai-action-btn"
                   title="Regenerate"
                   onClick={() => {
@@ -517,6 +576,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  type="button"
                   className="macos-ai-action-btn macos-ai-action-btn-danger"
                   title="Delete"
                   onClick={() => {
