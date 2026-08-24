@@ -6,9 +6,10 @@
   "private": true,
   "scripts": {
     "dev": "tauri dev",
-    "dev:web": "vite",
+    "dev:web": "bun run generate:bindings && vite",
     "build": "tauri build",
-    "build:web": "tsc && vite build",
+    "build:web": "bun run generate:bindings && tsc && vite build",
+    "generate:bindings": "cargo test --manifest-path src-tauri/Cargo.toml exports_typescript_bindings --quiet",
     "preview": "vite preview"
   },
   "dependencies": {

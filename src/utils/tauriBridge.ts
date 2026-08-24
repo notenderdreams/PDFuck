@@ -1,21 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
-
-export interface OpenFileResult {
-  file_name: string;
-  file_path: string;
-  data: number[];
-}
-
-export interface OpenImageResult {
-  file_name: string;
-  file_path: string;
-  data_url: string;
-}
-
-export interface SaveResult {
-  success: boolean;
-  file_path?: string | null;
-}
+import { commands } from '../libs/bindings';
 
 export interface ScannedPdfResult {
   file_name: string;
@@ -49,6 +32,65 @@ export interface AiExplanationRequest {
 export type AiExplanationResult =
   | { ok: true; response: string }
   | { ok: false; code: AiExplanationErrorCode; message: string };
+
+const AI_ERROR_CODES = new Set<AiExplanationErrorCode>([
+  'native_required',
+  'missing_cli',
+  'unauthenticated',
+  'incompatible_cli',
+  'timeout',
+  'cancelled',
+  'process_failed',
+  'malformed_output',
+]);
+
+function unwrapNativeResult<T, E>(result: { status: 'ok'; data: T } | { status: 'error'; error: E }): T {
+  if (result.status === 'error') {
+    throw new Error(typeof result.error === 'string' ? result.error : 'The native command could not be completed.');
+  }
+  return result.data;
+}
+
+function normalizeProviderStatus(status: Awaited<ReturnType<typeof commands.getAiProviderStatus>>): AiProviderStatus {
+  const value = unwrapNativeResult(status);
+  if (
+    value.status === 'ready' &&
+    value.provider === 'codex' &&
+    typeof value.version === 'string' &&
+    typeof value.executable === 'string'
+  ) {
+    return {
+      status: 'ready',
+      provider: 'codex',
+      version: value.version,
+      executable: value.executable,
+    };
+  }
+  const errorStatus = value.status === 'unauthenticated' || value.status === 'incompatible_cli'
+    ? value.status
+    : 'missing_cli';
+  return {
+    status: errorStatus,
+    message: value.message || 'The Codex CLI is not ready.',
+  };
+}
+
+function normalizeExplanationResult(
+  result: Awaited<ReturnType<typeof commands.runAiExplanation>>,
+): AiExplanationResult {
+  const value = unwrapNativeResult(result);
+  if (value.ok && typeof value.response === 'string') {
+    return { ok: true, response: value.response };
+  }
+  const code = typeof value.code === 'string' && AI_ERROR_CODES.has(value.code as AiExplanationErrorCode)
+    ? value.code as AiExplanationErrorCode
+    : 'process_failed';
+  return {
+    ok: false,
+    code,
+    message: value.message || 'The explanation could not be completed.',
+  };
+}
 
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -92,14 +134,14 @@ export async function getAiProviderStatus(): Promise<AiProviderStatus> {
   if (!isTauri()) {
     return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
   }
-  return invoke<AiProviderStatus>('get_ai_provider_status');
+  return normalizeProviderStatus(await commands.getAiProviderStatus());
 }
 
 export async function setAiProviderExecutable(executablePath: string): Promise<AiProviderStatus> {
   if (!isTauri()) {
     return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
   }
-  return invoke<AiProviderStatus>('set_ai_provider_executable', { executablePath });
+  return normalizeProviderStatus(await commands.setAiProviderExecutable(executablePath));
 }
 
 export async function runAiExplanation(request: AiExplanationRequest): Promise<AiExplanationResult> {
@@ -107,7 +149,7 @@ export async function runAiExplanation(request: AiExplanationRequest): Promise<A
     return { ok: false, code: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
   }
   try {
-    return await invoke<AiExplanationResult>('run_ai_explanation', { request });
+    return normalizeExplanationResult(await commands.runAiExplanation(request));
   } catch (error) {
     return { ok: false, code: 'process_failed', message: error instanceof Error ? error.message : String(error) };
   }
@@ -116,7 +158,7 @@ export async function runAiExplanation(request: AiExplanationRequest): Promise<A
 export async function cancelAiExplanation(requestId: string): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    return await invoke<boolean>('cancel_ai_explanation', { requestId });
+    return await commands.cancelAiExplanation(requestId);
   } catch {
     return false;
   }
@@ -125,7 +167,7 @@ export async function cancelAiExplanation(requestId: string): Promise<boolean> {
 export async function tauriOpenPdf(): Promise<{ fileName: string; filePath: string; data: Uint8Array } | null> {
   if (!isTauri()) return null;
   try {
-    const res = await invoke<OpenFileResult | null>('open_pdf_dialog');
+    const res = await commands.openPdfDialog();
     if (res && res.data) {
       return {
         fileName: res.file_name,
@@ -142,7 +184,7 @@ export async function tauriOpenPdf(): Promise<{ fileName: string; filePath: stri
 export async function tauriReadFile(filePath: string): Promise<{ fileName: string; filePath: string; data: Uint8Array } | null> {
   if (!isTauri()) return null;
   try {
-    const res = await invoke<OpenFileResult | null>('read_file_from_path', { filePath });
+    const res = await commands.readFileFromPath(filePath);
     if (res && res.data) {
       return {
         fileName: res.file_name,
@@ -159,7 +201,7 @@ export async function tauriReadFile(filePath: string): Promise<{ fileName: strin
 export async function tauriOpenImage(): Promise<{ fileName: string; filePath: string; dataUrl: string } | null> {
   if (!isTauri()) return null;
   try {
-    const res = await invoke<OpenImageResult | null>('open_image_dialog');
+    const res = await commands.openImageDialog();
     if (res && res.data_url) {
       return {
         fileName: res.file_name,
@@ -176,10 +218,7 @@ export async function tauriOpenImage(): Promise<{ fileName: string; filePath: st
 export async function tauriSavePdf(pdfBytes: Uint8Array, defaultName: string): Promise<{ success: boolean; path?: string }> {
   if (!isTauri()) return { success: false };
   try {
-    const res = await invoke<SaveResult>('save_pdf_dialog', {
-      data: Array.from(pdfBytes),
-      defaultName,
-    });
+    const res = await commands.savePdfDialog(Array.from(pdfBytes), defaultName);
     return {
       success: res.success,
       path: res.file_path || undefined,
@@ -193,10 +232,7 @@ export async function tauriSavePdf(pdfBytes: Uint8Array, defaultName: string): P
 export async function tauriWritePdf(pdfBytes: Uint8Array, filePath: string): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    const res = await invoke<SaveResult>('write_pdf_file', {
-      filePath,
-      data: Array.from(pdfBytes),
-    });
+    const res = await commands.writePdfFile(filePath, Array.from(pdfBytes));
     return res.success;
   } catch (err) {
     console.error('Tauri write PDF error:', err);
@@ -207,10 +243,7 @@ export async function tauriWritePdf(pdfBytes: Uint8Array, filePath: string): Pro
 export async function tauriSaveJson(jsonString: string, defaultName: string): Promise<{ success: boolean; path?: string }> {
   if (!isTauri()) return { success: false };
   try {
-    const res = await invoke<SaveResult>('save_json_dialog', {
-      jsonString,
-      defaultName,
-    });
+    const res = await commands.saveJsonDialog(jsonString, defaultName);
     return {
       success: res.success,
       path: res.file_path || undefined,
@@ -224,7 +257,7 @@ export async function tauriSaveJson(jsonString: string, defaultName: string): Pr
 export async function tauriSelectDirectory(): Promise<string | null> {
   if (!isTauri()) return null;
   try {
-    const res = await invoke<string | null>('select_directory_dialog');
+    const res = await commands.selectDirectoryDialog();
     return res;
   } catch (err) {
     console.error('Tauri select directory error:', err);
@@ -235,8 +268,12 @@ export async function tauriSelectDirectory(): Promise<string | null> {
 export async function tauriScanDirectoryPdfs(directoryPath: string): Promise<ScannedPdfResult[]> {
   if (!isTauri()) return [];
   try {
-    const res = await invoke<ScannedPdfResult[]>('scan_directory_pdfs', { directoryPath });
-    return res || [];
+    const res = await commands.scanDirectoryPdfs(directoryPath);
+    return res.map((item) => ({
+      ...item,
+      file_size: item.file_size ?? 0,
+      modified_timestamp: item.modified_timestamp ?? 0,
+    }));
   } catch (err) {
     console.error('Tauri scan directory error:', err);
     return [];
@@ -246,7 +283,7 @@ export async function tauriScanDirectoryPdfs(directoryPath: string): Promise<Sca
 export async function tauriGetDefaultDirectories(): Promise<string[]> {
   if (!isTauri()) return [];
   try {
-    const res = await invoke<string[]>('get_default_directories');
+    const res = await commands.getDefaultDirectories();
     return res || [];
   } catch (err) {
     console.error('Tauri get default directories error:', err);
@@ -257,9 +294,7 @@ export async function tauriGetDefaultDirectories(): Promise<string[]> {
 export async function tauriCopyImageToClipboard(pngDataUrl: string): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    const res = await invoke<boolean>('copy_image_to_clipboard', {
-      pngDataUrl,
-    });
+    const res = await commands.copyImageToClipboard(pngDataUrl);
     return res;
   } catch (err) {
     console.error('Tauri native copy image error:', err);
@@ -270,9 +305,7 @@ export async function tauriCopyImageToClipboard(pngDataUrl: string): Promise<boo
 export async function tauriCopyTextToClipboard(text: string): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    const res = await invoke<boolean>('copy_text_to_clipboard', {
-      text,
-    });
+    const res = await commands.copyTextToClipboard(text);
     return res;
   } catch (err) {
     console.error('Tauri native copy text error:', err);
