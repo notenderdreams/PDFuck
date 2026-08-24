@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, X, Underline } from 'lucide-react';
+import { Trash2, X, Underline, GripHorizontal } from 'lucide-react';
 import type {
   Annotation,
   AiExplanationAnnotation,
@@ -146,6 +146,52 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       px,
       py,
     };
+  };
+
+  // Handle moving / dragging of rectangle highlights via toolbar handle
+  const isDraggingHighlightRef = useRef(false);
+
+  const handleHighlightDragStart = (
+    e: React.PointerEvent,
+    rect: RectHighlightAnnotation
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectAnnotation?.(rect.id);
+
+    isDraggingHighlightRef.current = true;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const initialX = rect.x;
+    const initialY = rect.y;
+    const rectWidth = rect.width;
+    const rectHeight = rect.height;
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isDraggingHighlightRef.current) return;
+      const dx = (moveEvt.clientX - startClientX) / pageWidth;
+      const dy = (moveEvt.clientY - startClientY) / pageHeight;
+
+      const maxX = Math.max(0, 1 - rectWidth);
+      const maxY = Math.max(0, 1 - rectHeight);
+
+      const newX = Math.max(0, Math.min(initialX + dx, maxX));
+      const newY = Math.max(0, Math.min(initialY + dy, maxY));
+
+      onUpdateAnnotation?.(rect.id, { x: newX, y: newY });
+    };
+
+    const handlePointerUp = () => {
+      isDraggingHighlightRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -768,14 +814,26 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {selectedHighlight && (
         <div
           style={{
-            left: `${Math.max(8, Math.min(selectedHighlightPos.x, pageWidth - 230))}px`,
+            left: `${Math.max(8, Math.min(selectedHighlightPos.x, pageWidth - 240))}px`,
             top: `${Math.max(8, selectedHighlightPos.y - 38)}px`,
           }}
-          className="absolute z-50 flex items-center gap-1.5 p-1 px-1.5 rounded-lg bg-[var(--popover)]/95 border border-[var(--border)] shadow-xl backdrop-blur-md pointer-events-auto select-none animate-slide-down"
+          className="absolute z-50 flex items-center gap-1.5 p-1 px-1.5 rounded-lg bg-[var(--popover)]/95 border border-[var(--border)] shadow-xl backdrop-blur-md pointer-events-auto select-none"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
+          {/* Drag Grip Handle for Rect Highlight */}
+          {selectedHighlight.type === 'highlight-rect' && (
+            <div
+              onPointerDown={(e) => handleHighlightDragStart(e, selectedHighlight as RectHighlightAnnotation)}
+              className="flex items-center justify-center p-1 rounded-md text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] cursor-grab active:cursor-grabbing transition-colors pr-1.5 border-r border-[var(--border)] touch-none"
+              title="Drag to move highlight"
+              aria-label="Drag to move highlight"
+            >
+              <GripHorizontal className="w-3.5 h-3.5" />
+            </div>
+          )}
+
           {/* Color Swatches */}
           <div className="flex items-center gap-1 pr-1.5 border-r border-[var(--border)]">
             {QUICK_HIGHLIGHT_COLORS.map((c) => (
