@@ -1,4 +1,4 @@
-import type { TextHighlightAnnotation } from './types';
+import type { TextHighlightAnnotation, RectHighlightAnnotation } from './types';
 
 export interface ClientRectLike {
   left: number;
@@ -133,7 +133,7 @@ export function createTextHighlightsFromSelection(
   selection: Selection | null,
   color: string,
   opacity: number
-): TextHighlightAnnotation[] {
+): RectHighlightAnnotation[] {
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return [];
 
   const anchorElement = selection.anchorNode instanceof Element
@@ -159,25 +159,25 @@ export function createTextHighlightsFromSelection(
   const createdAt = Date.now();
 
   return Array.from(document.querySelectorAll<HTMLElement>('[data-pdf-page-number]')).flatMap(
-    (page, index) => {
+    (page) => {
       const pageNumber = Number(page.dataset.pdfPageNumber);
       if (!Number.isInteger(pageNumber) || pageNumber < 1) return [];
 
       const rects = normalizeSelectionRects(rangeRects, page.getBoundingClientRect());
       if (rects.length === 0) return [];
 
-      return [
-        {
-          id: `text_highlight_${createdAt}_${pageNumber}_${index}`,
-          pageNumber,
-          type: 'highlight-text' as const,
-          rects,
-          text,
-          color,
-          opacity,
-          createdAt,
-        },
-      ];
+      return rects.map((rect, idx) => ({
+        id: `highlight_rect_${createdAt}_${pageNumber}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+        pageNumber,
+        type: 'highlight-rect' as const,
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        color,
+        opacity: opacity || 0.4,
+        createdAt,
+      }));
     }
   );
 }

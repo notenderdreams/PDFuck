@@ -659,6 +659,12 @@ export function App() {
     onCopyStitchedSnippets: handleQuickCopyStitched,
     onClearSnippets: handleQuickDumpSnippets,
     onHighlightSelectedText: handleHighlightSelectedText,
+    onDeleteSelectedAnnotation: () => {
+      if (selectedAnnotationId) {
+        deleteAnnotation(selectedAnnotationId);
+        setSelectedAnnotationId(null);
+      }
+    },
   });
 
   return (
@@ -884,7 +890,12 @@ export function App() {
               canUndo={activeTool === 'snip' ? canUndoSnippets : canUndoAnnotations}
               canRedo={activeTool === 'snip' ? canRedoSnippets : canRedoAnnotations}
               onSelectTool={handleSelectTool}
-              onSelectColor={(c) => setSelectedColor(c)}
+              onSelectColor={(c) => {
+                setSelectedColor(c);
+                if (selectedAnnotationId) {
+                  updateAnnotation(selectedAnnotationId, { color: c });
+                }
+              }}
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
               onAttachImageClick={handleOpenImage}

@@ -58,6 +58,7 @@ export interface RectHighlightAnnotation {
   color: string;
   opacity: number;
   createdAt: number;
+  style?: 'box' | 'underline';
 }
 
 export interface TextHighlightAnnotation {
@@ -69,6 +70,7 @@ export interface TextHighlightAnnotation {
   color: string;
   opacity: number;
   createdAt: number;
+  style?: 'box' | 'underline';
 }
 
 export interface AttachedImageAnnotation {

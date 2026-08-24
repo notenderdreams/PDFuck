@@ -23,6 +23,7 @@ interface KeyboardShortcutOptions {
   onCopyStitchedSnippets?: () => void;
   onClearSnippets?: () => void;
   onHighlightSelectedText?: () => void;
+  onDeleteSelectedAnnotation?: () => void;
 }
 
 export function useKeyboard(options: KeyboardShortcutOptions) {
@@ -143,6 +144,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case '?':
           case '/':
             options.onToggleShortcuts();
+            break;
+          case 'backspace':
+          case 'delete':
+            options.onDeleteSelectedAnnotation?.();
             break;
           case 'arrowright':
           case 'j':

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { Trash2, X, Underline } from 'lucide-react';
 import type {
   Annotation,
   AiExplanationAnnotation,
@@ -21,6 +22,9 @@ interface AnnotationCanvasProps {
   strokeWidth: number;
   opacity: number;
   annotations: Annotation[];
+  selectedAnnotationId?: string | null;
+  onSelectAnnotation?: (id: string | null) => void;
+  onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   onAddAnnotation: (ann: Annotation) => void;
   onDeleteAnnotation: (id: string) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
@@ -50,6 +54,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   strokeWidth,
   opacity,
   annotations,
+  selectedAnnotationId,
+  onSelectAnnotation,
+  onUpdateAnnotation,
   onAddAnnotation,
   onDeleteAnnotation,
   onCaptureSnippet,
@@ -87,6 +94,39 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
+
+  const selectedHighlight = pageAnnotations.find(
+    (a) =>
+      a.id === selectedAnnotationId &&
+      (a.type === 'highlight-rect' || a.type === 'highlight-text')
+  ) as RectHighlightAnnotation | TextHighlightAnnotation | undefined;
+
+  let selectedHighlightPos = { x: 0, y: 0 };
+  if (selectedHighlight) {
+    if (selectedHighlight.type === 'highlight-rect') {
+      selectedHighlightPos = {
+        x: selectedHighlight.x * pageWidth,
+        y: selectedHighlight.y * pageHeight,
+      };
+    } else if (selectedHighlight.type === 'highlight-text') {
+      const minX = Math.min(...selectedHighlight.rects.map((r) => r.x));
+      const minY = Math.min(...selectedHighlight.rects.map((r) => r.y));
+      selectedHighlightPos = {
+        x: minX * pageWidth,
+        y: minY * pageHeight,
+      };
+    }
+  }
+
+  const QUICK_HIGHLIGHT_COLORS = [
+    '#facc15', // Yellow
+    '#fbbf24', // Amber
+    '#4ade80', // Green
+    '#38bdf8', // Blue
+    '#fb7185', // Coral
+    '#c084fc', // Purple
+    '#f87171', // Red
+  ];
 
   // Flash feedback state after capturing a snippet
   const [capturedFlashRect, setCapturedFlashRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -474,22 +514,73 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         {/* Render highlights created from selected PDF text. */}
         {pageAnnotations
           .filter((a) => a.type === 'highlight-text')
-          .flatMap((a) => {
+          .map((a) => {
             const textHighlight = a as TextHighlightAnnotation;
-            return textHighlight.rects.map((rect, index) => (
-              <rect
-                key={`${textHighlight.id}_${index}`}
-                className={colorFilterClass}
-                x={rect.x * pageWidth}
-                y={rect.y * pageHeight}
-                width={rect.width * pageWidth}
-                height={rect.height * pageHeight}
-                fill={textHighlight.color}
-                fillOpacity={textHighlight.opacity || 0.45}
-                rx={1.5}
-                style={{ mixBlendMode: highlightBlendMode }}
-              />
-            ));
+            const isSelected = selectedAnnotationId === textHighlight.id;
+            const isUnderline = textHighlight.style === 'underline';
+            return (
+              <g
+                key={textHighlight.id}
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(textHighlight.id);
+                  }
+                }}
+              >
+                {textHighlight.rects.map((rect, index) => (
+                  <React.Fragment key={`${textHighlight.id}_${index}`}>
+                    {isUnderline ? (
+                      <line
+                        className={colorFilterClass}
+                        x1={rect.x * pageWidth}
+                        y1={(rect.y + rect.height) * pageHeight - 1.5}
+                        x2={(rect.x + rect.width) * pageWidth}
+                        y2={(rect.y + rect.height) * pageHeight - 1.5}
+                        stroke={textHighlight.color}
+                        strokeWidth={2.5}
+                        strokeOpacity={0.9}
+                        strokeLinecap="round"
+                      />
+                    ) : (
+                      <rect
+                        className={colorFilterClass}
+                        x={rect.x * pageWidth}
+                        y={rect.y * pageHeight}
+                        width={rect.width * pageWidth}
+                        height={rect.height * pageHeight}
+                        fill={textHighlight.color}
+                        fillOpacity={textHighlight.opacity || 0.45}
+                        style={{ mixBlendMode: highlightBlendMode }}
+                      />
+                    )}
+                    {isUnderline && (
+                      <rect
+                        x={rect.x * pageWidth}
+                        y={rect.y * pageHeight}
+                        width={rect.width * pageWidth}
+                        height={rect.height * pageHeight}
+                        fill="transparent"
+                      />
+                    )}
+                    {isSelected && (
+                      <rect
+                        x={rect.x * pageWidth - 1.5}
+                        y={rect.y * pageHeight - 1.5}
+                        width={rect.width * pageWidth + 3}
+                        height={rect.height * pageHeight + 3}
+                        fill="none"
+                        stroke="#0080f0"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 2"
+                        className="pointer-events-none"
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </g>
+            );
           })}
 
         {/* Render Existing Rect Highlights */}
@@ -497,18 +588,66 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           .filter((a) => a.type === 'highlight-rect')
           .map((a) => {
             const rect = a as RectHighlightAnnotation;
+            const isSelected = selectedAnnotationId === rect.id;
+            const isUnderline = rect.style === 'underline';
             return (
-              <rect
+              <g
                 key={rect.id}
-                className={colorFilterClass}
-                x={rect.x * pageWidth}
-                y={rect.y * pageHeight}
-                width={rect.width * pageWidth}
-                height={rect.height * pageHeight}
-                fill={rect.color}
-                fillOpacity={rect.opacity || 0.4}
-                style={{ mixBlendMode: highlightBlendMode }}
-              />
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(rect.id);
+                  }
+                }}
+              >
+                {isUnderline ? (
+                  <line
+                    className={colorFilterClass}
+                    x1={rect.x * pageWidth}
+                    y1={(rect.y + rect.height) * pageHeight - 1.5}
+                    x2={(rect.x + rect.width) * pageWidth}
+                    y2={(rect.y + rect.height) * pageHeight - 1.5}
+                    stroke={rect.color}
+                    strokeWidth={2.5}
+                    strokeOpacity={0.9}
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <rect
+                    className={colorFilterClass || ''}
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill={rect.color}
+                    fillOpacity={rect.opacity || 0.4}
+                    style={{ mixBlendMode: highlightBlendMode }}
+                  />
+                )}
+                {isUnderline && (
+                  <rect
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill="transparent"
+                  />
+                )}
+                {isSelected && (
+                  <rect
+                    x={rect.x * pageWidth - 1.5}
+                    y={rect.y * pageHeight - 1.5}
+                    width={rect.width * pageWidth + 3}
+                    height={rect.height * pageHeight + 3}
+                    fill="none"
+                    stroke="#0080f0"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    className="pointer-events-none"
+                  />
+                )}
+              </g>
             );
           })}
 
@@ -740,6 +879,79 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               Add Note
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Floating Quick Action Menu for Selected Highlight */}
+      {selectedHighlight && (
+        <div
+          style={{
+            left: `${Math.max(8, Math.min(selectedHighlightPos.x, pageWidth - 230))}px`,
+            top: `${Math.max(8, selectedHighlightPos.y - 38)}px`,
+          }}
+          className="absolute z-50 flex items-center gap-1.5 p-1 px-1.5 rounded-lg bg-[var(--popover)]/95 border border-[var(--border)] shadow-xl backdrop-blur-md pointer-events-auto select-none animate-slide-down"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {/* Color Swatches */}
+          <div className="flex items-center gap-1 pr-1.5 border-r border-[var(--border)]">
+            {QUICK_HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onUpdateAnnotation?.(selectedHighlight.id, { color: c })}
+                className={`w-4 h-4 rounded-full border transition-transform hover:scale-115 ${
+                  selectedHighlight.color.toLowerCase() === c.toLowerCase()
+                    ? 'ring-2 ring-blue-500 scale-110 border-white/60'
+                    : 'border-black/20 hover:border-white/40'
+                }`}
+                style={{ backgroundColor: c }}
+                title="Change color"
+              />
+            ))}
+          </div>
+
+          {/* Underline / Box Style Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextStyle = selectedHighlight.style === 'underline' ? 'box' : 'underline';
+              onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+            }}
+            className={`px-1.5 py-0.5 rounded flex items-center gap-1 text-[11px] font-medium transition-colors border ${
+              selectedHighlight.style === 'underline'
+                ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
+            }`}
+            title={selectedHighlight.style === 'underline' ? 'Switch to Box' : 'Switch to Underline'}
+          >
+            <Underline className="w-3.5 h-3.5" />
+            <span className="text-[10px]">Underline</span>
+          </button>
+
+          {/* Delete Button */}
+          <button
+            type="button"
+            onClick={() => {
+              onDeleteAnnotation(selectedHighlight.id);
+              onSelectAnnotation?.(null);
+            }}
+            className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            title="Delete highlight"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Close Button */}
+          <button
+            type="button"
+            onClick={() => onSelectAnnotation?.(null)}
+            className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)] transition-colors"
+            title="Deselect"
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
       )}
     </div>

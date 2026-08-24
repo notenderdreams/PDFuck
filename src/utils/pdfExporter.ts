@@ -98,14 +98,24 @@ export async function exportAnnotatedPDF(
         // PDF coordinates are (0,0) at bottom-left
         const y = pageHeight - (hRect.y * pageHeight + height);
 
-        page.drawRectangle({
-          x,
-          y,
-          width,
-          height,
-          color: rgb(color.r, color.g, color.b),
-          opacity: hRect.opacity || 0.4,
-        });
+        if (hRect.style === 'underline') {
+          page.drawLine({
+            start: { x, y: y + 1 },
+            end: { x: x + width, y: y + 1 },
+            thickness: 2,
+            color: rgb(color.r, color.g, color.b),
+            opacity: 0.9,
+          });
+        } else {
+          page.drawRectangle({
+            x,
+            y,
+            width,
+            height,
+            color: rgb(color.r, color.g, color.b),
+            opacity: hRect.opacity || 0.4,
+          });
+        }
       } else if (ann.type === 'highlight-text') {
         const hText = ann as TextHighlightAnnotation;
         const color = hexToRgb(hText.color);
@@ -115,14 +125,24 @@ export async function exportAnnotatedPDF(
           const height = rect.height * pageHeight;
           const y = pageHeight - (rect.y * pageHeight + height);
 
-          page.drawRectangle({
-            x,
-            y,
-            width,
-            height,
-            color: rgb(color.r, color.g, color.b),
-            opacity: hText.opacity || 0.45,
-          });
+          if (hText.style === 'underline') {
+            page.drawLine({
+              start: { x, y: y + 1 },
+              end: { x: x + width, y: y + 1 },
+              thickness: 2,
+              color: rgb(color.r, color.g, color.b),
+              opacity: 0.9,
+            });
+          } else {
+            page.drawRectangle({
+              x,
+              y,
+              width,
+              height,
+              color: rgb(color.r, color.g, color.b),
+              opacity: hText.opacity || 0.45,
+            });
+          }
         }
       } else if (ann.type === 'image') {
         const imgAnn = ann as AttachedImageAnnotation;
