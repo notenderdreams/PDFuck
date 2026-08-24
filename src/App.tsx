@@ -727,6 +727,12 @@ export function App() {
           onToggleTheme={toggleInvert}
           onSwitchToReader={() => setCurrentScreen('reader')}
           onOpenPdf={openPdfInReader}
+          themeSettings={themeSettings}
+          onSelectTheme={setTheme}
+          onUpdateThemeSetting={updateThemeSetting}
+          onResetThemeFilters={resetThemeFilters}
+          viewMode={viewMode}
+          onChangeViewMode={handleChangeViewMode}
         />
       ) : (
         /* VIEW 2: FULL READER & ANNOTATION STUDIO */

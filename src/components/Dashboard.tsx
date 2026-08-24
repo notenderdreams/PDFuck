@@ -17,8 +17,9 @@ import {
   ChevronDown,
   Check,
   ArrowUpDown,
+  Settings,
 } from 'lucide-react';
-import type { DashboardPdfItem, SavedDirectory } from '../utils/types';
+import type { DashboardPdfItem, ReadingTheme, SavedDirectory, ThemeSettings, ViewMode } from '../utils/types';
 import {
   isTauri,
   tauriSelectDirectory,
@@ -40,6 +41,7 @@ import {
   loadLibrarySort,
   saveLibrarySort,
 } from '../utils/storage';
+import { SettingsModal } from './SettingsModal';
 
 interface DashboardProps {
   onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => Promise<boolean>;
@@ -48,6 +50,14 @@ interface DashboardProps {
   activeDocName?: string;
   isDarkTheme: boolean;
   onToggleTheme: () => void;
+  // Theme & Appearance
+  themeSettings?: ThemeSettings;
+  onSelectTheme?: (theme: ReadingTheme) => void;
+  onUpdateThemeSetting?: <K extends keyof ThemeSettings>(key: K, value: ThemeSettings[K]) => void;
+  onResetThemeFilters?: () => void;
+  // View mode
+  viewMode?: ViewMode;
+  onChangeViewMode?: (mode: ViewMode) => void;
 }
 
 type FilterTab = 'all' | 'recent' | 'favorites' | string; // string for specific directory ID
@@ -66,6 +76,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeDocName,
   isDarkTheme,
   onToggleTheme,
+  themeSettings,
+  onSelectTheme,
+  onUpdateThemeSetting,
+  onResetThemeFilters,
+  viewMode,
+  onChangeViewMode,
 }) => {
   const [directories, setDirectories] = useState<SavedDirectory[]>(() => loadSavedDirectories());
   const [pdfItems, setPdfItems] = useState<DashboardPdfItem[]>([]);
@@ -76,7 +92,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>(() => loadLibrarySort());
   const [isScanning, setIsScanning] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Keyboard shortcut: Cmd+, / Ctrl+, to toggle settings
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Persist active filter & selected folder tab
   useEffect(() => {
@@ -404,116 +433,134 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Main Studio Body: Sidebar Navigation + Document Grid */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Library Navigator (Tahoe macOS Sidebar) */}
-        <aside className="macos-sidebar w-60 flex flex-col p-3 gap-3 overflow-y-auto select-none">
-          {/* Quick Categories */}
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 px-2 py-1">
-              Library Views
-            </span>
-
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeFilter === 'all'
-                  ? 'bg-blue-500/15 text-blue-400 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <FileText className={`w-3.5 h-3.5 ${activeFilter === 'all' ? 'text-blue-500' : 'text-zinc-400'}`} />
-                <span>All Documents</span>
-              </div>
-              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'all' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
-                {totalPdfsCount}
+        <aside className="macos-sidebar w-60 flex flex-col p-3 gap-3 overflow-hidden select-none">
+          {/* Scrollable Main Navigation: Categories & Folders */}
+          <div className="flex-1 flex flex-col gap-3 overflow-y-auto min-h-0 pr-0.5">
+            {/* Quick Categories */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 px-2 py-1">
+                Library Views
               </span>
-            </button>
 
-            <button
-              onClick={() => setActiveFilter('recent')}
-              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeFilter === 'recent'
-                  ? 'bg-blue-500/15 text-blue-400 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Clock className={`w-3.5 h-3.5 ${activeFilter === 'recent' ? 'text-blue-500' : 'text-zinc-400'}`} />
-                <span>Recent Reads</span>
-              </div>
-              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'recent' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
-                {recentDocs.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveFilter('favorites')}
-              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeFilter === 'favorites'
-                  ? 'bg-blue-500/15 text-blue-400 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <span>Favorites</span>
-              </div>
-              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'favorites' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
-                {favoriteIds.length}
-              </span>
-            </button>
-          </div>
-
-          {/* Saved Directories List */}
-          <div className="flex flex-col gap-1 pt-2 border-t border-[var(--border)]">
-            <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
-                Folders
-              </span>
               <button
-                onClick={() => scanAllDirectories(directories)}
-                disabled={isScanning}
-                className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                title="Rescan directories"
+                onClick={() => setActiveFilter('all')}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeFilter === 'all'
+                    ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
               >
-                <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+                <div className="flex items-center gap-2">
+                  <FileText className={`w-3.5 h-3.5 ${activeFilter === 'all' ? 'text-blue-500' : 'text-zinc-400'}`} />
+                  <span>All Documents</span>
+                </div>
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'all' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                  {totalPdfsCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveFilter('recent')}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeFilter === 'recent'
+                    ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className={`w-3.5 h-3.5 ${activeFilter === 'recent' ? 'text-blue-500' : 'text-zinc-400'}`} />
+                  <span>Recent Reads</span>
+                </div>
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'recent' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                  {recentDocs.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveFilter('favorites')}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeFilter === 'favorites'
+                    ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>Favorites</span>
+                </div>
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'favorites' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
+                  {favoriteIds.length}
+                </span>
               </button>
             </div>
 
-            {directories.length === 0 ? (
-              <div className="px-2 py-3 text-[11px] text-zinc-500 text-center">
-                No folders added yet. Click &quot;Add Folder&quot; above.
-              </div>
-            ) : (
-              directories.map((dir) => (
-                <div
-                  key={dir.id}
-                  onClick={() => setActiveFilter(dir.id)}
-                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer group transition-all ${
-                    activeFilter === dir.id
-                      ? 'bg-blue-500/15 text-blue-400 font-semibold'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}
+            {/* Saved Directories List */}
+            <div className="flex flex-col gap-1 pt-2 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between px-2 py-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  Folders
+                </span>
+                <button
+                  onClick={() => scanAllDirectories(directories)}
+                  disabled={isScanning}
+                  className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  title="Rescan directories"
                 >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <Folder className={`w-3.5 h-3.5 shrink-0 ${activeFilter === dir.id ? 'text-blue-500' : 'text-zinc-400'}`} />
-                    <span className="truncate font-medium">{dir.name}</span>
-                  </div>
+                  <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
 
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-300">
-                      {dir.pdfCount ?? 0}
-                    </span>
-                    <button
-                      onClick={(e) => handleRemoveDirectory(dir.id, e)}
-                      className="p-1 rounded-md text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove folder from library"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
+              {directories.length === 0 ? (
+                <div className="px-2 py-3 text-[11px] text-zinc-500 text-center">
+                  No folders added yet. Click &quot;Add Folder&quot; above.
                 </div>
-              ))
-            )}
+              ) : (
+                directories.map((dir) => (
+                  <div
+                    key={dir.id}
+                    onClick={() => setActiveFilter(dir.id)}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer group transition-all ${
+                      activeFilter === dir.id
+                        ? 'bg-blue-500/15 text-blue-400 font-semibold'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Folder className={`w-3.5 h-3.5 shrink-0 ${activeFilter === dir.id ? 'text-blue-500' : 'text-zinc-400'}`} />
+                      <span className="truncate font-medium">{dir.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-300">
+                        {dir.pdfCount ?? 0}
+                      </span>
+                      <button
+                        onClick={(e) => handleRemoveDirectory(dir.id, e)}
+                        className="p-1 rounded-md text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove folder from library"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Sidebar Footer: Settings Button */}
+          <div className="pt-2 border-t border-[var(--border)] mt-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-100 border border-transparent hover:border-[var(--border)] hover:bg-[var(--secondary)] hover:shadow-xs active:scale-[0.98] transition-all group"
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
+                <span>Settings</span>
+              </div>
+              <span className="text-[10px] text-zinc-500 group-hover:text-zinc-400 font-mono">⌘,</span>
+            </button>
           </div>
         </aside>
 
@@ -692,6 +739,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <BookOpen className="w-5 h-5 transition-transform group-hover:scale-110" />
         </button>
       )}
+
+      {/* Segmented Settings Panel Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        themeSettings={themeSettings}
+        onSelectTheme={onSelectTheme}
+        onUpdateThemeSetting={onUpdateThemeSetting}
+        onResetThemeFilters={onResetThemeFilters}
+        viewMode={viewMode}
+        onChangeViewMode={onChangeViewMode}
+      />
     </div>
   );
 };
