@@ -39,6 +39,7 @@ const SHORTCUT_GROUPS = [
       { keys: ['Cmd', 'O'], desc: 'Open PDF File' },
       { keys: ['Cmd', 'S'], desc: 'Save Modified PDF' },
       { keys: ['Cmd', 'I'], desc: 'Invert Colors' },
+      { keys: ['Cmd', 'B'], desc: 'Toggle Reader Sidebar' },
       { keys: ['Cmd', 'F'], desc: 'Find Text in Document' },
       { keys: ['Cmd+Shift+C'], desc: 'Copy Page Text' },
       { keys: ['Cmd+Shift+J'], desc: 'Copy Page as Image' },

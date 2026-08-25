@@ -37,6 +37,7 @@ interface HeaderProps {
   onToggleShortcuts: () => void;
   onChangeViewMode: (mode: ViewMode) => void;
   onChangeZoom: (newZoom: number) => void;
+  onFitPage: () => void;
   onPageChange: (page: number) => void;
   onCopyPageText?: () => void;
   onCopyPageJpg?: () => void;
@@ -59,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleZen,
   onChangeViewMode,
   onChangeZoom,
+  onFitPage,
   onPageChange,
   onCopyPageText,
   onCopyPageJpg,
@@ -295,9 +297,19 @@ export const Header: React.FC<HeaderProps> = ({
             -
           </button>
           <button
-            onClick={() => onChangeZoom(1.0)}
+            onMouseDown={(event) => {
+              if (event.metaKey || event.ctrlKey) {
+                event.preventDefault();
+                onFitPage();
+              }
+            }}
+            onDoubleClick={(event) => {
+              if (!event.metaKey && !event.ctrlKey) {
+                onChangeZoom(1.0);
+              }
+            }}
             className="min-w-[2.25rem] px-1.5 py-0.5 rounded-md text-center text-zinc-300 hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition-colors cursor-pointer"
-            title="Reset Zoom to 100% (Cmd 0)"
+            title="Double-click to reset to 100%; Cmd/Ctrl-click to fit page"
           >
             {Math.round(zoom * 100)}%
           </button>

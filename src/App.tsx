@@ -44,6 +44,7 @@ export function App() {
 
   // View & UI State
   const [zoom, setZoom] = useState<number>(1.15);
+  const [fitPageRequest, setFitPageRequest] = useState<{ id: number; page: number } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => loadViewMode());
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [sidebarTab, setSidebarTab] = useState<SidebarTabType>('thumbnails');
@@ -655,6 +656,11 @@ export function App() {
     onNextPage: () => handleNavigatePage(currentPage + 1),
     onPrevPage: () => handleNavigatePage(currentPage - 1),
     onToggleZen: () => setIsZenMode((prev) => !prev),
+    onToggleSidebar: () => {
+      if (currentScreen === 'reader') {
+        setIsSidebarOpen((prev) => !prev);
+      }
+    },
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
     onToggleLibrary: () =>
       setCurrentScreen((prev) => (prev === 'dashboard' ? 'reader' : 'dashboard')),
@@ -757,7 +763,13 @@ export function App() {
             onToggleZen={() => setIsZenMode((prev) => !prev)}
             onToggleShortcuts={() => setIsShortcutsModalOpen(true)}
             onChangeViewMode={handleChangeViewMode}
-            onChangeZoom={(newZoom) => setZoom(newZoom)}
+            onChangeZoom={setZoom}
+            onFitPage={() =>
+              setFitPageRequest((request) => ({
+                id: (request?.id ?? 0) + 1,
+                page: currentPage,
+              }))
+            }
             onPageChange={handleNavigatePage}
             onCopyPageText={() => handleCopyPageText(currentPage)}
             onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
@@ -866,7 +878,8 @@ export function App() {
                   reader.readAsArrayBuffer(file);
                 }}
                 onOpenPdfClick={handleOpenPdf}
-                onChangeZoom={(newZoom) => setZoom(newZoom)}
+                onChangeZoom={setZoom}
+                fitPageRequest={fitPageRequest}
               />
 
               {pdfDoc && (

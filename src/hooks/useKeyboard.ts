@@ -16,6 +16,7 @@ interface KeyboardShortcutOptions {
   onNextPage: () => void;
   onPrevPage: () => void;
   onToggleZen: () => void;
+  onToggleSidebar?: () => void;
   onToggleShortcuts: () => void;
   onToggleLibrary?: () => void;
   onCopyPageText?: () => void;
@@ -84,6 +85,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
         } else if (e.key.toLowerCase() === 'i') {
           e.preventDefault();
           options.onToggleInvert();
+        } else if (e.key.toLowerCase() === 'b') {
+          e.preventDefault();
+          options.onToggleSidebar?.();
         } else if (e.key.toLowerCase() === 'f') {
           e.preventDefault();
           options.onToggleSearch();

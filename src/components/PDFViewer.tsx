@@ -36,6 +36,7 @@ interface PDFViewerProps {
   onPdfFileDrop: (file: File) => void;
   onOpenPdfClick: () => void;
   onChangeZoom: (newZoom: number) => void;
+  fitPageRequest?: { id: number; page: number } | null;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
   aiJobs: Record<string, AiJobState>;
@@ -74,6 +75,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onPdfFileDrop,
   onOpenPdfClick,
   onChangeZoom,
+  fitPageRequest,
   onCursorMove,
   onCaptureSnippet,
   aiJobs,
@@ -102,6 +104,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const prevDocRef = useRef<PDFDocumentProxy | null>(null);
   const prevViewModeRef = useRef<ViewMode>(viewMode);
   const prevPropCurrentPageRef = useRef<number>(currentPage);
+  const lastFitPageRequestRef = useRef(0);
+  const pendingFitScrollPageRef = useRef<number | null>(null);
 
   const annotationsByPage = React.useMemo(() => {
     const map = new Map<number, Annotation[]>();
@@ -247,6 +251,39 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     [pdfDoc, numPages, viewMode]
   );
 
+  const centerFittedPage = useCallback((pageNumber: number) => {
+    requestAnimationFrame(() => {
+      const container = viewerContainerRef.current;
+      const page = document.getElementById(`pdf-page-${pageNumber}`);
+      if (!container || !page) return;
+
+      isProgrammaticScrollRef.current = true;
+      if (programmaticScrollTimerRef.current) {
+        clearTimeout(programmaticScrollTimerRef.current);
+      }
+      programmaticScrollTimerRef.current = setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+        lastReportedPageRef.current = pageNumber;
+      }, 80);
+
+      const containerRect = container.getBoundingClientRect();
+      const pageRect = page.getBoundingClientRect();
+      const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      const scrollLeft = container.scrollLeft + pageRect.left - containerRect.left
+        - (container.clientWidth - pageRect.width) / 2;
+      const scrollTop = container.scrollTop + pageRect.top - containerRect.top
+        - (container.clientHeight - pageRect.height) / 2;
+
+      container.scrollTo({
+        left: Math.max(0, Math.min(maxScrollLeft, scrollLeft)),
+        top: Math.max(0, Math.min(maxScrollTop, scrollTop)),
+        behavior: 'instant',
+      });
+      lastReportedPageRef.current = pageNumber;
+    });
+  }, []);
+
   // Initial horizontal centering & initial page restore on document load or viewMode switch
   useEffect(() => {
     const isNewDoc = pdfDoc !== prevDocRef.current;
@@ -297,6 +334,52 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   }, [currentPage, scrollToPage]);
 
+  // Fit the active page inside the available viewport, then bring it into view.
+  useEffect(() => {
+    const container = viewerContainerRef.current;
+    if (
+      !fitPageRequest ||
+      fitPageRequest.id === lastFitPageRequestRef.current ||
+      !pdfDoc ||
+      !container
+    ) {
+      return;
+    }
+
+    const targetPage = fitPageRequest.page;
+    lastFitPageRequestRef.current = fitPageRequest.id;
+    isProgrammaticScrollRef.current = true;
+    if (programmaticScrollTimerRef.current) {
+      clearTimeout(programmaticScrollTimerRef.current);
+    }
+    lastReportedPageRef.current = targetPage;
+
+    let cancelled = false;
+    void pdfDoc.getPage(targetPage).then((page) => {
+      if (cancelled) return;
+
+      const viewport = page.getViewport({ scale: 1 });
+      const availableWidth = Math.max(1, container.clientWidth - 48);
+      const availableHeight = Math.max(1, container.clientHeight - 48);
+      const fittedZoom = Math.min(
+        3.5,
+        Math.max(0.3, Math.min(availableWidth / viewport.width, availableHeight / viewport.height))
+      );
+
+      const roundedZoom = Number(fittedZoom.toFixed(2));
+      if (roundedZoom === zoom) {
+        centerFittedPage(targetPage);
+      } else {
+        pendingFitScrollPageRef.current = targetPage;
+        onChangeZoom(roundedZoom);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [centerFittedPage, fitPageRequest, onChangeZoom, pdfDoc, zoom]);
+
   // Preserve zoom focal position during zoom transitions
   const prevZoomRef = useRef(zoom);
   useEffect(() => {
@@ -312,6 +395,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     container.scrollLeft = currentCenterDocX * zoomRatio - container.clientWidth / 2;
     container.scrollTop = currentCenterDocY * zoomRatio - container.clientHeight / 2;
   }, [zoom]);
+
+  // A fit action must scroll after the zoom effect has finished preserving the focal point.
+  useEffect(() => {
+    const pageNumber = pendingFitScrollPageRef.current;
+    if (pageNumber === null) return;
+
+    pendingFitScrollPageRef.current = null;
+    centerFittedPage(pageNumber);
+  }, [centerFittedPage, zoom]);
 
   // High-performance, jitter-free scroll listener for active page detection
   useEffect(() => {
