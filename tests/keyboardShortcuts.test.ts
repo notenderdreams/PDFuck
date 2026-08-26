@@ -20,7 +20,7 @@ describe('annotation keyboard shortcuts', () => {
     );
   });
 
-  test('number keys select palette colors only through the highlight-mode callback', async () => {
+  test('number keys select palette colors and recolor a selected highlight', async () => {
     const [keyboardSource, appSource, toolbarSource] = await Promise.all([
       projectFile('src/hooks/useKeyboard.ts'),
       projectFile('src/App.tsx'),
@@ -29,8 +29,13 @@ describe('annotation keyboard shortcuts', () => {
 
     expect(keyboardSource).toContain("if (/^[1-8]$/.test(e.key))");
     expect(keyboardSource).toContain('options.onSelectHighlightColor?.(Number(e.key) - 1)');
-    expect(appSource).toContain('if (!isHighlightTool(activeTool)) return;');
+    expect(appSource).toContain('setSelectedColor(color);');
+    expect(appSource).toContain("selectedAnnotation.type === 'highlight-text'");
+    expect(appSource).toContain('updateAnnotation(selectedAnnotation.id, { color });');
+    expect(appSource).not.toContain('if (!isHighlightTool(activeTool)) return;');
     expect(toolbarSource).toContain('aria-label={`Select highlight color ${index + 1}`}');
+    expect(toolbarSource).toContain('fill={selectedColor}');
+    expect(toolbarSource).toContain('aria-label="Choose a custom color"');
     expect(toolbarSource).toContain(
       'text-[9px] leading-none font-mono font-semibold text-[var(--muted-foreground)]'
     );

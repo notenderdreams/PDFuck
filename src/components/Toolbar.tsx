@@ -10,6 +10,7 @@ import {
   Eraser,
   ScanSearch,
   Underline,
+  Palette,
 } from 'lucide-react';
 import type { HighlightStyle, LineHighlightStyle, ToolType } from '../utils/types';
 import { HIGHLIGHT_COLOR_PRESETS, toggleHighlightStyle } from '../utils/highlightStyle';
@@ -183,7 +184,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* Glossy Etched Glass Divider */}
       <div className="macos-dock-divider z-10" aria-hidden="true" />
 
-      {/* Color Swatch Orb & Floating Palette */}
+      {/* Selected Color Palette & Floating Palette */}
       <div className="relative flex items-center justify-center z-10" ref={paletteRef}>
         {hoveredTool === 'color' && !showPalette && (
           <div className="macos-dock-tooltip">
@@ -202,11 +203,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           aria-label="Select Color and Stroke Size"
           aria-expanded={showPalette}
         >
-          <span
-            className={`macos-color-orb ${
+          <Palette
+            className={`h-[18px] w-[18px] drop-shadow-sm transition-colors ${
               isInvertedColorMode ? 'annotation-color-preview-invert' : ''
             }`}
-            style={{ backgroundColor: selectedColor }}
+            fill={selectedColor}
+            aria-hidden="true"
           />
         </button>
 
@@ -215,15 +217,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 p-3.5 rounded-2xl bg-[var(--popover)]/95 border border-white/20 backdrop-blur-2xl shadow-2xl flex flex-col gap-3 min-w-[200px] animate-slide-up z-50">
             <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
               <span>Swatches</span>
-              <input
-                type="color"
-                value={selectedColor}
-                onChange={(e) => onSelectColor(e.target.value)}
-                className={`w-5 h-5 rounded-full border-0 bg-transparent cursor-pointer ${
+              <label
+                className={`relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] ${
                   isInvertedColorMode ? 'annotation-color-preview-invert' : ''
                 }`}
                 title="Custom Color Picker"
-              />
+                aria-label="Choose a custom color"
+              >
+                <Palette className="h-4 w-4" fill={selectedColor} aria-hidden="true" />
+                <input
+                  type="color"
+                  value={selectedColor}
+                  onChange={(e) => onSelectColor(e.target.value)}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  aria-label="Choose a custom color"
+                />
+              </label>
             </div>
 
             {/* Color Swatch Grid with Glossy Chips */}

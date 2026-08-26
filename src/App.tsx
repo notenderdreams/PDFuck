@@ -30,7 +30,7 @@ import {
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
 import { createTextHighlightsFromSelection } from './utils/textHighlight';
-import { HIGHLIGHT_COLOR_PRESETS, isHighlightTool } from './utils/highlightStyle';
+import { HIGHLIGHT_COLOR_PRESETS } from './utils/highlightStyle';
 import {
   cropCanvasRegion,
   copyStitchedSnippetsToClipboard,
@@ -673,9 +673,20 @@ export function App() {
     },
     onSelectUnderlineTool: handleUnderlineShortcut,
     onSelectHighlightColor: (index) => {
-      if (!isHighlightTool(activeTool)) return;
       const color = HIGHLIGHT_COLOR_PRESETS[index];
-      if (color) setSelectedColor(color);
+      if (!color) return;
+
+      setSelectedColor(color);
+      const selectedAnnotation = annotations.find(({ id }) => id === selectedAnnotationId);
+      if (
+        selectedAnnotation &&
+        (selectedAnnotation.type === 'highlight-line' ||
+          selectedAnnotation.type === 'highlight-pen' ||
+          selectedAnnotation.type === 'highlight-rect' ||
+          selectedAnnotation.type === 'highlight-text')
+      ) {
+        updateAnnotation(selectedAnnotation.id, { color });
+      }
     },
     onUndo: handleGlobalUndo,
     onRedo: handleGlobalRedo,
