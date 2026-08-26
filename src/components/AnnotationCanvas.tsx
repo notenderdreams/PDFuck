@@ -74,7 +74,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
-  const highlightBlendMode = 'multiply';
   const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
@@ -82,8 +81,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const selectedHighlight = pageAnnotations.find(
     (a) =>
       a.id === selectedAnnotationId &&
-      (a.type === 'highlight-rect' || a.type === 'highlight-text')
-  ) as RectHighlightAnnotation | TextHighlightAnnotation | undefined;
+      (a.type === 'highlight-rect' || a.type === 'highlight-text' || a.type === 'highlight-line')
+  ) as RectHighlightAnnotation | TextHighlightAnnotation | LineHighlightAnnotation | undefined;
 
   let selectedHighlightPos = { x: 0, y: 0 };
   if (selectedHighlight) {
@@ -95,6 +94,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     } else if (selectedHighlight.type === 'highlight-text') {
       const minX = Math.min(...selectedHighlight.rects.map((r) => r.x));
       const minY = Math.min(...selectedHighlight.rects.map((r) => r.y));
+      selectedHighlightPos = {
+        x: minX * pageWidth,
+        y: minY * pageHeight,
+      };
+    } else if (selectedHighlight.type === 'highlight-line') {
+      const minX = Math.min(selectedHighlight.startX, selectedHighlight.endX);
+      const minY = Math.min(selectedHighlight.startY, selectedHighlight.endY);
       selectedHighlightPos = {
         x: minX * pageWidth,
         y: minY * pageHeight,
@@ -230,6 +236,108 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
     const handlePointerUp = () => {
       isResizingHighlightRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
+  // Handle moving / dragging of straight line highlights
+  const isDraggingLineRef = useRef(false);
+
+  const handleLineDragStart = (
+    e: React.PointerEvent,
+    line: LineHighlightAnnotation
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectAnnotation?.(line.id);
+
+    isDraggingLineRef.current = true;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const initialStartX = line.startX;
+    const initialStartY = line.startY;
+    const initialEndX = line.endX;
+    const initialEndY = line.endY;
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isDraggingLineRef.current) return;
+      const dx = (moveEvt.clientX - startClientX) / pageWidth;
+      const dy = (moveEvt.clientY - startClientY) / pageHeight;
+
+      const minX = Math.min(initialStartX, initialEndX);
+      const maxX = Math.max(initialStartX, initialEndX);
+      const minY = Math.min(initialStartY, initialEndY);
+      const maxY = Math.max(initialStartY, initialEndY);
+
+      const clampedDx = Math.max(-minX, Math.min(dx, 1 - maxX));
+      const clampedDy = Math.max(-minY, Math.min(dy, 1 - maxY));
+
+      onUpdateAnnotation?.(line.id, {
+        startX: initialStartX + clampedDx,
+        startY: initialStartY + clampedDy,
+        endX: initialEndX + clampedDx,
+        endY: initialEndY + clampedDy,
+      });
+    };
+
+    const handlePointerUp = () => {
+      isDraggingLineRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
+  // Handle adjusting start or end endpoint of a straight line highlight
+  const isDraggingEndpointRef = useRef(false);
+
+  const handleLineEndpointDragStart = (
+    e: React.PointerEvent,
+    line: LineHighlightAnnotation,
+    endpoint: 'start' | 'end'
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectAnnotation?.(line.id);
+
+    isDraggingEndpointRef.current = true;
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isDraggingEndpointRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const px = Math.max(0, Math.min(moveEvt.clientX - rect.left, pageWidth));
+      let py = Math.max(0, Math.min(moveEvt.clientY - rect.top, pageHeight));
+
+      const otherY = endpoint === 'start' ? line.endY * pageHeight : line.startY * pageHeight;
+      // Auto-snap horizontal if within 10px
+      if (Math.abs(py - otherY) < 10) {
+        py = otherY;
+      }
+
+      const nx = Math.max(0, Math.min(1, px / pageWidth));
+      const ny = Math.max(0, Math.min(1, py / pageHeight));
+
+      if (endpoint === 'start') {
+        onUpdateAnnotation?.(line.id, { startX: nx, startY: ny });
+      } else {
+        onUpdateAnnotation?.(line.id, { endX: nx, endY: ny });
+      }
+    };
+
+    const handlePointerUp = () => {
+      isDraggingEndpointRef.current = false;
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -481,179 +589,66 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       }`}
     >
 
+      {/* 1. Highlight SVG Layer (Blends directly with PDF canvas underneath text) */}
       <svg
+        data-pdf-highlight-layer
         className="w-full h-full absolute inset-0 pointer-events-none"
-        style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
+        style={{
+          width: `${pageWidth}px`,
+          height: `${pageHeight}px`,
+          mixBlendMode: isInvertedColorMode ? 'screen' : 'multiply',
+        }}
       >
-        {/* Render highlights created from selected PDF text. */}
+        {/* Render highlights created from selected PDF text */}
         {pageAnnotations
-          .filter((a) => a.type === 'highlight-text')
+          .filter((a) => a.type === 'highlight-text' && a.style !== 'underline')
           .map((a) => {
             const textHighlight = a as TextHighlightAnnotation;
-            const isSelected = selectedAnnotationId === textHighlight.id;
-            const isUnderline = textHighlight.style === 'underline';
             return (
-              <g
-                key={textHighlight.id}
-                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
-                onClick={(e) => {
-                  if (activeTool === 'select') {
-                    e.stopPropagation();
-                    onSelectAnnotation?.(textHighlight.id);
-                  }
-                }}
-              >
+              <g key={`hl_${textHighlight.id}`}>
                 {textHighlight.rects.map((rect, index) => (
-                  <React.Fragment key={`${textHighlight.id}_${index}`}>
-                    {isUnderline ? (
-                      <line
-                        className={colorFilterClass}
-                        x1={rect.x * pageWidth}
-                        y1={(rect.y + rect.height) * pageHeight - 1.5}
-                        x2={(rect.x + rect.width) * pageWidth}
-                        y2={(rect.y + rect.height) * pageHeight - 1.5}
-                        stroke={textHighlight.color}
-                        strokeWidth={2.5}
-                        strokeOpacity={0.9}
-                        strokeLinecap="round"
-                      />
-                    ) : (
-                      <rect
-                        className={colorFilterClass}
-                        x={rect.x * pageWidth}
-                        y={rect.y * pageHeight}
-                        width={rect.width * pageWidth}
-                        height={rect.height * pageHeight}
-                        fill={textHighlight.color}
-                        fillOpacity={textHighlight.opacity || 0.45}
-                        style={{ mixBlendMode: highlightBlendMode }}
-                      />
-                    )}
-                    {isUnderline && (
-                      <rect
-                        x={rect.x * pageWidth}
-                        y={rect.y * pageHeight}
-                        width={rect.width * pageWidth}
-                        height={rect.height * pageHeight}
-                        fill="transparent"
-                      />
-                    )}
-                    {isSelected && (
-                      <rect
-                        x={rect.x * pageWidth - 1.5}
-                        y={rect.y * pageHeight - 1.5}
-                        width={rect.width * pageWidth + 3}
-                        height={rect.height * pageHeight + 3}
-                        fill="none"
-                        stroke="#0080f0"
-                        strokeWidth={1.5}
-                        strokeDasharray="4 2"
-                        className="pointer-events-none"
-                      />
-                    )}
-                  </React.Fragment>
+                  <rect
+                    key={`${textHighlight.id}_fill_${index}`}
+                    className={colorFilterClass}
+                    x={rect.x * pageWidth}
+                    y={rect.y * pageHeight}
+                    width={rect.width * pageWidth}
+                    height={rect.height * pageHeight}
+                    fill={textHighlight.color}
+                    fillOpacity={textHighlight.opacity || 0.45}
+                  />
                 ))}
               </g>
             );
           })}
 
-        {/* Render Existing Rect Highlights */}
+        {/* Render Filled Rect Highlights */}
         {pageAnnotations
-          .filter((a) => a.type === 'highlight-rect')
+          .filter((a) => a.type === 'highlight-rect' && (!a.style || a.style === 'box'))
           .map((a) => {
             const rect = a as RectHighlightAnnotation;
-            const isSelected = selectedAnnotationId === rect.id;
-            const isStroke = rect.style === 'stroke';
-            const isUnderline = rect.style === 'underline';
             return (
-              <g
-                key={rect.id}
-                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
-                onClick={(e) => {
-                  if (activeTool === 'select') {
-                    e.stopPropagation();
-                    onSelectAnnotation?.(rect.id);
-                  }
-                }}
-              >
-                {isStroke ? (
-                  <rect
-                    className={colorFilterClass || ''}
-                    x={rect.x * pageWidth}
-                    y={rect.y * pageHeight}
-                    width={rect.width * pageWidth}
-                    height={rect.height * pageHeight}
-                    fill="none"
-                    stroke={rect.color}
-                    strokeWidth={2.5}
-                    strokeOpacity={0.9}
-                  />
-                ) : isUnderline ? (
-                  <line
-                    className={colorFilterClass}
-                    x1={rect.x * pageWidth}
-                    y1={(rect.y + rect.height) * pageHeight - 1.5}
-                    x2={(rect.x + rect.width) * pageWidth}
-                    y2={(rect.y + rect.height) * pageHeight - 1.5}
-                    stroke={rect.color}
-                    strokeWidth={2.5}
-                    strokeOpacity={0.9}
-                    strokeLinecap="round"
-                  />
-                ) : (
-                  <rect
-                    className={colorFilterClass || ''}
-                    x={rect.x * pageWidth}
-                    y={rect.y * pageHeight}
-                    width={rect.width * pageWidth}
-                    height={rect.height * pageHeight}
-                    fill={rect.color}
-                    fillOpacity={rect.opacity || 0.4}
-                    style={{ mixBlendMode: highlightBlendMode }}
-                  />
-                )}
-                {(isStroke || isUnderline) && (
-                  <rect
-                    x={rect.x * pageWidth}
-                    y={rect.y * pageHeight}
-                    width={rect.width * pageWidth}
-                    height={rect.height * pageHeight}
-                    fill="transparent"
-                  />
-                )}
-                {isSelected && (
-                  <rect
-                    x={rect.x * pageWidth - 1.5}
-                    y={rect.y * pageHeight - 1.5}
-                    width={rect.width * pageWidth + 3}
-                    height={rect.height * pageHeight + 3}
-                    fill="none"
-                    stroke="#0080f0"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 2"
-                    className="pointer-events-none"
-                  />
-                )}
-              </g>
+              <rect
+                key={`hl_${rect.id}`}
+                className={colorFilterClass || ''}
+                x={rect.x * pageWidth}
+                y={rect.y * pageHeight}
+                width={rect.width * pageWidth}
+                height={rect.height * pageHeight}
+                fill={rect.color}
+                fillOpacity={rect.opacity || 0.4}
+              />
             );
           })}
 
-        {/* AI regions remain outlined so document content stays readable. */}
-        {pageAnnotations
-          .filter((a) => a.type === 'ai-explanation')
-          .map((a) => {
-            const box = a as AiExplanationAnnotation;
-            return <rect key={box.id} x={box.x * pageWidth} y={box.y * pageHeight} width={box.width * pageWidth} height={box.height * pageHeight} fill="rgba(59,130,246,0.05)" stroke="#3b82f6" strokeWidth={1.5} />;
-          })}
-
-        {/* Render Existing Straight Line Highlights */}
+        {/* Render Straight Line Highlights */}
         {pageAnnotations
           .filter((a) => a.type === 'highlight-line')
           .map((a) => {
             const line = a as LineHighlightAnnotation;
             return (
               <line
-                key={line.id}
+                key={`hl_${line.id}`}
                 className={colorFilterClass}
                 x1={line.startX * pageWidth}
                 y1={line.startY * pageHeight}
@@ -663,19 +658,18 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 strokeWidth={line.strokeWidth}
                 strokeOpacity={line.opacity}
                 strokeLinecap="square"
-                style={{ mixBlendMode: highlightBlendMode }}
               />
             );
           })}
 
-        {/* Render Existing Freehand Drawings & Highlights */}
+        {/* Render Freehand Highlight Pen */}
         {pageAnnotations
-          .filter((a) => a.type === 'pen' || a.type === 'highlight-pen')
+          .filter((a) => a.type === 'highlight-pen')
           .map((a) => {
             const draw = a as DrawingAnnotation;
             return (
               <path
-                key={draw.id}
+                key={`hl_${draw.id}`}
                 className={colorFilterClass}
                 d={pointsToSvgPath(draw.points)}
                 stroke={draw.color}
@@ -684,13 +678,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
-                style={draw.type === 'highlight-pen' ? { mixBlendMode: highlightBlendMode } : undefined}
               />
             );
           })}
 
         {/* Active Straight Line Highlight in progress */}
-        {lineStart && lineCurrent && (
+        {activeTool === 'highlight-line' && lineStart && lineCurrent && (
           <line
             className={colorFilterClass}
             x1={lineStart.x * pageWidth}
@@ -705,27 +698,25 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             strokeWidth={strokeWidth * 2.8}
             strokeOpacity={opacity}
             strokeLinecap="square"
-            style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
 
-        {/* Active Freehand Drawing in progress */}
-        {currentStroke && (
+        {/* Active Freehand Highlight Pen in progress */}
+        {activeTool === 'highlight-pen' && currentStroke && (
           <path
             className={colorFilterClass}
             d={pointsToSvgPath(currentStroke)}
             stroke={selectedColor}
-            strokeWidth={activeTool === 'highlight-pen' ? strokeWidth * 2.5 : strokeWidth}
-            strokeOpacity={activeTool === 'highlight-pen' ? opacity : 1}
+            strokeWidth={strokeWidth * 2.5}
+            strokeOpacity={opacity}
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
-            style={activeTool === 'highlight-pen' ? { mixBlendMode: highlightBlendMode } : undefined}
           />
         )}
 
         {/* Active Rectangle Highlight in progress */}
-        {rectStart && rectCurrent && (
+        {activeTool === 'highlight-rect' && rectStart && rectCurrent && (
           <rect
             className={colorFilterClass}
             x={Math.min(rectStart.x, rectCurrent.x) * pageWidth}
@@ -736,9 +727,130 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             fillOpacity={opacity}
             stroke={selectedColor}
             strokeWidth={1}
-            style={{ mixBlendMode: highlightBlendMode }}
           />
         )}
+      </svg>
+
+      {/* 2. Drawing, Strokes, Selection Outlines & Interactive Hit-Targets Layer */}
+      <svg
+        data-pdf-drawing-layer
+        className="w-full h-full absolute inset-0 pointer-events-none"
+        style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
+      >
+        {/* Underlines for Text Highlights */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-text' && a.style === 'underline')
+          .map((a) => {
+            const textHighlight = a as TextHighlightAnnotation;
+            return (
+              <g key={`underline_${textHighlight.id}`}>
+                {textHighlight.rects.map((rect, index) => (
+                  <line
+                    key={`${textHighlight.id}_ul_${index}`}
+                    className={colorFilterClass}
+                    x1={rect.x * pageWidth}
+                    y1={(rect.y + rect.height) * pageHeight - 1.5}
+                    x2={(rect.x + rect.width) * pageWidth}
+                    y2={(rect.y + rect.height) * pageHeight - 1.5}
+                    stroke={textHighlight.color}
+                    strokeWidth={2.5}
+                    strokeOpacity={0.9}
+                    strokeLinecap="round"
+                  />
+                ))}
+              </g>
+            );
+          })}
+
+        {/* Outlines and Underlines for Rect Highlights */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-rect' && (a.style === 'stroke' || a.style === 'underline'))
+          .map((a) => {
+            const rect = a as RectHighlightAnnotation;
+            if (rect.style === 'stroke') {
+              return (
+                <rect
+                  key={`stroke_${rect.id}`}
+                  className={colorFilterClass || ''}
+                  x={rect.x * pageWidth}
+                  y={rect.y * pageHeight}
+                  width={rect.width * pageWidth}
+                  height={rect.height * pageHeight}
+                  fill="none"
+                  stroke={rect.color}
+                  strokeWidth={2.5}
+                  strokeOpacity={0.9}
+                />
+              );
+            }
+            return (
+              <line
+                key={`underline_${rect.id}`}
+                className={colorFilterClass}
+                x1={rect.x * pageWidth}
+                y1={(rect.y + rect.height) * pageHeight - 1.5}
+                x2={(rect.x + rect.width) * pageWidth}
+                y2={(rect.y + rect.height) * pageHeight - 1.5}
+                stroke={rect.color}
+                strokeWidth={2.5}
+                strokeOpacity={0.9}
+                strokeLinecap="round"
+              />
+            );
+          })}
+
+        {/* Regular Pen Freehand Drawings */}
+        {pageAnnotations
+          .filter((a) => a.type === 'pen')
+          .map((a) => {
+            const draw = a as DrawingAnnotation;
+            return (
+              <path
+                key={draw.id}
+                className={colorFilterClass}
+                d={pointsToSvgPath(draw.points)}
+                stroke={draw.color}
+                strokeWidth={draw.strokeWidth}
+                strokeOpacity={1}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            );
+          })}
+
+        {/* Active Regular Pen Drawing in progress */}
+        {activeTool === 'pen' && currentStroke && (
+          <path
+            className={colorFilterClass}
+            d={pointsToSvgPath(currentStroke)}
+            stroke={selectedColor}
+            strokeWidth={strokeWidth}
+            strokeOpacity={1}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        )}
+
+        {/* AI regions remain outlined so document content stays readable */}
+        {pageAnnotations
+          .filter((a) => a.type === 'ai-explanation')
+          .map((a) => {
+            const box = a as AiExplanationAnnotation;
+            return (
+              <rect
+                key={box.id}
+                x={box.x * pageWidth}
+                y={box.y * pageHeight}
+                width={box.width * pageWidth}
+                height={box.height * pageHeight}
+                fill="rgba(59,130,246,0.05)"
+                stroke="#3b82f6"
+                strokeWidth={1.5}
+              />
+            );
+          })}
 
         {/* Active Snip Rectangle in progress */}
         {activeTool === 'snip' && snipStart && snipCurrent && (
@@ -755,6 +867,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </g>
         )}
 
+        {/* Active AI Box in progress */}
         {activeTool === 'ai-box' && aiStart && aiCurrent && (
           <rect
             x={Math.min(aiStart.x, aiCurrent.x) * pageWidth}
@@ -781,6 +894,129 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             className="animate-pulse"
           />
         )}
+
+        {/* Interactive Hit Targets & Selection Feedback when activeTool === 'select' */}
+        {/* 1. Hit targets and selection for Text Highlights */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-text')
+          .map((a) => {
+            const textHighlight = a as TextHighlightAnnotation;
+            const isSelected = selectedAnnotationId === textHighlight.id;
+            return (
+              <g
+                key={`hit_th_${textHighlight.id}`}
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(textHighlight.id);
+                  }
+                }}
+              >
+                {textHighlight.rects.map((rect, index) => (
+                  <React.Fragment key={`${textHighlight.id}_rect_${index}`}>
+                    <rect
+                      x={rect.x * pageWidth}
+                      y={rect.y * pageHeight}
+                      width={rect.width * pageWidth}
+                      height={rect.height * pageHeight}
+                      fill="transparent"
+                    />
+                    {isSelected && (
+                      <rect
+                        x={rect.x * pageWidth - 1.5}
+                        y={rect.y * pageHeight - 1.5}
+                        width={rect.width * pageWidth + 3}
+                        height={rect.height * pageHeight + 3}
+                        fill="none"
+                        stroke="#0080f0"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 2"
+                        className="pointer-events-none"
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </g>
+            );
+          })}
+
+        {/* 2. Hit targets and selection for Rect Highlights */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-rect')
+          .map((a) => {
+            const rect = a as RectHighlightAnnotation;
+            const isSelected = selectedAnnotationId === rect.id;
+            return (
+              <g
+                key={`hit_rect_${rect.id}`}
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(rect.id);
+                  }
+                }}
+              >
+                <rect
+                  x={rect.x * pageWidth}
+                  y={rect.y * pageHeight}
+                  width={rect.width * pageWidth}
+                  height={rect.height * pageHeight}
+                  fill="transparent"
+                />
+                {isSelected && (
+                  <rect
+                    x={rect.x * pageWidth - 1.5}
+                    y={rect.y * pageHeight - 1.5}
+                    width={rect.width * pageWidth + 3}
+                    height={rect.height * pageHeight + 3}
+                    fill="none"
+                    stroke="#0080f0"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    className="pointer-events-none"
+                  />
+                )}
+              </g>
+            );
+          })}
+
+        {/* 3. Hit targets and selection for Line Highlights */}
+        {pageAnnotations
+          .filter((a) => a.type === 'highlight-line')
+          .map((a) => {
+            const line = a as LineHighlightAnnotation;
+            const isSelected = selectedAnnotationId === line.id;
+            return (
+              <g
+                key={`hit_line_${line.id}`}
+                className={activeTool === 'select' ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(e) => {
+                  if (activeTool === 'select') {
+                    e.stopPropagation();
+                    onSelectAnnotation?.(line.id);
+                  }
+                }}
+                onPointerDown={(e) => {
+                  if (activeTool === 'select') {
+                    handleLineDragStart(e, line);
+                  }
+                }}
+              >
+                {/* Transparent wider line stroke for effortless clicking & dragging */}
+                <line
+                  x1={line.startX * pageWidth}
+                  y1={line.startY * pageHeight}
+                  x2={line.endX * pageWidth}
+                  y2={line.endY * pageHeight}
+                  stroke="transparent"
+                  strokeWidth={Math.max(line.strokeWidth, 24)}
+                  strokeLinecap="round"
+                />
+              </g>
+            );
+          })}
       </svg>
 
       {/* Floating Snip Dimensions Badge while dragging */}
@@ -885,6 +1121,36 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         />
       )}
 
+      {/* Endpoint Adjustment Handles for Selected Line Highlight */}
+      {selectedHighlight && selectedHighlight.type === 'highlight-line' && (
+        <>
+          <div
+            style={{
+              left: `${selectedHighlight.startX * pageWidth}px`,
+              top: `${selectedHighlight.startY * pageHeight}px`,
+              transform: 'translate(-50%, -50%)',
+            }}
+            onPointerDown={(e) => handleLineEndpointDragStart(e, selectedHighlight as LineHighlightAnnotation, 'start')}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="absolute z-40 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full cursor-move shadow-md hover:scale-125 transition-transform pointer-events-auto select-none touch-none"
+            title="Drag to adjust start point"
+            aria-label="Drag to adjust start point"
+          />
+          <div
+            style={{
+              left: `${selectedHighlight.endX * pageWidth}px`,
+              top: `${selectedHighlight.endY * pageHeight}px`,
+              transform: 'translate(-50%, -50%)',
+            }}
+            onPointerDown={(e) => handleLineEndpointDragStart(e, selectedHighlight as LineHighlightAnnotation, 'end')}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="absolute z-40 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full cursor-move shadow-md hover:scale-125 transition-transform pointer-events-auto select-none touch-none"
+            title="Drag to adjust end point"
+            aria-label="Drag to adjust end point"
+          />
+        </>
+      )}
+
       {/* Floating Quick Action Menu for Selected Highlight */}
       {selectedHighlight && (
         <div
@@ -897,10 +1163,16 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          {/* Drag Grip Handle for Rect Highlight */}
-          {selectedHighlight.type === 'highlight-rect' && (
+          {/* Drag Grip Handle for Rect or Line Highlight */}
+          {(selectedHighlight.type === 'highlight-rect' || selectedHighlight.type === 'highlight-line') && (
             <div
-              onPointerDown={(e) => handleHighlightDragStart(e, selectedHighlight as RectHighlightAnnotation)}
+              onPointerDown={(e) => {
+                if (selectedHighlight.type === 'highlight-rect') {
+                  handleHighlightDragStart(e, selectedHighlight as RectHighlightAnnotation);
+                } else if (selectedHighlight.type === 'highlight-line') {
+                  handleLineDragStart(e, selectedHighlight as LineHighlightAnnotation);
+                }
+              }}
               className="flex items-center justify-center px-1.5 py-1 rounded-md bg-black/8 hover:bg-black/15 dark:bg-white/5 dark:hover:bg-white/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-grab active:cursor-grabbing transition-colors touch-none"
               title="Drag to move highlight"
               aria-label="Drag to move highlight"
@@ -928,7 +1200,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </div>
 
           {/* Stroke / Box Toggle for Rect Highlight or Underline / Box Toggle for Text Highlight */}
-          {selectedHighlight.type === 'highlight-rect' ? (
+          {selectedHighlight.type === 'highlight-rect' && (
             <button
               type="button"
               onClick={() => {
@@ -945,7 +1217,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             >
               <Square className="w-3.5 h-3.5" />
             </button>
-          ) : (
+          )}
+
+          {selectedHighlight.type === 'highlight-text' && (
             <button
               type="button"
               onClick={() => {
