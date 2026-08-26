@@ -15,6 +15,16 @@ export function isHighlightTool(tool: ToolType): boolean {
   return tool === 'highlight-line' || tool === 'highlight-pen' || tool === 'highlight-rect';
 }
 
+export function replaceHighlightPaletteColor(
+  palette: readonly string[],
+  index: number,
+  color: string
+): string[] {
+  return palette.map((currentColor, currentIndex) =>
+    currentIndex === index ? color : currentColor
+  );
+}
+
 export function toggleHighlightStyle(
   currentStyle: HighlightStyle,
   requestedStyle: Exclude<HighlightStyle, 'box'>

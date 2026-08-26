@@ -33,8 +33,14 @@ describe('annotation keyboard shortcuts', () => {
     expect(appSource).toContain("selectedAnnotation.type === 'highlight-text'");
     expect(appSource).toContain('updateAnnotation(selectedAnnotation.id, { color });');
     expect(appSource).not.toContain('if (!isHighlightTool(activeTool)) return;');
+    expect(appSource).toContain('setSelectedColor(selectedAnnotation.color);');
+    expect(appSource).toContain('colorPresets={highlightColors}');
+    expect(appSource).toContain('replaceHighlightPaletteColor');
+    expect(toolbarSource).toContain('onReplaceSelectedColor(e.target.value)');
     expect(toolbarSource).toContain('aria-label={`Select highlight color ${index + 1}`}');
-    expect(toolbarSource).toContain('fill={selectedColor}');
+    expect(toolbarSource).toContain('className={`macos-color-orb');
+    expect(toolbarSource).toContain('<Palette className="h-4 w-4" aria-hidden="true" />');
+    expect(toolbarSource).not.toContain('fill={selectedColor}');
     expect(toolbarSource).toContain('aria-label="Choose a custom color"');
     expect(toolbarSource).toContain(
       'text-[9px] leading-none font-mono font-semibold text-[var(--muted-foreground)]'

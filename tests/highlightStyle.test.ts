@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   HIGHLIGHT_COLOR_PRESETS,
   isHighlightTool,
+  replaceHighlightPaletteColor,
   resolveHighlightOpacity,
   toggleHighlightStyle,
 } from '../src/utils/highlightStyle';
@@ -44,5 +45,23 @@ describe('session highlight style', () => {
     expect(isHighlightTool('highlight-rect')).toBe(true);
     expect(isHighlightTool('pen')).toBe(false);
     expect(isHighlightTool('select')).toBe(false);
+  });
+
+  test('replaces the active session palette slot without changing the other swatches', () => {
+    const original = [...HIGHLIGHT_COLOR_PRESETS];
+    const updated = replaceHighlightPaletteColor(original, 0, '#fff123');
+
+    expect(updated[0]).toBe('#fff123');
+    expect(updated.slice(1)).toEqual(original.slice(1));
+    expect(original[0]).toBe('#facc15');
+  });
+
+  test('shares the session palette with the selected-highlight toolbar', async () => {
+    const canvasSource = await Bun.file(
+      new URL('../src/components/AnnotationCanvas.tsx', import.meta.url)
+    ).text();
+
+    expect(canvasSource).toContain('highlightColors.map((c) =>');
+    expect(canvasSource).not.toContain('QUICK_HIGHLIGHT_COLORS');
   });
 });

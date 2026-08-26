@@ -13,11 +13,12 @@ import {
   Palette,
 } from 'lucide-react';
 import type { HighlightStyle, LineHighlightStyle, ToolType } from '../utils/types';
-import { HIGHLIGHT_COLOR_PRESETS, toggleHighlightStyle } from '../utils/highlightStyle';
+import { toggleHighlightStyle } from '../utils/highlightStyle';
 
 interface ToolbarProps {
   activeTool: ToolType;
   selectedColor: string;
+  colorPresets: readonly string[];
   isInvertedColorMode: boolean;
   strokeWidth: number;
   opacity: number;
@@ -26,7 +27,8 @@ interface ToolbarProps {
   canUndo?: boolean;
   canRedo?: boolean;
   onSelectTool: (tool: ToolType) => void;
-  onSelectColor: (color: string) => void;
+  onSelectColor: (color: string, index: number) => void;
+  onReplaceSelectedColor: (color: string) => void;
   onChangeStrokeWidth: (width: number) => void;
   onChangeOpacity: (opacity: number) => void;
   onChangeHighlightStyle: (style: HighlightStyle) => void;
@@ -40,12 +42,14 @@ interface ToolbarProps {
 export const Toolbar: React.FC<ToolbarProps> = ({
   activeTool,
   selectedColor,
+  colorPresets,
   isInvertedColorMode,
   strokeWidth,
   highlightStyle,
   lineHighlightStyle,
   onSelectTool,
   onSelectColor,
+  onReplaceSelectedColor,
   onChangeStrokeWidth,
   onChangeHighlightStyle,
   onChangeLineHighlightStyle,
@@ -184,7 +188,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* Glossy Etched Glass Divider */}
       <div className="macos-dock-divider z-10" aria-hidden="true" />
 
-      {/* Selected Color Palette & Floating Palette */}
+      {/* Color Swatch Orb & Floating Palette */}
       <div className="relative flex items-center justify-center z-10" ref={paletteRef}>
         {hoveredTool === 'color' && !showPalette && (
           <div className="macos-dock-tooltip">
@@ -203,12 +207,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           aria-label="Select Color and Stroke Size"
           aria-expanded={showPalette}
         >
-          <Palette
-            className={`h-[18px] w-[18px] drop-shadow-sm transition-colors ${
+          <span
+            className={`macos-color-orb ${
               isInvertedColorMode ? 'annotation-color-preview-invert' : ''
             }`}
-            fill={selectedColor}
-            aria-hidden="true"
+            style={{ backgroundColor: selectedColor }}
           />
         </button>
 
@@ -224,11 +227,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 title="Custom Color Picker"
                 aria-label="Choose a custom color"
               >
-                <Palette className="h-4 w-4" fill={selectedColor} aria-hidden="true" />
+                <Palette className="h-4 w-4" aria-hidden="true" />
                 <input
                   type="color"
                   value={selectedColor}
-                  onChange={(e) => onSelectColor(e.target.value)}
+                  onChange={(e) => onReplaceSelectedColor(e.target.value)}
                   className="absolute inset-0 cursor-pointer opacity-0"
                   aria-label="Choose a custom color"
                 />
@@ -237,11 +240,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             {/* Color Swatch Grid with Glossy Chips */}
             <div className="grid grid-cols-4 gap-2">
-              {HIGHLIGHT_COLOR_PRESETS.map((colorHex, index) => (
+              {colorPresets.map((colorHex, index) => (
                 <button
                   key={colorHex}
                   onClick={() => {
-                    onSelectColor(colorHex);
+                    onSelectColor(colorHex, index);
                     setShowPalette(false);
                   }}
                   className="group flex flex-col items-center gap-0.5 rounded-md transition-transform hover:scale-105"

@@ -23,6 +23,7 @@ interface PDFViewerProps {
   customFilterStyle: React.CSSProperties;
   activeTool: ToolType;
   selectedColor: string;
+  highlightColors: readonly string[];
   strokeWidth: number;
   opacity: number;
   highlightStyle: HighlightStyle;
@@ -66,6 +67,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   customFilterStyle,
   activeTool,
   selectedColor,
+  highlightColors,
   strokeWidth,
   opacity,
   highlightStyle,
@@ -720,6 +722,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 customFilterStyle={customFilterStyle}
                 activeTool={activeTool}
                 selectedColor={selectedColor}
+                highlightColors={highlightColors}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
                 highlightStyle={highlightStyle}
@@ -762,6 +765,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               customFilterStyle={customFilterStyle}
               activeTool={activeTool}
               selectedColor={selectedColor}
+              highlightColors={highlightColors}
               strokeWidth={strokeWidth}
               opacity={opacity}
               highlightStyle={highlightStyle}
@@ -804,6 +808,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 customFilterStyle={customFilterStyle}
                 activeTool={activeTool}
                 selectedColor={selectedColor}
+                highlightColors={highlightColors}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
                 highlightStyle={highlightStyle}
@@ -844,6 +849,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   customFilterStyle={customFilterStyle}
                   activeTool={activeTool}
                   selectedColor={selectedColor}
+                  highlightColors={highlightColors}
                   strokeWidth={strokeWidth}
                   opacity={opacity}
                   highlightStyle={highlightStyle}

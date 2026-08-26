@@ -21,6 +21,7 @@ interface AnnotationCanvasProps {
   pageHeight: number;
   activeTool: ToolType;
   selectedColor: string;
+  highlightColors: readonly string[];
   isInvertedColorMode: boolean;
   strokeWidth: number;
   opacity: number;
@@ -44,6 +45,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   pageHeight,
   activeTool,
   selectedColor,
+  highlightColors,
   isInvertedColorMode,
   strokeWidth,
   opacity,
@@ -119,16 +121,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       };
     }
   }
-
-  const QUICK_HIGHLIGHT_COLORS = [
-    '#facc15', // Yellow
-    '#fbbf24', // Amber
-    '#4ade80', // Green
-    '#38bdf8', // Blue
-    '#fb7185', // Coral
-    '#c084fc', // Purple
-    '#f87171', // Red
-  ];
 
   // Flash feedback state after capturing a snippet
   const [capturedFlashRect, setCapturedFlashRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -1211,7 +1203,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
           {/* Color Swatches */}
           <div className="flex items-center gap-1 pr-1.5 border-r border-[var(--border)]">
-            {QUICK_HIGHLIGHT_COLORS.map((c) => (
+            {highlightColors.map((c) => (
               <button
                 key={c}
                 type="button"

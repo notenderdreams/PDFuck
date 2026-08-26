@@ -30,7 +30,10 @@ import {
 } from './utils/pageExtractor';
 import { getImageDimensions } from './utils/imageUtils';
 import { createTextHighlightsFromSelection } from './utils/textHighlight';
-import { HIGHLIGHT_COLOR_PRESETS } from './utils/highlightStyle';
+import {
+  HIGHLIGHT_COLOR_PRESETS,
+  replaceHighlightPaletteColor,
+} from './utils/highlightStyle';
 import {
   cropCanvasRegion,
   copyStitchedSnippetsToClipboard,
@@ -70,6 +73,10 @@ export function App() {
   // Active Tool & Style State
   const [activeTool, setActiveTool] = useState<ToolType>('select');
   const [selectedColor, setSelectedColor] = useState<string>('#ffe600');
+  const [highlightColors, setHighlightColors] = useState<string[]>(() => [
+    ...HIGHLIGHT_COLOR_PRESETS,
+  ]);
+  const [selectedPaletteIndex, setSelectedPaletteIndex] = useState(0);
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [opacity, setOpacity] = useState<number>(0.45);
   const [highlightStyle, setHighlightStyle] = useState<HighlightStyle>('box');
@@ -161,6 +168,26 @@ export function App() {
   );
 
   const isDarkTheme = usesInvertedColorSpace(themeSettings.theme);
+
+  const handleSelectAnnotation = useCallback((id: string | null) => {
+    setSelectedAnnotationId(id);
+    if (!id) return;
+
+    const selectedAnnotation = annotations.find((annotation) => annotation.id === id);
+    if (
+      selectedAnnotation &&
+      (selectedAnnotation.type === 'highlight-line' ||
+        selectedAnnotation.type === 'highlight-pen' ||
+        selectedAnnotation.type === 'highlight-rect' ||
+        selectedAnnotation.type === 'highlight-text')
+    ) {
+      setSelectedColor(selectedAnnotation.color);
+      const paletteIndex = highlightColors.findIndex(
+        (color) => color.toLowerCase() === selectedAnnotation.color.toLowerCase()
+      );
+      if (paletteIndex >= 0) setSelectedPaletteIndex(paletteIndex);
+    }
+  }, [annotations, highlightColors]);
 
   useEffect(() => {
     document.documentElement.dataset.uiTheme = isDarkTheme ? 'dark' : 'light';
@@ -673,9 +700,10 @@ export function App() {
     },
     onSelectUnderlineTool: handleUnderlineShortcut,
     onSelectHighlightColor: (index) => {
-      const color = HIGHLIGHT_COLOR_PRESETS[index];
+      const color = highlightColors[index];
       if (!color) return;
 
+      setSelectedPaletteIndex(index);
       setSelectedColor(color);
       const selectedAnnotation = annotations.find(({ id }) => id === selectedAnnotationId);
       if (
@@ -832,7 +860,7 @@ export function App() {
               customFilterStyle={getCustomFilterStyle()}
               onClose={() => setIsSidebarOpen(false)}
               onPageSelect={handleNavigatePage}
-              onSelectAnnotation={setSelectedAnnotationId}
+              onSelectAnnotation={handleSelectAnnotation}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
               snippets={snippets}
               isSnipActive={activeTool === 'snip'}
@@ -881,6 +909,7 @@ export function App() {
                 customFilterStyle={getCustomFilterStyle()}
                 activeTool={activeTool}
                 selectedColor={selectedColor}
+                highlightColors={highlightColors}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
                 highlightStyle={highlightStyle}
@@ -888,7 +917,7 @@ export function App() {
                 annotations={annotations}
                 selectedAnnotationId={selectedAnnotationId}
                 onPageChange={(p) => changePage(p)}
-                onSelectAnnotation={(id) => setSelectedAnnotationId(id)}
+                onSelectAnnotation={handleSelectAnnotation}
                 onAddAnnotation={(ann) => addAnnotation(ann)}
                 onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
                 onChangeHighlightStyle={setHighlightStyle}
@@ -951,6 +980,7 @@ export function App() {
             <Toolbar
               activeTool={activeTool}
               selectedColor={selectedColor}
+              colorPresets={highlightColors}
               isInvertedColorMode={isDarkTheme}
               strokeWidth={strokeWidth}
               opacity={opacity}
@@ -959,7 +989,17 @@ export function App() {
               canUndo={activeTool === 'snip' ? canUndoSnippets : canUndoAnnotations}
               canRedo={activeTool === 'snip' ? canRedoSnippets : canRedoAnnotations}
               onSelectTool={handleSelectTool}
-              onSelectColor={(c) => {
+              onSelectColor={(c, index) => {
+                setSelectedPaletteIndex(index);
+                setSelectedColor(c);
+                if (selectedAnnotationId) {
+                  updateAnnotation(selectedAnnotationId, { color: c });
+                }
+              }}
+              onReplaceSelectedColor={(c) => {
+                setHighlightColors((colors) =>
+                  replaceHighlightPaletteColor(colors, selectedPaletteIndex, c)
+                );
                 setSelectedColor(c);
                 if (selectedAnnotationId) {
                   updateAnnotation(selectedAnnotationId, { color: c });

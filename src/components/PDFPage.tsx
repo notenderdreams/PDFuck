@@ -29,6 +29,7 @@ interface PDFPageProps {
   customFilterStyle: React.CSSProperties;
   activeTool: ToolType;
   selectedColor: string;
+  highlightColors: readonly string[];
   strokeWidth: number;
   opacity: number;
   highlightStyle: HighlightStyle;
@@ -65,6 +66,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   customFilterStyle,
   activeTool,
   selectedColor,
+  highlightColors,
   strokeWidth,
   opacity,
   highlightStyle,
@@ -360,6 +362,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         pageHeight={pageDimensions.height}
         activeTool={activeTool}
         selectedColor={selectedColor}
+        highlightColors={highlightColors}
         isInvertedColorMode={usesInvertedColorSpace(currentTheme)}
         strokeWidth={strokeWidth}
         opacity={opacity}
