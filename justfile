@@ -19,3 +19,7 @@ build-web:
 check:
     bun x tsc --noEmit
     cargo check --manifest-path src-tauri/Cargo.toml
+
+clean:
+    cargo clean --manifest-path src-tauri/Cargo.toml
+    rm -rf dist node_modules
