@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { resolveHighlightOpacity, toggleHighlightStyle } from '../src/utils/highlightStyle';
+import {
+  HIGHLIGHT_COLOR_PRESETS,
+  isHighlightTool,
+  resolveHighlightOpacity,
+  toggleHighlightStyle,
+} from '../src/utils/highlightStyle';
 
 describe('session highlight style', () => {
   test('toggles stroke and underline modes back to the default box style', () => {
@@ -28,5 +33,16 @@ describe('session highlight style', () => {
     );
     expect(canvasSource).not.toContain("highlightStyle === 'underline' && rectStart");
     expect(canvasSource).not.toContain("selectedHighlight.type === 'highlight-rect' ||\n            selectedHighlight.type === 'highlight-text'");
+  });
+
+  test('maps number shortcuts to the shared palette only for highlight tools', () => {
+    expect(HIGHLIGHT_COLOR_PRESETS).toHaveLength(8);
+    expect(HIGHLIGHT_COLOR_PRESETS[0]).toBe('#facc15');
+    expect(HIGHLIGHT_COLOR_PRESETS[7]).toBe('#ffffff');
+    expect(isHighlightTool('highlight-line')).toBe(true);
+    expect(isHighlightTool('highlight-pen')).toBe(true);
+    expect(isHighlightTool('highlight-rect')).toBe(true);
+    expect(isHighlightTool('pen')).toBe(false);
+    expect(isHighlightTool('select')).toBe(false);
   });
 });

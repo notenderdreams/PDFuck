@@ -10,6 +10,7 @@ interface KeyboardShortcutOptions {
   onSelectTool: (tool: ToolType) => void;
   onSelectLineTool?: () => void;
   onSelectUnderlineTool?: () => void;
+  onSelectHighlightColor?: (index: number) => void;
   onUndo: () => void;
   onRedo: () => void;
   onZoomIn: () => void;
@@ -115,6 +116,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
         }
       } else {
         // Single key shortcuts
+        if (/^[1-8]$/.test(e.key)) {
+          options.onSelectHighlightColor?.(Number(e.key) - 1);
+          return;
+        }
         switch (e.key.toLowerCase()) {
           case 'u':
             options.onSelectUnderlineTool?.();

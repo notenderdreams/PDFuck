@@ -12,7 +12,7 @@ import {
   Underline,
 } from 'lucide-react';
 import type { HighlightStyle, LineHighlightStyle, ToolType } from '../utils/types';
-import { toggleHighlightStyle } from '../utils/highlightStyle';
+import { HIGHLIGHT_COLOR_PRESETS, toggleHighlightStyle } from '../utils/highlightStyle';
 
 interface ToolbarProps {
   activeTool: ToolType;
@@ -35,17 +35,6 @@ interface ToolbarProps {
   onRedo?: () => void;
   onClearPageAnnotations?: () => void;
 }
-
-const COLOR_PRESETS = [
-  '#facc15', // Classic Yellow
-  '#fbbf24', // Amber Sand
-  '#4ade80', // Soft Sage Green
-  '#38bdf8', // Soft Sky Blue
-  '#fb7185', // Warm Coral
-  '#c084fc', // Lavender
-  '#f87171', // Soft Red
-  '#ffffff', // Monochrome White
-];
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   activeTool,
@@ -239,22 +228,31 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             {/* Color Swatch Grid with Glossy Chips */}
             <div className="grid grid-cols-4 gap-2">
-              {COLOR_PRESETS.map((colorHex) => (
+              {HIGHLIGHT_COLOR_PRESETS.map((colorHex, index) => (
                 <button
                   key={colorHex}
                   onClick={() => {
                     onSelectColor(colorHex);
                     setShowPalette(false);
                   }}
-                  className={`w-6 h-6 rounded-lg transition-all ${
-                    isInvertedColorMode ? 'annotation-color-preview-invert' : ''
-                  } ${
-                    selectedColor.toLowerCase() === colorHex.toLowerCase()
-                      ? 'ring-2 ring-blue-500 scale-110 shadow-md'
-                      : 'opacity-85 hover:opacity-100 hover:scale-108 border border-black/20'
-                  }`}
-                  style={{ backgroundColor: colorHex }}
-                />
+                  className="group flex flex-col items-center gap-0.5 rounded-md transition-transform hover:scale-105"
+                  aria-label={`Select highlight color ${index + 1}`}
+                  title={`${index + 1}: Select this highlight color`}
+                >
+                  <span
+                    className={`block w-6 h-6 rounded-lg transition-all ${
+                      isInvertedColorMode ? 'annotation-color-preview-invert' : ''
+                    } ${
+                      selectedColor.toLowerCase() === colorHex.toLowerCase()
+                        ? 'ring-2 ring-blue-500 scale-110 shadow-md'
+                        : 'opacity-85 group-hover:opacity-100 border border-black/20'
+                    }`}
+                    style={{ backgroundColor: colorHex }}
+                  />
+                  <span className="text-[9px] leading-none font-mono font-semibold text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
+                    {index + 1}
+                  </span>
+                </button>
               ))}
             </div>
 
