@@ -1077,7 +1077,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {textInputPos && textInputKind === 'plain' && (
         <textarea
           ref={textNoteTextareaRef}
-          rows={1}
+          rows={Math.max(1, textInputValue.split('\n').length)}
           value={textInputValue}
           onChange={(e) => setTextInputValue(e.target.value)}
           onBlur={handleSaveTextNote}

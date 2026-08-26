@@ -53,10 +53,14 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
       setEditText(annotation.text);
       setTimeout(() => {
         textareaRef.current?.focus();
-        textareaRef.current?.select();
+        if (annotation.kind === 'plain') {
+          textareaRef.current?.setSelectionRange(annotation.text.length, annotation.text.length);
+        } else {
+          textareaRef.current?.select();
+        }
       }, 50);
     }
-  }, [isEditing, annotation.text]);
+  }, [isEditing, annotation.kind, annotation.text]);
 
   // Find color config or match preset
   const currentColor = NOTE_COLORS.find(
@@ -143,27 +147,25 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
         }`}
       >
         {isEditing ? (
-          <div className="flex min-w-[180px] flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-2 shadow-xl">
-            <textarea
-              ref={textareaRef}
-              rows={2}
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveEdit();
-                if (e.key === 'Escape') setIsEditing(false);
-              }}
-              className="resize-none bg-transparent text-xs text-[var(--foreground)] outline-none"
-            />
-            <div className="flex justify-end gap-1">
-              <button onClick={() => setIsEditing(false)} className="px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">
-                Cancel
-              </button>
-              <button onClick={handleSaveEdit} className="btn-primary px-2 py-0.5 text-[10px]">
-                Save
-              </button>
-            </div>
-          </div>
+          <textarea
+            ref={textareaRef}
+            rows={Math.max(1, editText.split('\n').length)}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onBlur={handleSaveEdit}
+            aria-label="Edit plain text"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSaveEdit();
+              } else if (e.key === 'Escape') {
+                setEditText(annotation.text);
+                setIsEditing(false);
+              }
+            }}
+            className="min-w-[12ch] max-w-[420px] resize-none overflow-hidden border-0 bg-transparent p-0 font-sans leading-relaxed outline-none"
+            style={{ color: annotation.color, fontSize: `${annotation.fontSize || 12}px` }}
+          />
         ) : (
           <div
             onMouseDown={handleMouseDownDrag}

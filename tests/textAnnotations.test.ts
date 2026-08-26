@@ -35,7 +35,14 @@ describe('plain text and sticky note tools', () => {
     expect(canvas).toContain("activeTool === 'text' ? 'cursor-text' : 'cursor-crosshair'");
     expect(canvas).toContain('if (textInputPos) handleSaveTextNote();');
     expect(canvas).toContain("e.key === 'Enter' && !e.shiftKey");
+    expect(canvas).toContain("rows={Math.max(1, textInputValue.split('\\n').length)}");
     expect(overlay).toContain("if (annotation.kind === 'plain')");
+    expect(overlay).toContain('aria-label="Edit plain text"');
+    expect(overlay).toContain('onBlur={handleSaveEdit}');
+    expect(overlay).toContain(
+      'textareaRef.current?.setSelectionRange(annotation.text.length, annotation.text.length)'
+    );
+    expect(overlay).not.toContain('flex min-w-[180px] flex-col gap-1.5 rounded-lg');
     expect(exporter).toContain("const isPlainText = textAnn.kind === 'plain'");
     expect(exporter).toContain('if (!isPlainText)');
   });
