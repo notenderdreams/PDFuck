@@ -232,26 +232,32 @@ export async function exportAnnotatedPDF(
         const x = textAnn.x * pageWidth;
         const yTop = pageHeight - textAnn.y * pageHeight;
         const yBottom = yTop - boxHeight;
+        const isPlainText = textAnn.kind === 'plain';
 
-        // Draw note background box
-        page.drawRectangle({
-          x,
-          y: yBottom,
-          width: boxWidth,
-          height: boxHeight,
-          color: rgb(0.99, 0.94, 0.54),
-          borderColor: rgb(0.99, 0.88, 0.28),
-          borderWidth: 1,
-        });
+        if (!isPlainText) {
+          page.drawRectangle({
+            x,
+            y: yBottom,
+            width: boxWidth,
+            height: boxHeight,
+            color: rgb(0.99, 0.94, 0.54),
+            borderColor: rgb(0.99, 0.88, 0.28),
+            borderWidth: 1,
+          });
+        }
+
+        const textColor = isPlainText ? hexToRgb(textAnn.color || '#18181b') : null;
 
         // Draw text lines
         for (let l = 0; l < lines.length; l++) {
           page.drawText(lines[l], {
-            x: x + boxPadding,
-            y: yTop - boxPadding - (l + 0.8) * lineHeight,
+            x: x + (isPlainText ? 0 : boxPadding),
+            y: yTop - (isPlainText ? 0 : boxPadding) - (l + 0.8) * lineHeight,
             size: fontSize,
             font: fontHelvetica,
-            color: rgb(0.15, 0.15, 0.18),
+            color: textColor
+              ? rgb(textColor.r, textColor.g, textColor.b)
+              : rgb(0.15, 0.15, 0.18),
           });
         }
       }

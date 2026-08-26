@@ -84,6 +84,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   // Text Note Input Popup State
   const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
   const [textInputValue, setTextInputValue] = useState<string>('');
+  const [textInputKind, setTextInputKind] = useState<'plain' | 'sticky'>('plain');
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
@@ -134,9 +135,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           textNoteTextareaRef.current.focus();
         }
       };
-      focusTextarea();
-      const t1 = setTimeout(focusTextarea, 20);
-      const t2 = setTimeout(focusTextarea, 80);
+      const t1 = setTimeout(focusTextarea, 0);
+      const t2 = setTimeout(focusTextarea, 40);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
@@ -357,6 +357,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     if (activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser') return;
     isMouseDownRef.current = true;
 
+    if (activeTool === 'text' || activeTool === 'sticky-note') e.preventDefault();
+
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
@@ -382,9 +384,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       isInteractingRef.current = true;
       setAiStart({ x, y });
       setAiCurrent({ x, y });
-    } else if (activeTool === 'text') {
+    } else if (activeTool === 'text' || activeTool === 'sticky-note') {
+      if (textInputPos) handleSaveTextNote();
       setTextInputPos({ x, y });
       setTextInputValue('');
+      setTextInputKind(activeTool === 'text' ? 'plain' : 'sticky');
     }
   };
 
@@ -561,10 +565,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         pageNumber,
         type: 'text-note',
+        kind: textInputKind,
         x: textInputPos.x,
         y: textInputPos.y,
         text: textInputValue.trim(),
-        color: '#fef08a', // Default sticky yellow
+        color: textInputKind === 'plain' ? selectedColor : '#fef08a',
         fontSize: 12,
         createdAt: Date.now(),
       };
@@ -591,7 +596,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       className={`absolute inset-0 select-none touch-none ${
         activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser'
           ? 'pointer-events-none'
-          : 'cursor-crosshair pointer-events-auto'
+          : `${activeTool === 'text' ? 'cursor-text' : 'cursor-crosshair'} pointer-events-auto`
       }`}
     >
 
@@ -1068,8 +1073,39 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         </div>
       )}
 
-      {/* Active Text Note Creation Popup */}
-      {textInputPos && (
+      {/* Inline Plain Text Editor */}
+      {textInputPos && textInputKind === 'plain' && (
+        <textarea
+          ref={textNoteTextareaRef}
+          rows={1}
+          value={textInputValue}
+          onChange={(e) => setTextInputValue(e.target.value)}
+          onBlur={handleSaveTextNote}
+          placeholder="Type text..."
+          aria-label="Add plain text"
+          className="absolute z-50 min-w-[12ch] max-w-[420px] resize-none overflow-hidden border-0 bg-transparent p-0 font-sans text-xs leading-relaxed outline-none placeholder:opacity-45 pointer-events-auto"
+          style={{
+            left: `${textInputPos.x * pageWidth}px`,
+            top: `${textInputPos.y * pageHeight}px`,
+            color: selectedColor,
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSaveTextNote();
+            } else if (e.key === 'Escape') {
+              setTextInputPos(null);
+              setTextInputValue('');
+            }
+          }}
+        />
+      )}
+
+      {/* Active Sticky Note Creation Popup */}
+      {textInputPos && textInputKind === 'sticky' && (
         <div
           style={{
             left: `${Math.min(textInputPos.x * pageWidth, pageWidth - 240)}px`,

@@ -127,6 +127,71 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
     }
   };
 
+  if (annotation.kind === 'plain') {
+    return (
+      <div
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          left: `${leftPx}px`,
+          top: `${topPx}px`,
+          maxWidth: '420px',
+        }}
+        className={`absolute z-30 group rounded-sm ${
+          isSelected ? 'ring-2 ring-blue-500/80 ring-offset-2 ring-offset-transparent' : ''
+        }`}
+      >
+        {isEditing ? (
+          <div className="flex min-w-[180px] flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-2 shadow-xl">
+            <textarea
+              ref={textareaRef}
+              rows={2}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveEdit();
+                if (e.key === 'Escape') setIsEditing(false);
+              }}
+              className="resize-none bg-transparent text-xs text-[var(--foreground)] outline-none"
+            />
+            <div className="flex justify-end gap-1">
+              <button onClick={() => setIsEditing(false)} className="px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">
+                Cancel
+              </button>
+              <button onClick={handleSaveEdit} className="btn-primary px-2 py-0.5 text-[10px]">
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            onMouseDown={handleMouseDownDrag}
+            className="cursor-grab whitespace-pre-wrap break-words font-sans leading-relaxed active:cursor-grabbing"
+            style={{ color: annotation.color, fontSize: `${annotation.fontSize || 12}px` }}
+          >
+            {annotation.text}
+          </div>
+        )}
+
+        {isSelected && !isEditing && (
+          <div className="absolute -top-8 left-0 flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--muted-foreground)] shadow-lg">
+            <GripHorizontal
+              className="h-3.5 w-3.5 cursor-grab"
+              onMouseDown={handleMouseDownDrag}
+            />
+            <button onClick={() => setIsEditing(true)} className="rounded p-0.5 hover:bg-[var(--secondary)]" title="Edit text">
+              <Edit3 className="h-3 w-3" />
+            </button>
+            <button onClick={() => onDelete(annotation.id)} className="rounded p-0.5 hover:bg-red-500/10 hover:text-red-500" title="Delete text">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={handleClick}

@@ -140,6 +140,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case 't':
             options.onSelectTool('text');
             break;
+          case 'n':
+            options.onSelectTool('sticky-note');
+            break;
           case 'a':
             options.onSelectTool('ai-box');
             break;

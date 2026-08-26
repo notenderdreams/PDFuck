@@ -7,6 +7,7 @@ export type ToolType =
   | 'pen'
   | 'image'
   | 'text'
+  | 'sticky-note'
   | 'eraser'
   | 'snip'
   | 'ai-box';
@@ -100,6 +101,7 @@ export interface TextNoteAnnotation {
   id: string;
   pageNumber: number;
   type: 'text-note';
+  kind?: 'plain' | 'sticky';
   x: number; // Normalized 0..1
   y: number; // Normalized 0..1
   text: string;
