@@ -18,6 +18,7 @@ export type ViewMode = 'continuous' | 'single' | 'spread';
 export type AppScreen = 'dashboard' | 'reader';
 
 export type HighlightStyle = 'box' | 'stroke' | 'underline';
+export type LineHighlightStyle = 'highlight' | 'underline';
 
 export interface StrokePoint {
   x: number; // Normalized 0..1 relative to page width
@@ -46,7 +47,7 @@ export interface LineHighlightAnnotation {
   color: string;
   strokeWidth: number;
   opacity: number;
-  style?: 'highlight' | 'underline';
+  style?: LineHighlightStyle;
   createdAt: number;
 }
 

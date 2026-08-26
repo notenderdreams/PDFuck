@@ -14,6 +14,7 @@ import type {
   AttachedImageAnnotation,
   AiExplanationAnnotation,
   HighlightStyle,
+  LineHighlightStyle,
   TextNoteAnnotation,
   ReadingTheme,
   ToolType,
@@ -31,12 +32,14 @@ interface PDFPageProps {
   strokeWidth: number;
   opacity: number;
   highlightStyle: HighlightStyle;
+  lineHighlightStyle: LineHighlightStyle;
   annotations: Annotation[];
   selectedAnnotationId: string | null;
   onSelectAnnotation: (id: string | null) => void;
   onAddAnnotation: (ann: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   onChangeHighlightStyle: (style: HighlightStyle) => void;
+  onChangeLineHighlightStyle: (style: LineHighlightStyle) => void;
   onDeleteAnnotation: (id: string) => void;
   onImageDrop: (pageNumber: number, file: File) => void;
   onCursorMove?: (pageNumber: number, normalizedX: number, normalizedY: number) => void;
@@ -65,12 +68,14 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   strokeWidth,
   opacity,
   highlightStyle,
+  lineHighlightStyle,
   annotations,
   selectedAnnotationId,
   onSelectAnnotation,
   onAddAnnotation,
   onUpdateAnnotation,
   onChangeHighlightStyle,
+  onChangeLineHighlightStyle,
   onDeleteAnnotation,
   onImageDrop,
   onCursorMove,
@@ -359,11 +364,13 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         strokeWidth={strokeWidth}
         opacity={opacity}
         highlightStyle={highlightStyle}
+        lineHighlightStyle={lineHighlightStyle}
         annotations={annotations}
         selectedAnnotationId={selectedAnnotationId}
         onSelectAnnotation={onSelectAnnotation}
         onUpdateAnnotation={onUpdateAnnotation}
         onChangeHighlightStyle={onChangeHighlightStyle}
+        onChangeLineHighlightStyle={onChangeLineHighlightStyle}
         onAddAnnotation={onAddAnnotation}
         onDeleteAnnotation={onDeleteAnnotation}
         onCaptureSnippet={onCaptureSnippet}

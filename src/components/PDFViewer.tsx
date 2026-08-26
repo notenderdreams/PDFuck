@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFPage } from './PDFPage';
 import { ChevronLeft, ChevronRight, UploadCloud } from 'lucide-react';
-import type { Annotation, HighlightStyle, ReadingTheme, ToolType, ViewMode } from '../utils/types';
+import type { Annotation, HighlightStyle, LineHighlightStyle, ReadingTheme, ToolType, ViewMode } from '../utils/types';
 import type { AiExplanationAnnotation } from '../utils/types';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
@@ -26,6 +26,7 @@ interface PDFViewerProps {
   strokeWidth: number;
   opacity: number;
   highlightStyle: HighlightStyle;
+  lineHighlightStyle: LineHighlightStyle;
   annotations: Annotation[];
   selectedAnnotationId: string | null;
   onPageChange: (newPage: number) => void;
@@ -33,6 +34,7 @@ interface PDFViewerProps {
   onAddAnnotation: (ann: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   onChangeHighlightStyle: (style: HighlightStyle) => void;
+  onChangeLineHighlightStyle: (style: LineHighlightStyle) => void;
   onDeleteAnnotation: (id: string) => void;
   onImageDrop: (pageNumber: number, file: File) => void;
   onPdfFileDrop: (file: File) => void;
@@ -67,6 +69,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   strokeWidth,
   opacity,
   highlightStyle,
+  lineHighlightStyle,
   annotations,
   selectedAnnotationId,
   onPageChange,
@@ -74,6 +77,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onAddAnnotation,
   onUpdateAnnotation,
   onChangeHighlightStyle,
+  onChangeLineHighlightStyle,
   onDeleteAnnotation,
   onImageDrop,
   onPdfFileDrop,
@@ -719,12 +723,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 strokeWidth={strokeWidth}
                 opacity={opacity}
                 highlightStyle={highlightStyle}
+                lineHighlightStyle={lineHighlightStyle}
                 annotations={annotationsByPage.get(pageNum) || EMPTY_ANNOTATIONS}
                 selectedAnnotationId={selectedAnnotationId}
                 onSelectAnnotation={onSelectAnnotation}
                 onAddAnnotation={onAddAnnotation}
                 onUpdateAnnotation={onUpdateAnnotation}
                 onChangeHighlightStyle={onChangeHighlightStyle}
+                onChangeLineHighlightStyle={onChangeLineHighlightStyle}
                 onDeleteAnnotation={onDeleteAnnotation}
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
@@ -759,12 +765,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               strokeWidth={strokeWidth}
               opacity={opacity}
               highlightStyle={highlightStyle}
+              lineHighlightStyle={lineHighlightStyle}
               annotations={annotationsByPage.get(currentPage) || EMPTY_ANNOTATIONS}
               selectedAnnotationId={selectedAnnotationId}
               onSelectAnnotation={onSelectAnnotation}
               onAddAnnotation={onAddAnnotation}
               onUpdateAnnotation={onUpdateAnnotation}
               onChangeHighlightStyle={onChangeHighlightStyle}
+              onChangeLineHighlightStyle={onChangeLineHighlightStyle}
               onDeleteAnnotation={onDeleteAnnotation}
               onImageDrop={onImageDrop}
               onCursorMove={onCursorMove}
@@ -799,6 +807,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 strokeWidth={strokeWidth}
                 opacity={opacity}
                 highlightStyle={highlightStyle}
+                lineHighlightStyle={lineHighlightStyle}
                 annotations={
                   annotationsByPage.get(currentPage % 2 === 0 ? currentPage - 1 : currentPage) ||
                   EMPTY_ANNOTATIONS
@@ -808,6 +817,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onAddAnnotation={onAddAnnotation}
                 onUpdateAnnotation={onUpdateAnnotation}
                 onChangeHighlightStyle={onChangeHighlightStyle}
+                onChangeLineHighlightStyle={onChangeLineHighlightStyle}
                 onDeleteAnnotation={onDeleteAnnotation}
                 onImageDrop={onImageDrop}
                 onCursorMove={onCursorMove}
@@ -837,6 +847,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   strokeWidth={strokeWidth}
                   opacity={opacity}
                   highlightStyle={highlightStyle}
+                  lineHighlightStyle={lineHighlightStyle}
                   annotations={
                     annotationsByPage.get(currentPage % 2 === 0 ? currentPage : currentPage + 1) ||
                     EMPTY_ANNOTATIONS
@@ -846,6 +857,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onAddAnnotation={onAddAnnotation}
                   onUpdateAnnotation={onUpdateAnnotation}
                   onChangeHighlightStyle={onChangeHighlightStyle}
+                  onChangeLineHighlightStyle={onChangeLineHighlightStyle}
                   onDeleteAnnotation={onDeleteAnnotation}
                   onImageDrop={onImageDrop}
                   onCursorMove={onCursorMove}

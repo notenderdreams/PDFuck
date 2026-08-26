@@ -102,6 +102,7 @@ const SHORTCUT_GROUPS = [
     items: [
       { keys: ['Cmd / Ctrl', 'Shift', 'H'], desc: 'Highlight Selected PDF Text' },
       { keys: ['L'], desc: 'Straight Line Highlighter' },
+      { keys: ['U'], desc: 'Straight Underline Tool' },
       { keys: ['H'], desc: 'Freehand Highlighter Pen' },
       { keys: ['R'], desc: 'Area Highlight Box' },
       { keys: ['P'], desc: 'Freehand Pen' },

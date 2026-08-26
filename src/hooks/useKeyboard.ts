@@ -8,6 +8,8 @@ interface KeyboardShortcutOptions {
   onToggleInvert: () => void;
   onToggleSearch: () => void;
   onSelectTool: (tool: ToolType) => void;
+  onSelectLineTool?: () => void;
+  onSelectUnderlineTool?: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onZoomIn: () => void;
@@ -114,8 +116,11 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       } else {
         // Single key shortcuts
         switch (e.key.toLowerCase()) {
+          case 'u':
+            options.onSelectUnderlineTool?.();
+            break;
           case 'l':
-            options.onSelectTool('highlight-line');
+            options.onSelectLineTool?.();
             break;
           case 'h':
             options.onSelectTool('highlight-pen');

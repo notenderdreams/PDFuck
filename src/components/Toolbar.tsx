@@ -11,7 +11,7 @@ import {
   ScanSearch,
   Underline,
 } from 'lucide-react';
-import type { HighlightStyle, ToolType } from '../utils/types';
+import type { HighlightStyle, LineHighlightStyle, ToolType } from '../utils/types';
 import { toggleHighlightStyle } from '../utils/highlightStyle';
 
 interface ToolbarProps {
@@ -21,6 +21,7 @@ interface ToolbarProps {
   strokeWidth: number;
   opacity: number;
   highlightStyle: HighlightStyle;
+  lineHighlightStyle: LineHighlightStyle;
   canUndo?: boolean;
   canRedo?: boolean;
   onSelectTool: (tool: ToolType) => void;
@@ -28,6 +29,7 @@ interface ToolbarProps {
   onChangeStrokeWidth: (width: number) => void;
   onChangeOpacity: (opacity: number) => void;
   onChangeHighlightStyle: (style: HighlightStyle) => void;
+  onChangeLineHighlightStyle: (style: LineHighlightStyle) => void;
   onAttachImageClick?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -51,10 +53,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isInvertedColorMode,
   strokeWidth,
   highlightStyle,
+  lineHighlightStyle,
   onSelectTool,
   onSelectColor,
   onChangeStrokeWidth,
   onChangeHighlightStyle,
+  onChangeLineHighlightStyle,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [hoveredTool, setHoveredTool] = useState<ToolType | 'color' | null>(null);
@@ -124,7 +128,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const tools: { id: ToolType; icon: React.FC<{ className?: string }>; label: string; shortcut: string }[] = [
     { id: 'select', icon: MousePointer, label: 'Pointer', shortcut: 'V' },
-    { id: 'highlight-line', icon: PenLine, label: 'Line Highlight', shortcut: 'L' },
+    { id: 'highlight-line', icon: PenLine, label: 'Line Highlight', shortcut: 'L / U' },
     { id: 'highlight-pen', icon: Highlighter, label: 'Freehand', shortcut: 'H' },
     { id: 'highlight-rect', icon: Square, label: 'Area Box', shortcut: 'R' },
     { id: 'pen', icon: PenTool, label: 'Pen', shortcut: 'P' },
@@ -273,34 +277,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div className="pt-2.5 border-t border-[var(--border)] flex flex-col gap-1.5">
               <span className="text-[10.5px] text-zinc-400 font-medium">Highlight Style</span>
               <div
-                className={`grid gap-1.5 ${activeTool === 'highlight-rect' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                className={`grid gap-1.5 ${activeTool === 'highlight-rect' || activeTool === 'highlight-line' ? 'grid-cols-1' : 'grid-cols-2'}`}
                 role="group"
                 aria-label="Highlight style"
               >
-                <button
-                  type="button"
-                  onClick={() => onChangeHighlightStyle(toggleHighlightStyle(highlightStyle, 'stroke'))}
-                  className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10.5px] font-medium transition-colors ${
-                    highlightStyle === 'stroke'
-                      ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
-                      : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-                  }`}
-                  aria-pressed={highlightStyle === 'stroke'}
-                  title="Draw new area highlights as fully opaque outlines"
-                >
-                  <Square className="w-3.5 h-3.5" />
-                  Stroke
-                </button>
-                {activeTool !== 'highlight-rect' && (
+                {activeTool !== 'highlight-line' && (
                   <button
                     type="button"
-                    onClick={() => onChangeHighlightStyle(toggleHighlightStyle(highlightStyle, 'underline'))}
+                    onClick={() => onChangeHighlightStyle(toggleHighlightStyle(highlightStyle, 'stroke'))}
                     className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10.5px] font-medium transition-colors ${
-                      highlightStyle === 'underline'
+                      highlightStyle === 'stroke'
                         ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
                         : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                     }`}
-                    aria-pressed={highlightStyle === 'underline'}
+                    aria-pressed={highlightStyle === 'stroke'}
+                    title="Draw new area highlights as fully opaque outlines"
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    Stroke
+                  </button>
+                )}
+                {activeTool !== 'highlight-rect' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeTool === 'highlight-line') {
+                        onChangeLineHighlightStyle(
+                          lineHighlightStyle === 'underline' ? 'highlight' : 'underline'
+                        );
+                      } else {
+                        onChangeHighlightStyle(toggleHighlightStyle(highlightStyle, 'underline'));
+                      }
+                    }}
+                    className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10.5px] font-medium transition-colors ${
+                      (activeTool === 'highlight-line'
+                        ? lineHighlightStyle === 'underline'
+                        : highlightStyle === 'underline')
+                        ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
+                        : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                    aria-pressed={
+                      activeTool === 'highlight-line'
+                        ? lineHighlightStyle === 'underline'
+                        : highlightStyle === 'underline'
+                    }
                     title="Draw new highlights as fully opaque underlines"
                   >
                     <Underline className="w-3.5 h-3.5" />

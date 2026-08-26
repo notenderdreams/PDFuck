@@ -5,6 +5,7 @@ import type {
   AiExplanationAnnotation,
   DrawingAnnotation,
   HighlightStyle,
+  LineHighlightStyle,
   LineHighlightAnnotation,
   RectHighlightAnnotation,
   StrokePoint,
@@ -24,11 +25,13 @@ interface AnnotationCanvasProps {
   strokeWidth: number;
   opacity: number;
   highlightStyle: HighlightStyle;
+  lineHighlightStyle: LineHighlightStyle;
   annotations: Annotation[];
   selectedAnnotationId?: string | null;
   onSelectAnnotation?: (id: string | null) => void;
   onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   onChangeHighlightStyle?: (style: HighlightStyle) => void;
+  onChangeLineHighlightStyle?: (style: LineHighlightStyle) => void;
   onAddAnnotation: (ann: Annotation) => void;
   onDeleteAnnotation: (id: string) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
@@ -45,11 +48,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   strokeWidth,
   opacity,
   highlightStyle,
+  lineHighlightStyle,
   annotations,
   selectedAnnotationId,
   onSelectAnnotation,
   onUpdateAnnotation,
   onChangeHighlightStyle,
+  onChangeLineHighlightStyle,
   onAddAnnotation,
   onDeleteAnnotation,
   onCaptureSnippet,
@@ -447,8 +452,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           endY,
           color: selectedColor,
           strokeWidth: strokeWidth * 2.8,
-          opacity: resolveHighlightOpacity(highlightStyle, opacity),
-          style: highlightStyle === 'underline' ? 'underline' : 'highlight',
+          opacity: lineHighlightStyle === 'underline' ? 1 : opacity,
+          style: lineHighlightStyle,
           createdAt: Date.now(),
         };
         onAddAnnotation(newLine);
@@ -704,9 +709,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 : lineCurrent.y * pageHeight
             }
             stroke={selectedColor}
-            strokeWidth={highlightStyle === 'underline' ? 2.5 : strokeWidth * 2.8}
-            strokeOpacity={resolveHighlightOpacity(highlightStyle, opacity)}
-            strokeLinecap={highlightStyle === 'underline' ? 'round' : 'square'}
+            strokeWidth={lineHighlightStyle === 'underline' ? 2.5 : strokeWidth * 2.8}
+            strokeOpacity={lineHighlightStyle === 'underline' ? 1 : opacity}
+            strokeLinecap={lineHighlightStyle === 'underline' ? 'round' : 'square'}
           />
         )}
 
@@ -1260,7 +1265,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                       : nextStyle,
                   opacity: resolveHighlightOpacity(nextStyle, opacity),
                 });
-                onChangeHighlightStyle?.(nextStyle);
+                if (selectedHighlight.type === 'highlight-line') {
+                  onChangeLineHighlightStyle?.(
+                    nextStyle === 'underline' ? 'underline' : 'highlight'
+                  );
+                } else {
+                  onChangeHighlightStyle?.(nextStyle);
+                }
               }}
               className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
                 selectedHighlight.style === 'underline'

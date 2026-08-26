@@ -35,7 +35,7 @@ import {
   copyStitchedSnippetsToClipboard,
   downloadStitchedSnippets,
 } from './utils/snippetExtractor';
-import type { AiExplanationAnnotation, Annotation, AppScreen, HighlightStyle, ToolType, ViewMode, StitchOptions } from './utils/types';
+import type { AiExplanationAnnotation, Annotation, AppScreen, HighlightStyle, LineHighlightStyle, ToolType, ViewMode, StitchOptions } from './utils/types';
 import type { SidebarTabType } from './components/Sidebar';
 
 export function App() {
@@ -72,6 +72,7 @@ export function App() {
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [opacity, setOpacity] = useState<number>(0.45);
   const [highlightStyle, setHighlightStyle] = useState<HighlightStyle>('box');
+  const [lineHighlightStyle, setLineHighlightStyle] = useState<LineHighlightStyle>('highlight');
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 
   // Hidden File Inputs for Browser fallback
@@ -654,6 +655,14 @@ export function App() {
     onToggleInvert: toggleInvert,
     onToggleSearch: () => setIsSearchOpen((prev) => !prev),
     onSelectTool: handleSelectTool,
+    onSelectLineTool: () => {
+      handleSelectTool('highlight-line');
+      setLineHighlightStyle('highlight');
+    },
+    onSelectUnderlineTool: () => {
+      handleSelectTool('highlight-line');
+      setLineHighlightStyle('underline');
+    },
     onUndo: handleGlobalUndo,
     onRedo: handleGlobalRedo,
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
@@ -850,6 +859,7 @@ export function App() {
                 strokeWidth={strokeWidth}
                 opacity={opacity}
                 highlightStyle={highlightStyle}
+                lineHighlightStyle={lineHighlightStyle}
                 annotations={annotations}
                 selectedAnnotationId={selectedAnnotationId}
                 onPageChange={(p) => changePage(p)}
@@ -857,6 +867,7 @@ export function App() {
                 onAddAnnotation={(ann) => addAnnotation(ann)}
                 onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
                 onChangeHighlightStyle={setHighlightStyle}
+                onChangeLineHighlightStyle={setLineHighlightStyle}
                 onDeleteAnnotation={(id) => deleteAnnotation(id)}
                 onImageDrop={handleImageDropOnPage}
                 onCursorMove={(page, x, y) => {
@@ -919,6 +930,7 @@ export function App() {
               strokeWidth={strokeWidth}
               opacity={opacity}
               highlightStyle={highlightStyle}
+              lineHighlightStyle={lineHighlightStyle}
               canUndo={activeTool === 'snip' ? canUndoSnippets : canUndoAnnotations}
               canRedo={activeTool === 'snip' ? canRedoSnippets : canRedoAnnotations}
               onSelectTool={handleSelectTool}
@@ -931,6 +943,7 @@ export function App() {
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
               onChangeHighlightStyle={setHighlightStyle}
+              onChangeLineHighlightStyle={setLineHighlightStyle}
               onAttachImageClick={handleOpenImage}
               onUndo={handleGlobalUndo}
               onRedo={handleGlobalRedo}
