@@ -625,18 +625,18 @@ export function App() {
     return () => window.removeEventListener('paste', handlePaste);
   }, [currentPage, handleAddImage, showToast]);
 
-  const handleHighlightSelectedText = useCallback(() => {
+  const addHighlightsFromSelection = useCallback((style: HighlightStyle, showEmptyToast: boolean) => {
     const selection = window.getSelection();
     const highlights = createTextHighlightsFromSelection(
       selection,
       selectedColor,
       opacity,
-      highlightStyle
+      style
     );
 
     if (highlights.length === 0) {
-      showToast('Select PDF text first', true);
-      return;
+      if (showEmptyToast) showToast('Select PDF text first', true);
+      return false;
     }
 
     highlights.forEach(addAnnotation);
@@ -644,8 +644,19 @@ export function App() {
     const location = highlights.length === 1
       ? `Page ${highlights[0].pageNumber}`
       : `${highlights.length} pages`;
-    showToast(`Highlighted selected text on ${location}`);
-  }, [addAnnotation, highlightStyle, opacity, selectedColor, showToast]);
+    showToast(`${style === 'underline' ? 'Underlined' : 'Highlighted'} selected text on ${location}`);
+    return true;
+  }, [addAnnotation, opacity, selectedColor, showToast]);
+
+  const handleHighlightSelectedText = useCallback(() => {
+    addHighlightsFromSelection(highlightStyle, true);
+  }, [addHighlightsFromSelection, highlightStyle]);
+
+  const handleUnderlineShortcut = useCallback(() => {
+    if (addHighlightsFromSelection('underline', false)) return;
+    handleSelectTool('highlight-line');
+    setLineHighlightStyle('underline');
+  }, [addHighlightsFromSelection, handleSelectTool]);
 
   // Global Keyboard Shortcuts
   useKeyboard({
@@ -659,10 +670,7 @@ export function App() {
       handleSelectTool('highlight-line');
       setLineHighlightStyle('highlight');
     },
-    onSelectUnderlineTool: () => {
-      handleSelectTool('highlight-line');
-      setLineHighlightStyle('underline');
-    },
+    onSelectUnderlineTool: handleUnderlineShortcut,
     onUndo: handleGlobalUndo,
     onRedo: handleGlobalRedo,
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
