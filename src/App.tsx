@@ -35,7 +35,7 @@ import {
   copyStitchedSnippetsToClipboard,
   downloadStitchedSnippets,
 } from './utils/snippetExtractor';
-import type { AiExplanationAnnotation, Annotation, AppScreen, ToolType, ViewMode, StitchOptions } from './utils/types';
+import type { AiExplanationAnnotation, Annotation, AppScreen, HighlightStyle, ToolType, ViewMode, StitchOptions } from './utils/types';
 import type { SidebarTabType } from './components/Sidebar';
 
 export function App() {
@@ -71,6 +71,7 @@ export function App() {
   const [selectedColor, setSelectedColor] = useState<string>('#ffe600');
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [opacity, setOpacity] = useState<number>(0.45);
+  const [highlightStyle, setHighlightStyle] = useState<HighlightStyle>('box');
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 
   // Hidden File Inputs for Browser fallback
@@ -625,7 +626,12 @@ export function App() {
 
   const handleHighlightSelectedText = useCallback(() => {
     const selection = window.getSelection();
-    const highlights = createTextHighlightsFromSelection(selection, selectedColor, opacity);
+    const highlights = createTextHighlightsFromSelection(
+      selection,
+      selectedColor,
+      opacity,
+      highlightStyle
+    );
 
     if (highlights.length === 0) {
       showToast('Select PDF text first', true);
@@ -638,7 +644,7 @@ export function App() {
       ? `Page ${highlights[0].pageNumber}`
       : `${highlights.length} pages`;
     showToast(`Highlighted selected text on ${location}`);
-  }, [addAnnotation, opacity, selectedColor, showToast]);
+  }, [addAnnotation, highlightStyle, opacity, selectedColor, showToast]);
 
   // Global Keyboard Shortcuts
   useKeyboard({
@@ -843,12 +849,14 @@ export function App() {
                 selectedColor={selectedColor}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
+                highlightStyle={highlightStyle}
                 annotations={annotations}
                 selectedAnnotationId={selectedAnnotationId}
                 onPageChange={(p) => changePage(p)}
                 onSelectAnnotation={(id) => setSelectedAnnotationId(id)}
                 onAddAnnotation={(ann) => addAnnotation(ann)}
                 onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
+                onChangeHighlightStyle={setHighlightStyle}
                 onDeleteAnnotation={(id) => deleteAnnotation(id)}
                 onImageDrop={handleImageDropOnPage}
                 onCursorMove={(page, x, y) => {
@@ -910,6 +918,7 @@ export function App() {
               isInvertedColorMode={isDarkTheme}
               strokeWidth={strokeWidth}
               opacity={opacity}
+              highlightStyle={highlightStyle}
               canUndo={activeTool === 'snip' ? canUndoSnippets : canUndoAnnotations}
               canRedo={activeTool === 'snip' ? canRedoSnippets : canRedoAnnotations}
               onSelectTool={handleSelectTool}
@@ -921,6 +930,7 @@ export function App() {
               }}
               onChangeStrokeWidth={(w) => setStrokeWidth(w)}
               onChangeOpacity={(o) => setOpacity(o)}
+              onChangeHighlightStyle={setHighlightStyle}
               onAttachImageClick={handleOpenImage}
               onUndo={handleGlobalUndo}
               onRedo={handleGlobalRedo}

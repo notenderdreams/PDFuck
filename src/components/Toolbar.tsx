@@ -9,8 +9,10 @@ import {
   Type,
   Eraser,
   ScanSearch,
+  Underline,
 } from 'lucide-react';
-import type { ToolType } from '../utils/types';
+import type { HighlightStyle, ToolType } from '../utils/types';
+import { toggleHighlightStyle } from '../utils/highlightStyle';
 
 interface ToolbarProps {
   activeTool: ToolType;
@@ -18,12 +20,14 @@ interface ToolbarProps {
   isInvertedColorMode: boolean;
   strokeWidth: number;
   opacity: number;
+  highlightStyle: HighlightStyle;
   canUndo?: boolean;
   canRedo?: boolean;
   onSelectTool: (tool: ToolType) => void;
   onSelectColor: (color: string) => void;
   onChangeStrokeWidth: (width: number) => void;
   onChangeOpacity: (opacity: number) => void;
+  onChangeHighlightStyle: (style: HighlightStyle) => void;
   onAttachImageClick?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -46,9 +50,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   selectedColor,
   isInvertedColorMode,
   strokeWidth,
+  highlightStyle,
   onSelectTool,
   onSelectColor,
   onChangeStrokeWidth,
+  onChangeHighlightStyle,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [hoveredTool, setHoveredTool] = useState<ToolType | 'color' | null>(null);
@@ -262,6 +268,46 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onChange={(e) => onChangeStrokeWidth(parseInt(e.target.value, 10))}
                 className="w-full accent-blue-500 cursor-pointer h-1"
               />
+            </div>
+
+            <div className="pt-2.5 border-t border-[var(--border)] flex flex-col gap-1.5">
+              <span className="text-[10.5px] text-zinc-400 font-medium">Highlight Style</span>
+              <div
+                className={`grid gap-1.5 ${activeTool === 'highlight-rect' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                role="group"
+                aria-label="Highlight style"
+              >
+                <button
+                  type="button"
+                  onClick={() => onChangeHighlightStyle(toggleHighlightStyle(highlightStyle, 'stroke'))}
+                  className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10.5px] font-medium transition-colors ${
+                    highlightStyle === 'stroke'
+                      ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
+                      : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                  }`}
+                  aria-pressed={highlightStyle === 'stroke'}
+                  title="Draw new area highlights as fully opaque outlines"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                  Stroke
+                </button>
+                {activeTool !== 'highlight-rect' && (
+                  <button
+                    type="button"
+                    onClick={() => onChangeHighlightStyle(toggleHighlightStyle(highlightStyle, 'underline'))}
+                    className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10.5px] font-medium transition-colors ${
+                      highlightStyle === 'underline'
+                        ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
+                        : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                    aria-pressed={highlightStyle === 'underline'}
+                    title="Draw new highlights as fully opaque underlines"
+                  >
+                    <Underline className="w-3.5 h-3.5" />
+                    Underline
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

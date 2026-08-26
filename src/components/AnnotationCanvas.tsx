@@ -4,6 +4,7 @@ import type {
   Annotation,
   AiExplanationAnnotation,
   DrawingAnnotation,
+  HighlightStyle,
   LineHighlightAnnotation,
   RectHighlightAnnotation,
   StrokePoint,
@@ -11,6 +12,7 @@ import type {
   TextNoteAnnotation,
   ToolType,
 } from '../utils/types';
+import { resolveHighlightOpacity, toggleHighlightStyle } from '../utils/highlightStyle';
 
 interface AnnotationCanvasProps {
   pageNumber: number;
@@ -21,10 +23,12 @@ interface AnnotationCanvasProps {
   isInvertedColorMode: boolean;
   strokeWidth: number;
   opacity: number;
+  highlightStyle: HighlightStyle;
   annotations: Annotation[];
   selectedAnnotationId?: string | null;
   onSelectAnnotation?: (id: string | null) => void;
   onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
+  onChangeHighlightStyle?: (style: HighlightStyle) => void;
   onAddAnnotation: (ann: Annotation) => void;
   onDeleteAnnotation: (id: string) => void;
   onCaptureSnippet?: (pageNumber: number, rect: { x: number; y: number; width: number; height: number }) => void;
@@ -40,10 +44,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   isInvertedColorMode,
   strokeWidth,
   opacity,
+  highlightStyle,
   annotations,
   selectedAnnotationId,
   onSelectAnnotation,
   onUpdateAnnotation,
+  onChangeHighlightStyle,
   onAddAnnotation,
   onDeleteAnnotation,
   onCaptureSnippet,
@@ -75,6 +81,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
   const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
+  const rectHighlightStyle = highlightStyle === 'stroke' ? 'stroke' : 'box';
 
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
 
@@ -440,7 +447,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           endY,
           color: selectedColor,
           strokeWidth: strokeWidth * 2.8,
-          opacity,
+          opacity: resolveHighlightOpacity(highlightStyle, opacity),
+          style: highlightStyle === 'underline' ? 'underline' : 'highlight',
           createdAt: Date.now(),
         };
         onAddAnnotation(newLine);
@@ -480,7 +488,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           width,
           height,
           color: selectedColor,
-          opacity: opacity,
+          opacity: resolveHighlightOpacity(rectHighlightStyle, opacity),
+          style: rectHighlightStyle,
           createdAt: Date.now(),
         };
         onAddAnnotation(newRect);
@@ -655,9 +664,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 x2={line.endX * pageWidth}
                 y2={line.endY * pageHeight}
                 stroke={line.color}
-                strokeWidth={line.strokeWidth}
-                strokeOpacity={line.opacity}
-                strokeLinecap="square"
+                strokeWidth={line.style === 'underline' ? 2.5 : line.strokeWidth}
+                strokeOpacity={line.style === 'underline' ? 1 : line.opacity}
+                strokeLinecap={line.style === 'underline' ? 'round' : 'square'}
               />
             );
           })}
@@ -695,9 +704,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 : lineCurrent.y * pageHeight
             }
             stroke={selectedColor}
-            strokeWidth={strokeWidth * 2.8}
-            strokeOpacity={opacity}
-            strokeLinecap="square"
+            strokeWidth={highlightStyle === 'underline' ? 2.5 : strokeWidth * 2.8}
+            strokeOpacity={resolveHighlightOpacity(highlightStyle, opacity)}
+            strokeLinecap={highlightStyle === 'underline' ? 'round' : 'square'}
           />
         )}
 
@@ -716,7 +725,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         )}
 
         {/* Active Rectangle Highlight in progress */}
-        {activeTool === 'highlight-rect' && rectStart && rectCurrent && (
+        {activeTool === 'highlight-rect' && rectHighlightStyle === 'box' && rectStart && rectCurrent && (
           <rect
             className={colorFilterClass}
             x={Math.min(rectStart.x, rectCurrent.x) * pageWidth}
@@ -754,7 +763,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                     y2={(rect.y + rect.height) * pageHeight - 1.5}
                     stroke={textHighlight.color}
                     strokeWidth={2.5}
-                    strokeOpacity={0.9}
+                    strokeOpacity={1}
                     strokeLinecap="round"
                   />
                 ))}
@@ -779,7 +788,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                   fill="none"
                   stroke={rect.color}
                   strokeWidth={2.5}
-                  strokeOpacity={0.9}
+                  strokeOpacity={1}
                 />
               );
             }
@@ -793,12 +802,26 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 y2={(rect.y + rect.height) * pageHeight - 1.5}
                 stroke={rect.color}
                 strokeWidth={2.5}
-                strokeOpacity={0.9}
+                strokeOpacity={1}
                 strokeLinecap="round"
               />
             );
           })}
 
+        {/* Active opaque stroke preview for new area highlights */}
+        {activeTool === 'highlight-rect' && rectHighlightStyle === 'stroke' && rectStart && rectCurrent && (
+          <rect
+            className={colorFilterClass}
+            x={Math.min(rectStart.x, rectCurrent.x) * pageWidth}
+            y={Math.min(rectStart.y, rectCurrent.y) * pageHeight}
+            width={Math.abs(rectCurrent.x - rectStart.x) * pageWidth}
+            height={Math.abs(rectCurrent.y - rectStart.y) * pageHeight}
+            fill="none"
+            stroke={selectedColor}
+            strokeWidth={2.5}
+            strokeOpacity={1}
+          />
+        )}
         {/* Regular Pen Freehand Drawings */}
         {pageAnnotations
           .filter((a) => a.type === 'pen')
@@ -1199,13 +1222,17 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             ))}
           </div>
 
-          {/* Stroke / Box Toggle for Rect Highlight or Underline / Box Toggle for Text Highlight */}
+          {/* Persistent style toggles: changing one annotation also sets the next-draw mode. */}
           {selectedHighlight.type === 'highlight-rect' && (
             <button
               type="button"
               onClick={() => {
-                const nextStyle = selectedHighlight.style === 'stroke' ? 'box' : 'stroke';
-                onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+                const nextStyle = toggleHighlightStyle(selectedHighlight.style ?? 'box', 'stroke');
+                onUpdateAnnotation?.(selectedHighlight.id, {
+                  style: nextStyle,
+                  opacity: resolveHighlightOpacity(nextStyle, opacity),
+                });
+                onChangeHighlightStyle?.(nextStyle);
               }}
               className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
                 selectedHighlight.style === 'stroke'
@@ -1219,20 +1246,41 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             </button>
           )}
 
-          {selectedHighlight.type === 'highlight-text' && (
+          {(selectedHighlight.type === 'highlight-text' ||
+            selectedHighlight.type === 'highlight-line') && (
             <button
               type="button"
               onClick={() => {
-                const nextStyle = selectedHighlight.style === 'underline' ? 'box' : 'underline';
-                onUpdateAnnotation?.(selectedHighlight.id, { style: nextStyle });
+                const currentStyle = selectedHighlight.style === 'underline' ? 'underline' : 'box';
+                const nextStyle = toggleHighlightStyle(currentStyle, 'underline');
+                onUpdateAnnotation?.(selectedHighlight.id, {
+                  style:
+                    selectedHighlight.type === 'highlight-line' && nextStyle === 'box'
+                      ? 'highlight'
+                      : nextStyle,
+                  opacity: resolveHighlightOpacity(nextStyle, opacity),
+                });
+                onChangeHighlightStyle?.(nextStyle);
               }}
               className={`w-5 h-5 rounded flex items-center justify-center transition-colors border ${
                 selectedHighlight.style === 'underline'
                   ? 'bg-blue-500/20 text-blue-400 border-blue-500/35'
                   : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[var(--secondary)]'
               }`}
-              title={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
-              aria-label={selectedHighlight.style === 'underline' ? 'Switch to Box Highlight' : 'Switch to Underline'}
+              title={
+                selectedHighlight.style === 'underline'
+                  ? selectedHighlight.type === 'highlight-line'
+                    ? 'Switch to Line Highlight'
+                    : 'Switch to Box Highlight'
+                  : 'Switch to Underline'
+              }
+              aria-label={
+                selectedHighlight.style === 'underline'
+                  ? selectedHighlight.type === 'highlight-line'
+                    ? 'Switch to Line Highlight'
+                    : 'Switch to Box Highlight'
+                  : 'Switch to Underline'
+              }
             >
               <Underline className="w-3.5 h-3.5" />
             </button>

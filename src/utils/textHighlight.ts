@@ -1,4 +1,5 @@
-import type { TextHighlightAnnotation, RectHighlightAnnotation } from './types';
+import type { HighlightStyle, TextHighlightAnnotation, RectHighlightAnnotation } from './types';
+import { resolveHighlightOpacity } from './highlightStyle';
 
 export interface ClientRectLike {
   left: number;
@@ -132,7 +133,8 @@ export function normalizeSelectionRects(
 export function createTextHighlightsFromSelection(
   selection: Selection | null,
   color: string,
-  opacity: number
+  opacity: number,
+  style: HighlightStyle = 'box'
 ): RectHighlightAnnotation[] {
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return [];
 
@@ -175,7 +177,8 @@ export function createTextHighlightsFromSelection(
         width: rect.width,
         height: rect.height,
         color,
-        opacity: opacity || 0.4,
+        opacity: resolveHighlightOpacity(style, opacity || 0.4),
+        style,
         createdAt,
       }));
     }
