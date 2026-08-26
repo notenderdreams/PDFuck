@@ -582,7 +582,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
-      className={`absolute inset-0 z-20 select-none touch-none ${
+      className={`absolute inset-0 select-none touch-none ${
         activeTool === 'select' || activeTool === 'image' || activeTool === 'eraser'
           ? 'pointer-events-none'
           : 'cursor-crosshair pointer-events-auto'
@@ -592,7 +592,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {/* 1. Highlight SVG Layer (Blends directly with PDF canvas underneath text) */}
       <svg
         data-pdf-highlight-layer
-        className="w-full h-full absolute inset-0 pointer-events-none"
+        className="w-full h-full absolute inset-0 z-[5] pointer-events-none"
         style={{
           width: `${pageWidth}px`,
           height: `${pageHeight}px`,
@@ -734,7 +734,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {/* 2. Drawing, Strokes, Selection Outlines & Interactive Hit-Targets Layer */}
       <svg
         data-pdf-drawing-layer
-        className="w-full h-full absolute inset-0 pointer-events-none"
+        className="w-full h-full absolute inset-0 z-20 pointer-events-none"
         style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
       >
         {/* Underlines for Text Highlights */}
