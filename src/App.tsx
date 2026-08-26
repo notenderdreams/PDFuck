@@ -18,7 +18,13 @@ import { useColorTheme } from './hooks/useColorTheme';
 import { useAiExplanations } from './hooks/useAiExplanations';
 import { usesInvertedColorSpace } from './utils/readingTheme';
 import { useKeyboard } from './hooks/useKeyboard';
-import { loadViewMode, saveViewMode, recordRecentDoc } from './utils/storage';
+import {
+  loadHighlightPalette,
+  loadViewMode,
+  recordRecentDoc,
+  saveHighlightPalette,
+  saveViewMode,
+} from './utils/storage';
 import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf } from './utils/tauriBridge';
 import {
   extractPageText,
@@ -72,16 +78,27 @@ export function App() {
 
   // Active Tool & Style State
   const [activeTool, setActiveTool] = useState<ToolType>('select');
-  const [selectedColor, setSelectedColor] = useState<string>('#ffe600');
-  const [highlightColors, setHighlightColors] = useState<string[]>(() => [
-    ...HIGHLIGHT_COLOR_PRESETS,
-  ]);
-  const [selectedPaletteIndex, setSelectedPaletteIndex] = useState(0);
+  const [initialHighlightPalette] = useState(() =>
+    loadHighlightPalette(HIGHLIGHT_COLOR_PRESETS)
+  );
+  const [highlightColors, setHighlightColors] = useState<string[]>(
+    initialHighlightPalette.colors
+  );
+  const [selectedPaletteIndex, setSelectedPaletteIndex] = useState(
+    initialHighlightPalette.selectedIndex
+  );
+  const [selectedColor, setSelectedColor] = useState<string>(
+    initialHighlightPalette.colors[initialHighlightPalette.selectedIndex]
+  );
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [opacity, setOpacity] = useState<number>(0.45);
   const [highlightStyle, setHighlightStyle] = useState<HighlightStyle>('box');
   const [lineHighlightStyle, setLineHighlightStyle] = useState<LineHighlightStyle>('highlight');
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    saveHighlightPalette({ colors: highlightColors, selectedIndex: selectedPaletteIndex });
+  }, [highlightColors, selectedPaletteIndex]);
 
   // Hidden File Inputs for Browser fallback
   const pdfInputRef = useRef<HTMLInputElement | null>(null);

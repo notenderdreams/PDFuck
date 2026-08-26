@@ -11,7 +11,13 @@ const STORAGE_KEYS = {
   LAST_PAGE_PREFIX: 'pdfuck_last_page_',
   LIBRARY_FILTER: 'pdfuck_library_active_filter',
   LIBRARY_SORT: 'pdfuck_library_sort_by',
+  HIGHLIGHT_PALETTE: 'pdfuck_highlight_palette',
 };
+
+export interface HighlightPaletteSettings {
+  colors: string[];
+  selectedIndex: number;
+}
 
 // --- IndexedDB Engine for Large Annotation Payloads (Images, Stickers, Ink) ---
 const IDB_NAME = 'pdfuck_database';
@@ -145,6 +151,45 @@ export function loadViewMode(): ViewMode {
     }
   } catch {}
   return 'continuous';
+}
+
+export function loadHighlightPalette(
+  fallbackColors: readonly string[]
+): HighlightPaletteSettings {
+  const fallback = { colors: [...fallbackColors], selectedIndex: 0 };
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.HIGHLIGHT_PALETTE);
+    if (!raw) return fallback;
+
+    const parsed = JSON.parse(raw) as Partial<HighlightPaletteSettings>;
+    const hasValidColors =
+      Array.isArray(parsed.colors) &&
+      parsed.colors.length === fallbackColors.length &&
+      parsed.colors.every(
+        (color) => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)
+      );
+    const hasValidIndex =
+      Number.isInteger(parsed.selectedIndex) &&
+      (parsed.selectedIndex as number) >= 0 &&
+      (parsed.selectedIndex as number) < fallbackColors.length;
+
+    if (!hasValidColors || !hasValidIndex) return fallback;
+    return {
+      colors: [...(parsed.colors as string[])],
+      selectedIndex: parsed.selectedIndex as number,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveHighlightPalette(settings: HighlightPaletteSettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.HIGHLIGHT_PALETTE, JSON.stringify(settings));
+  } catch (e) {
+    console.warn('Failed to save highlight palette', e);
+  }
 }
 
 // --- Unified Annotations Auto-Save Engine ---

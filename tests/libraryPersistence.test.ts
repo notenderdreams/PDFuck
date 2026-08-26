@@ -27,8 +27,11 @@ import {
   loadLibrarySort,
   saveLibrarySort,
   loadSavedDirectories,
+  loadHighlightPalette,
+  saveHighlightPalette,
   saveSavedDirectories,
 } from '../src/utils/storage';
+import { HIGHLIGHT_COLOR_PRESETS } from '../src/utils/highlightStyle';
 
 describe('Library filter & folder selection persistence', () => {
   beforeEach(() => {
@@ -75,5 +78,29 @@ describe('Library filter & folder selection persistence', () => {
     ];
     saveSavedDirectories(dirs);
     expect(loadSavedDirectories()).toEqual(dirs);
+  });
+
+  test('persists the customized highlight palette and active swatch', () => {
+    const colors = [...HIGHLIGHT_COLOR_PRESETS];
+    colors[0] = '#fff123';
+
+    saveHighlightPalette({ colors, selectedIndex: 3 });
+
+    expect(loadHighlightPalette(HIGHLIGHT_COLOR_PRESETS)).toEqual({
+      colors,
+      selectedIndex: 3,
+    });
+  });
+
+  test('falls back when persisted highlight palette data is malformed', () => {
+    localStorage.setItem(
+      'pdfuck_highlight_palette',
+      JSON.stringify({ colors: ['not-a-color'], selectedIndex: 20 })
+    );
+
+    expect(loadHighlightPalette(HIGHLIGHT_COLOR_PRESETS)).toEqual({
+      colors: [...HIGHLIGHT_COLOR_PRESETS],
+      selectedIndex: 0,
+    });
   });
 });
