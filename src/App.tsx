@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
@@ -17,6 +18,7 @@ import { useSnippets } from './hooks/useSnippets';
 import { useColorTheme } from './hooks/useColorTheme';
 import { useAiExplanations } from './hooks/useAiExplanations';
 import { usesInvertedColorSpace } from './utils/readingTheme';
+import { pdfjsLib } from './utils/pdfWorker';
 import { useKeyboard } from './hooks/useKeyboard';
 import {
   loadHighlightPalette,
@@ -54,6 +56,9 @@ export function App() {
 
   // View & UI State
   const [zoom, setZoom] = useState<number>(1.15);
+  const [companionZoom, setCompanionZoom] = useState<number>(1.15);
+  const [companionCurrentPage, setCompanionCurrentPage] = useState<number>(1);
+  const [activeReaderPane, setActiveReaderPane] = useState<'primary' | 'companion'>('primary');
   const [fitPageRequest, setFitPageRequest] = useState<{ id: number; page: number } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => loadViewMode());
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -103,6 +108,10 @@ export function App() {
   // Hidden File Inputs for Browser fallback
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const companionLoadingTaskRef = useRef<PDFDocumentLoadingTask | null>(null);
+  const companionPdfRef = useRef<PDFDocumentProxy | null>(null);
+  const [companionPdfDoc, setCompanionPdfDoc] = useState<PDFDocumentProxy | null>(null);
+  const [companionFileName, setCompanionFileName] = useState<string | null>(null);
 
   // Active Cursor coordinates over PDF pages for precise cursor pasting
   const cursorPosRef = useRef<{ pageNumber: number; x: number; y: number } | null>(null);
@@ -125,6 +134,58 @@ export function App() {
     nextSearchResult,
     prevSearchResult,
   } = usePDFDocument();
+
+  const closeCompanionPdf = useCallback(() => {
+    void companionLoadingTaskRef.current?.destroy();
+    companionLoadingTaskRef.current = null;
+    void companionPdfRef.current?.destroy();
+    companionPdfRef.current = null;
+    setCompanionPdfDoc(null);
+    setCompanionFileName(null);
+    setCompanionCurrentPage(1);
+    setCompanionZoom(1.15);
+    setActiveReaderPane('primary');
+  }, []);
+
+  const loadCompanionPdf = useCallback(async (data: Uint8Array, fileName: string): Promise<boolean> => {
+    void companionLoadingTaskRef.current?.destroy();
+    const loadingTask = pdfjsLib.getDocument({
+      data: data.slice(),
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
+      cMapPacked: true,
+    });
+    companionLoadingTaskRef.current = loadingTask;
+
+    try {
+      const loadedDoc = await loadingTask.promise;
+      if (companionLoadingTaskRef.current !== loadingTask) {
+        void loadedDoc.destroy();
+        return false;
+      }
+
+      void companionPdfRef.current?.destroy();
+      companionPdfRef.current = loadedDoc;
+      companionLoadingTaskRef.current = null;
+      setCompanionPdfDoc(loadedDoc);
+      setCompanionFileName(fileName);
+      setCompanionCurrentPage(1);
+      setCompanionZoom(1.15);
+      setActiveReaderPane('primary');
+      setViewMode('continuous');
+      saveViewMode('continuous');
+      showToast(`Reading ${docInfo?.fileName || 'PDF'} with ${fileName}`);
+      return true;
+    } catch (error) {
+      if (companionLoadingTaskRef.current === loadingTask) {
+        companionLoadingTaskRef.current = null;
+        console.error('Failed to load companion PDF:', error);
+        showToast(`Could not open ${fileName}.`, true);
+      }
+      return false;
+    }
+  }, [docInfo?.fileName, showToast]);
+
+  useEffect(() => closeCompanionPdf, [closeCompanionPdf]);
 
   const {
     annotations,
@@ -178,6 +239,7 @@ export function App() {
 
   const handleNavigatePage = useCallback(
     (page: number) => {
+      setActiveReaderPane('primary');
       changePage(page);
       setPageNavRequest({ page, timestamp: Date.now() });
     },
@@ -215,6 +277,9 @@ export function App() {
 
   // Handle View Mode persistence
   const handleChangeViewMode = (mode: ViewMode) => {
+    if (companionPdfDoc && mode !== 'continuous') {
+      closeCompanionPdf();
+    }
     setViewMode(mode);
     saveViewMode(mode);
   };
@@ -226,12 +291,30 @@ export function App() {
       filePath?: string,
       initialPage?: number
     ) => {
+      closeCompanionPdf();
       const loaded = await loadPdf(data, fileName, filePath, initialPage);
       if (loaded) setCurrentScreen('reader');
       else showToast(`Could not open ${fileName}.`, true);
       return loaded;
     },
-    [loadPdf, showToast]
+    [closeCompanionPdf, loadPdf, showToast]
+  );
+
+  const openPdfPairInReader = useCallback(
+    async (
+      primary: { data: Uint8Array; fileName: string; filePath?: string; initialPageNumber?: number },
+      companion: { data: Uint8Array; fileName: string; filePath?: string }
+    ) => {
+      const primaryOpened = await openPdfInReader(
+        primary.data,
+        primary.fileName,
+        primary.filePath,
+        primary.initialPageNumber
+      );
+      if (!primaryOpened) return false;
+      return loadCompanionPdf(companion.data, companion.fileName);
+    },
+    [loadCompanionPdf, openPdfInReader]
   );
 
   // Open PDF File (Desktop native dialog or Browser File Input fallback)
@@ -524,6 +607,48 @@ export function App() {
     [pdfDoc, currentPage, showToast]
   );
 
+  const handleCopyCompanionPageText = useCallback(async () => {
+    if (!companionPdfDoc) return;
+    try {
+      const fullText = await extractPageText(companionPdfDoc, companionCurrentPage);
+      if (!fullText) {
+        showToast(`No text found on Page ${companionCurrentPage}.`, true);
+        return;
+      }
+      const copied = await copyTextToClipboard(fullText);
+      const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+      showToast(
+        copied
+          ? `Copied ${wordCount} words from Page ${companionCurrentPage}!`
+          : 'Could not copy to clipboard.',
+        !copied
+      );
+    } catch (error) {
+      console.error('Failed to copy companion page text:', error);
+      showToast('Failed to extract page text.', true);
+    }
+  }, [companionCurrentPage, companionPdfDoc, showToast]);
+
+  const handleCopyCompanionPageImage = useCallback(async () => {
+    if (!companionPdfDoc) return;
+    try {
+      const copied = await copyPageImageToClipboard(
+        companionCurrentPage,
+        companionPdfDoc,
+        'companion-pdf-page'
+      );
+      showToast(
+        copied
+          ? `Page ${companionCurrentPage} image copied to clipboard!`
+          : 'Could not copy image to clipboard.',
+        !copied
+      );
+    } catch (error) {
+      console.error('Failed to copy companion page image:', error);
+      showToast('Failed to capture page image.', true);
+    }
+  }, [companionCurrentPage, companionPdfDoc, showToast]);
+
   const handleAskAiAboutPage = useCallback(
     (pageNumber: number) => {
       if (!pdfDoc) return;
@@ -735,14 +860,37 @@ export function App() {
     },
     onUndo: handleGlobalUndo,
     onRedo: handleGlobalRedo,
-    onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
-    onZoomOut: () => setZoom((z) => Math.max(0.3, z - 0.15)),
-    onResetZoom: () => setZoom(1.15),
+    onZoomIn: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') {
+        setCompanionZoom((z) => Math.min(3.5, z + 0.15));
+      } else {
+        setZoom((z) => Math.min(3.5, z + 0.15));
+      }
+    },
+    onZoomOut: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') {
+        setCompanionZoom((z) => Math.max(0.3, z - 0.15));
+      } else {
+        setZoom((z) => Math.max(0.3, z - 0.15));
+      }
+    },
+    onResetZoom: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') setCompanionZoom(1.15);
+      else setZoom(1.15);
+    },
     onNextPage: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') {
+        setCompanionCurrentPage((page) => Math.min(companionPdfDoc.numPages, page + 1));
+        return;
+      }
       const spreadStart = currentPage % 2 === 0 ? currentPage - 1 : currentPage;
       handleNavigatePage(viewMode === 'spread' ? spreadStart + 2 : currentPage + 1);
     },
     onPrevPage: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') {
+        setCompanionCurrentPage((page) => Math.max(1, page - 1));
+        return;
+      }
       const spreadStart = currentPage % 2 === 0 ? currentPage - 1 : currentPage;
       handleNavigatePage(viewMode === 'spread' ? Math.max(1, spreadStart - 2) : currentPage - 1);
     },
@@ -756,8 +904,14 @@ export function App() {
     onChangeViewMode: handleChangeViewMode,
     onToggleLibrary: () =>
       setCurrentScreen((prev) => (prev === 'dashboard' ? 'reader' : 'dashboard')),
-    onCopyPageText: () => handleCopyPageText(currentPage),
-    onCopyPageJpg: () => handleCopyPageJpg(currentPage),
+    onCopyPageText: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') void handleCopyCompanionPageText();
+      else void handleCopyPageText(currentPage);
+    },
+    onCopyPageJpg: () => {
+      if (companionPdfDoc && activeReaderPane === 'companion') void handleCopyCompanionPageImage();
+      else void handleCopyPageJpg(currentPage);
+    },
     onCopyStitchedSnippets: handleQuickCopyStitched,
     onClearSnippets: handleQuickDumpSnippets,
     onHighlightSelectedText: handleHighlightSelectedText,
@@ -825,6 +979,7 @@ export function App() {
           onToggleTheme={toggleInvert}
           onSwitchToReader={() => setCurrentScreen('reader')}
           onOpenPdf={openPdfInReader}
+          onOpenPdfPair={openPdfPairInReader}
           themeSettings={themeSettings}
           onSelectTheme={setTheme}
           onUpdateThemeSetting={updateThemeSetting}
@@ -838,9 +993,10 @@ export function App() {
           {/* Top Header & Titlebar */}
           <Header
             docInfo={docInfo}
-            currentPage={currentPage}
-            numPages={pdfDoc?.numPages || 0}
-            zoom={zoom}
+            currentPage={companionPdfDoc && activeReaderPane === 'companion' ? companionCurrentPage : currentPage}
+            numPages={companionPdfDoc && activeReaderPane === 'companion' ? companionPdfDoc.numPages : pdfDoc?.numPages || 0}
+            zoom={companionPdfDoc && activeReaderPane === 'companion' ? companionZoom : zoom}
+            activeDocumentName={companionPdfDoc && activeReaderPane === 'companion' ? companionFileName : docInfo?.fileName}
             viewMode={viewMode}
             theme={themeSettings.theme}
             isZenMode={isZenMode}
@@ -855,16 +1011,28 @@ export function App() {
             onToggleZen={() => setIsZenMode((prev) => !prev)}
             onToggleShortcuts={() => setIsShortcutsModalOpen(true)}
             onChangeViewMode={handleChangeViewMode}
-            onChangeZoom={setZoom}
-            onFitPage={() =>
-              setFitPageRequest((request) => ({
-                id: (request?.id ?? 0) + 1,
-                page: currentPage,
-              }))
-            }
-            onPageChange={handleNavigatePage}
-            onCopyPageText={() => handleCopyPageText(currentPage)}
-            onCopyPageJpg={() => handleCopyPageJpg(currentPage)}
+            onChangeZoom={activeReaderPane === 'companion' ? setCompanionZoom : setZoom}
+            onFitPage={() => {
+              if (companionPdfDoc && activeReaderPane === 'companion') {
+                setCompanionZoom(0.75);
+              } else {
+                setFitPageRequest((request) => ({
+                  id: (request?.id ?? 0) + 1,
+                  page: currentPage,
+                }));
+              }
+            }}
+            onPageChange={activeReaderPane === 'companion'
+              ? (page) => setCompanionCurrentPage(Math.max(1, Math.min(companionPdfDoc?.numPages || 1, page)))
+              : handleNavigatePage}
+            onCopyPageText={() => {
+              if (companionPdfDoc && activeReaderPane === 'companion') void handleCopyCompanionPageText();
+              else void handleCopyPageText(currentPage);
+            }}
+            onCopyPageJpg={() => {
+              if (companionPdfDoc && activeReaderPane === 'companion') void handleCopyCompanionPageImage();
+              else void handleCopyPageJpg(currentPage);
+            }}
           />
 
           {/* Main Reading & Sidebar Workspace */}
@@ -921,7 +1089,14 @@ export function App() {
             {/* Primary PDF Canvas Viewport */}
             <div className="flex-1 min-w-0 relative overflow-hidden flex bg-[var(--workspace)]">
               <PDFViewer
+                key={companionPdfDoc ? 'read-together' : 'single-document'}
                 pdfDoc={pdfDoc}
+                companionPdfDoc={companionPdfDoc}
+                primaryFileName={docInfo?.fileName || 'Primary PDF'}
+                companionFileName={companionFileName}
+                companionCurrentPage={companionCurrentPage}
+                companionZoom={companionZoom}
+                activePane={activeReaderPane}
                 rawPdfBytes={rawPdfBytes}
                 currentPage={currentPage}
                 numPages={pdfDoc?.numPages || 0}
@@ -941,6 +1116,9 @@ export function App() {
                 annotations={annotations}
                 selectedAnnotationId={selectedAnnotationId}
                 onPageChange={(p) => changePage(p)}
+                onCompanionPageChange={setCompanionCurrentPage}
+                onCompanionZoomChange={setCompanionZoom}
+                onActivePaneChange={setActiveReaderPane}
                 onSelectAnnotation={handleSelectAnnotation}
                 onAddAnnotation={(ann) => addAnnotation(ann)}
                 onUpdateAnnotation={(id, up) => updateAnnotation(id, up)}
@@ -986,12 +1164,22 @@ export function App() {
                   aria-label="Reading progress"
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-valuenow={Math.round((currentPage / pdfDoc.numPages) * 100)}
+                  aria-valuenow={Math.round((
+                    companionPdfDoc && activeReaderPane === 'companion'
+                      ? companionCurrentPage / companionPdfDoc.numPages
+                      : currentPage / pdfDoc.numPages
+                  ) * 100)}
                 >
                   <div className="reader-progress-track">
                     <div
                       className="reader-progress-value"
-                      style={{ width: `${(currentPage / pdfDoc.numPages) * 100}%` }}
+                      style={{
+                        width: `${(
+                          companionPdfDoc && activeReaderPane === 'companion'
+                            ? companionCurrentPage / companionPdfDoc.numPages
+                            : currentPage / pdfDoc.numPages
+                        ) * 100}%`,
+                      }}
                     />
                   </div>
                 </div>

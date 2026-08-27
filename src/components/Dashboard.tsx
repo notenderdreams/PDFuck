@@ -45,6 +45,10 @@ import { SettingsModal } from './SettingsModal';
 
 interface DashboardProps {
   onOpenPdf: (data: Uint8Array, fileName: string, filePath?: string, initialPageNumber?: number) => Promise<boolean>;
+  onOpenPdfPair: (
+    primary: { data: Uint8Array; fileName: string; filePath?: string; initialPageNumber?: number },
+    companion: { data: Uint8Array; fileName: string; filePath?: string }
+  ) => Promise<boolean>;
   onSwitchToReader: () => void;
   hasActiveDoc: boolean;
   activeDocName?: string;
@@ -71,6 +75,7 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: React.FC<{ classNa
 
 export const Dashboard: React.FC<DashboardProps> = ({
   onOpenPdf,
+  onOpenPdfPair,
   onSwitchToReader,
   hasActiveDoc,
   activeDocName,
@@ -93,6 +98,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedPdfIds, setSelectedPdfIds] = useState<string[]>([]);
+  const [isOpeningPair, setIsOpeningPair] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Keyboard shortcut: Cmd+, / Ctrl+, to toggle settings
@@ -274,6 +281,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const itemKey = (item: DashboardPdfItem) => item.filePath || item.id;
+
+  const handleItemClick = (event: React.MouseEvent, item: DashboardPdfItem) => {
+    const key = itemKey(item);
+    if (event.shiftKey) {
+      setSelectedPdfIds((selected) => {
+        if (selected.includes(key)) return selected.filter((id) => id !== key);
+        if (selected.length >= 2) return selected;
+        return [...selected, key];
+      });
+      return;
+    }
+
+    setSelectedPdfIds([]);
+    void handleOpenItem(item);
+  };
+
   // Browse standalone PDF from disk
   const handleBrowsePdf = async () => {
     if (isTauri()) {
@@ -360,6 +384,62 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     return list;
   }, [combinedItems, activeFilter, searchQuery, sortBy]);
+
+  const handleOpenSelectedPair = useCallback(async () => {
+    if (selectedPdfIds.length !== 2 || isOpeningPair) return;
+    const selectedItems = selectedPdfIds
+      .map((id) => combinedItems.find((item) => itemKey(item) === id))
+      .filter((item): item is NonNullable<typeof item> => item !== undefined);
+    const [primaryItem, companionItem] = selectedItems;
+    if (!primaryItem || !companionItem || !isTauri()) return;
+
+    setIsOpeningPair(true);
+    try {
+      const [primaryFile, companionFile] = await Promise.all(
+        [primaryItem, companionItem].map((item) => tauriReadFile(item.filePath))
+      );
+      if (!primaryFile || !companionFile) return;
+
+      for (const [index, file] of [primaryFile, companionFile].entries()) {
+        recordRecentDoc({
+          fileName: file.fileName,
+          filePath: file.filePath,
+          fileSize: file.data.byteLength,
+          modifiedTimestamp: Date.now(),
+          lastReadPage: index === 0 ? primaryItem.lastReadPage || 1 : 1,
+        });
+      }
+      setRecentDocs(loadRecentDocs());
+      const opened = await onOpenPdfPair(
+        {
+          ...primaryFile,
+          initialPageNumber: primaryItem.lastReadPage,
+        },
+        companionFile
+      );
+      if (opened) setSelectedPdfIds([]);
+    } finally {
+      setIsOpeningPair(false);
+    }
+  }, [combinedItems, isOpeningPair, onOpenPdfPair, selectedPdfIds]);
+
+  useEffect(() => {
+    const handlePairKeyboard = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) {
+        return;
+      }
+      if (event.key === 'Escape' && selectedPdfIds.length > 0) {
+        event.preventDefault();
+        setSelectedPdfIds([]);
+      } else if (event.key === 'Enter' && selectedPdfIds.length === 2) {
+        event.preventDefault();
+        void handleOpenSelectedPair();
+      }
+    };
+    window.addEventListener('keydown', handlePairKeyboard);
+    return () => window.removeEventListener('keydown', handlePairKeyboard);
+  }, [handleOpenSelectedPair, selectedPdfIds.length]);
 
   const totalPdfsCount = combinedItems.length;
 
@@ -674,17 +754,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   key={item.filePath || item.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => handleOpenItem(item)}
+                  aria-pressed={selectedPdfIds.includes(itemKey(item))}
+                  data-pair-selected={selectedPdfIds.includes(itemKey(item)) || undefined}
+                  onClick={(event) => handleItemClick(event, item)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
+                    if ((event.key === 'Enter' || event.key === ' ') && selectedPdfIds.length !== 2) {
                       event.preventDefault();
-                      handleOpenItem(item);
+                      setSelectedPdfIds([]);
+                      void handleOpenItem(item);
                     }
                   }}
                   className="library-document-list-item group"
                 >
-                  <div className="library-document-list-icon shrink-0" aria-hidden="true">
+                  <div className="library-document-list-icon relative shrink-0" aria-hidden="true">
                     <FileText className="w-4 h-4" />
+                    {selectedPdfIds.includes(itemKey(item)) && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-semibold text-white shadow-sm">
+                        {selectedPdfIds.indexOf(itemKey(item)) + 1}
+                      </span>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 min-w-0">
@@ -723,6 +811,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <ArrowRight className="library-document-list-arrow w-4 h-4 shrink-0" aria-hidden="true" />
                 </div>
               ))}
+            </div>
+          )}
+
+          {selectedPdfIds.length > 0 && (
+            <div
+              className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--border)] bg-[var(--popover)]/95 px-4 py-2 text-xs text-[var(--foreground)] shadow-xl backdrop-blur-xl"
+              role="status"
+              aria-live="polite"
+            >
+              {selectedPdfIds.length === 1 ? (
+                <span>1 selected · Shift-click one more PDF</span>
+              ) : (
+                <span>{isOpeningPair ? 'Opening both PDFs…' : '2 selected · Press Enter to read together · Esc to clear'}</span>
+              )}
             </div>
           )}
         </main>

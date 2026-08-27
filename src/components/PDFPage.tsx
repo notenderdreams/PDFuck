@@ -55,6 +55,8 @@ interface PDFPageProps {
   onCopyPageImage: (pageNumber: number) => void;
   onAskAiAboutPage: (pageNumber: number) => void;
   isFlush?: boolean;
+  isReadOnly?: boolean;
+  pageIdPrefix?: string;
 }
 
 export const PDFPageComponent: React.FC<PDFPageProps> = ({
@@ -92,6 +94,8 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   onCopyPageImage,
   onAskAiAboutPage,
   isFlush = false,
+  isReadOnly = false,
+  pageIdPrefix = 'pdf-page',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
@@ -297,14 +301,14 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   return (
     <div
       ref={containerRef}
-      id={`pdf-page-${pageNumber}`}
-      data-pdf-page-number={pageNumber}
-      onMouseMove={handleMouseMove}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onContextMenu={handleContextMenu}
-      onClick={() => onSelectAnnotation(null)}
+      id={`${pageIdPrefix}-${pageNumber}`}
+      data-pdf-page-number={isReadOnly ? undefined : pageNumber}
+      onMouseMove={isReadOnly ? undefined : handleMouseMove}
+      onDragOver={isReadOnly ? undefined : handleDragOver}
+      onDragLeave={isReadOnly ? undefined : handleDragLeave}
+      onDrop={isReadOnly ? undefined : handleDrop}
+      onContextMenu={isReadOnly ? undefined : handleContextMenu}
+      onClick={isReadOnly ? undefined : () => onSelectAnnotation(null)}
       style={{
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
@@ -313,7 +317,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         isDragOver ? 'ring-2 ring-[#0080f0] scale-[1.01]' : ''
       }`}
     >
-      {contextMenuPosition && (
+      {!isReadOnly && contextMenuPosition && (
         <PageContextMenu
           position={contextMenuPosition}
           onClose={() => setContextMenuPosition(null)}
@@ -356,7 +360,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       />
 
       {/* Annotation Canvas (SVG / Freehand / Highlights / Note Creator) */}
-      <AnnotationCanvas
+      {!isReadOnly && <AnnotationCanvas
         pageNumber={pageNumber}
         pageWidth={pageDimensions.width}
         pageHeight={pageDimensions.height}
@@ -378,9 +382,9 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         onDeleteAnnotation={onDeleteAnnotation}
         onCaptureSnippet={onCaptureSnippet}
         onAiBoxCreated={onAiBoxCreated}
-      />
+      />}
 
-      <AiExplanationOverlay
+      {!isReadOnly && <AiExplanationOverlay
         pdfDoc={pdfDoc}
         pageWidth={pageDimensions.width}
         pageHeight={pageDimensions.height}
@@ -395,7 +399,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         onAddAnnotation={onAddAnnotation}
         selectedAnnotationId={selectedAnnotationId}
         onSelectAnnotation={onSelectAnnotation}
-      />
+      />}
 
       {/* Attached Images Layer */}
       {pageImages.map((imgAnn) => (
@@ -430,7 +434,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       ))}
 
       {/* Drop Image Overlay Visual Cue */}
-      {isDragOver && (
+      {!isReadOnly && isDragOver && (
         <div className="absolute inset-0 bg-[#0080f0]/20 backdrop-blur-xs border-2 border-dashed border-[#0080f0] flex flex-col items-center justify-center text-blue-200 z-50 rounded animate-fade-in pointer-events-none">
           <span className="text-sm font-semibold text-white">Drop Image to Attach</span>
           <span className="text-xs text-blue-200">Will be placed on Page {pageNumber}</span>

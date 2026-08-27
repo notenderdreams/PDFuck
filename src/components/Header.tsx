@@ -22,6 +22,8 @@ interface HeaderProps {
   currentPage: number;
   numPages: number;
   zoom: number;
+  activeDocumentName?: string | null;
+  canUsePageActions?: boolean;
   viewMode: ViewMode;
   theme: ReadingTheme;
   isZenMode: boolean;
@@ -48,6 +50,8 @@ export const Header: React.FC<HeaderProps> = ({
   currentPage,
   numPages,
   zoom,
+  activeDocumentName,
+  canUsePageActions = true,
   viewMode,
   theme,
   isZenMode,
@@ -145,15 +149,15 @@ export const Header: React.FC<HeaderProps> = ({
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
         )}
-        {docInfo?.fileName && (
+        {(activeDocumentName || docInfo?.fileName) && (
           <>
             <span className="reader-toolbar-divider shrink-0" aria-hidden="true" data-tauri-drag-region />
             <span
               className="font-medium truncate text-[12px] text-zinc-200"
-              title={docInfo.fileName}
+              title={activeDocumentName || docInfo?.fileName}
               data-tauri-drag-region
             >
-              {docInfo.fileName}
+              {activeDocumentName || docInfo?.fileName}
             </span>
           </>
         )}
@@ -182,21 +186,25 @@ export const Header: React.FC<HeaderProps> = ({
             />
             <span className="text-zinc-500 font-mono text-[11px]">/</span>
             <span className="font-mono text-zinc-400 text-[11px] pr-1.5">{numPages}</span>
-            <div className="macos-toolbar-group-separator" />
-            <button
-              onClick={onCopyPageText}
-              className="macos-reader-inline-action"
-              title={`Copy all text from Page ${currentPage} (Cmd+Shift+C)`}
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={onCopyPageJpg}
-              className="macos-reader-inline-action"
-              title={`Copy / Save Page ${currentPage} as JPG image (Cmd+Shift+J)`}
-            >
-              <Camera className="w-3.5 h-3.5" />
-            </button>
+            {canUsePageActions && (
+              <>
+                <div className="macos-toolbar-group-separator" />
+                <button
+                  onClick={onCopyPageText}
+                  className="macos-reader-inline-action"
+                  title={`Copy all text from Page ${currentPage} (Cmd+Shift+C)`}
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={onCopyPageJpg}
+                  className="macos-reader-inline-action"
+                  title={`Copy / Save Page ${currentPage} as JPG image (Cmd+Shift+J)`}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

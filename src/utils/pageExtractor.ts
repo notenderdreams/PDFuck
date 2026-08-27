@@ -114,14 +114,15 @@ export async function extractPageText(
  */
 export async function capturePageCompositeCanvas(
   pageNumber: number | unknown,
-  pdfDoc?: PDFDocumentProxy | null
+  pdfDoc?: PDFDocumentProxy | null,
+  pageIdPrefix: string = 'pdf-page'
 ): Promise<HTMLCanvasElement | null> {
   const safePageNum =
     typeof pageNumber === 'number' && !isNaN(pageNumber)
       ? Math.max(1, Math.floor(pageNumber))
       : 1;
 
-  const pageContainer = document.getElementById(`pdf-page-${safePageNum}`);
+  const pageContainer = document.getElementById(`${pageIdPrefix}-${safePageNum}`);
   const pdfCanvas = pageContainer?.querySelector('canvas') as HTMLCanvasElement | null;
 
   // Fast path: capture already-rendered DOM canvas with annotations
@@ -186,9 +187,10 @@ export async function capturePageCompositeCanvas(
  */
 export async function copyPageImageToClipboard(
   pageNumber: number | unknown,
-  pdfDoc?: PDFDocumentProxy | null
+  pdfDoc?: PDFDocumentProxy | null,
+  pageIdPrefix: string = 'pdf-page'
 ): Promise<boolean> {
-  const canvas = await capturePageCompositeCanvas(pageNumber, pdfDoc);
+  const canvas = await capturePageCompositeCanvas(pageNumber, pdfDoc, pageIdPrefix);
   if (!canvas) return false;
 
   const dataUrl = canvas.toDataURL('image/png');
