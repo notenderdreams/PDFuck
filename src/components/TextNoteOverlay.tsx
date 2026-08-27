@@ -89,8 +89,8 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
       const dx = (moveEvt.clientX - dragStartPosRef.current.x) / pageWidth;
       const dy = (moveEvt.clientY - dragStartPosRef.current.y) / pageHeight;
 
-      const newX = Math.max(0, Math.min(initialAnnPosRef.current.x + dx, 0.92));
-      const newY = Math.max(0, Math.min(initialAnnPosRef.current.y + dy, 0.95));
+      const newX = initialAnnPosRef.current.x + dx;
+      const newY = initialAnnPosRef.current.y + dy;
 
       onUpdate(annotation.id, { x: newX, y: newY });
     };

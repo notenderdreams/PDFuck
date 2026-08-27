@@ -46,4 +46,11 @@ describe('plain text and sticky note tools', () => {
     expect(exporter).toContain("const isPlainText = textAnn.kind === 'plain'");
     expect(exporter).toContain('if (!isPlainText)');
   });
+
+  test('allows text notes to be positioned outside PDF boundaries into margins', async () => {
+    const overlay = await source('src/components/TextNoteOverlay.tsx');
+    expect(overlay).toContain('const newX = initialAnnPosRef.current.x + dx;');
+    expect(overlay).toContain('const newY = initialAnnPosRef.current.y + dy;');
+    expect(overlay).not.toContain('Math.min(initialAnnPosRef.current.x + dx, 0.92)');
+  });
 });
