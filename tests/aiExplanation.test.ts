@@ -222,8 +222,8 @@ describe('AI explanation state and persistence', () => {
     const computeCardPos = (ann: AiExplanationAnnotation) => {
       if (ann.cardX !== undefined && ann.cardY !== undefined) {
         return {
-          left: Math.max(8, Math.min(pageWidth - cardWidth - 8, ann.cardX * pageWidth)),
-          top: Math.max(8, Math.min(pageHeight - 80, ann.cardY * pageHeight)),
+          left: ann.cardX * pageWidth,
+          top: ann.cardY * pageHeight,
         };
       }
       return {
@@ -235,8 +235,8 @@ describe('AI explanation state and persistence', () => {
     const computeBadgePos = (ann: AiExplanationAnnotation) => {
       if (ann.cardX !== undefined && ann.cardY !== undefined) {
         return {
-          left: Math.max(8, Math.min(pageWidth - badgeSize - 8, ann.cardX * pageWidth)),
-          top: Math.max(8, Math.min(pageHeight - badgeSize - 8, ann.cardY * pageHeight)),
+          left: ann.cardX * pageWidth,
+          top: ann.cardY * pageHeight,
         };
       }
       return {
@@ -279,5 +279,14 @@ describe('AI explanation state and persistence', () => {
     const cardPos2 = computeCardPos(reopened);
     expect(cardPos2.left).toBe(cardPos1.left);
     expect(cardPos2.top).toBe(cardPos1.top);
+
+    // 4. Card or bubble placed outside the PDF in the left/right margins
+    const outsidePageAnn: AiExplanationAnnotation = {
+      ...initial,
+      cardX: -0.1, // Outside left margin
+      cardY: 0.5,
+    };
+    expect(computeCardPos(outsidePageAnn).left).toBe(-80);
+    expect(computeBadgePos(outsidePageAnn).left).toBe(-80);
   });
 });

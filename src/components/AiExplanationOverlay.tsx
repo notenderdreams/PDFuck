@@ -147,8 +147,8 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
       cardLeft = liveDrag.left;
       cardTop = liveDrag.top;
     } else if (annotation.cardX !== undefined && annotation.cardY !== undefined) {
-      cardLeft = Math.max(8, Math.min(pageWidth - cardWidth - 8, annotation.cardX * pageWidth));
-      cardTop = Math.max(8, Math.min(pageHeight - 80, annotation.cardY * pageHeight));
+      cardLeft = annotation.cardX * pageWidth;
+      cardTop = annotation.cardY * pageHeight;
     } else {
       const selectionLeft = annotation.x * pageWidth;
       const selectionBottom = (annotation.y + annotation.height) * pageHeight;
@@ -765,8 +765,8 @@ const AiCollapsedBadge: React.FC<BadgeItemProps> = React.memo(
       badgeLeft = liveDrag.left;
       badgeTop = liveDrag.top;
     } else if (annotation.cardX !== undefined && annotation.cardY !== undefined) {
-      badgeLeft = Math.max(8, Math.min(pageWidth - badgeSize - 8, annotation.cardX * pageWidth));
-      badgeTop = Math.max(8, Math.min(pageHeight - badgeSize - 8, annotation.cardY * pageHeight));
+      badgeLeft = annotation.cardX * pageWidth;
+      badgeTop = annotation.cardY * pageHeight;
     } else {
       const selectionLeft = annotation.x * pageWidth;
       const selectionBottom = (annotation.y + annotation.height) * pageHeight;
