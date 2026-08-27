@@ -338,6 +338,12 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (containerRef.current && onCursorMove) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const nx = Math.max(0, Math.min((event.clientX - rect.left) / pageDimensions.width, 1));
+      const ny = Math.max(0, Math.min((event.clientY - rect.top) / pageDimensions.height, 1));
+      onCursorMove(pageNumber, nx, ny);
+    }
     const menuWidth = 224;
     const menuHeight = 150;
     setContextMenuPosition({

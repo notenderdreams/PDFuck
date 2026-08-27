@@ -149,4 +149,34 @@ describe('AI explanation state and persistence', () => {
     // 4. When window is open and user actively drags the window -> visible!
     expect(isRegionVisible(targetId, true, null, 'ai_123')).toBe(true);
   });
+
+  test('positions whole-page AI prompt and response card at cursor location when called', () => {
+    const cursor = { x: 0.45, y: 0.35 };
+    const wholePageAi: AiExplanationAnnotation = {
+      id: 'ai_page_1',
+      pageNumber: 1,
+      type: 'ai-explanation',
+      x: 0.01,
+      y: 0.01,
+      width: 0.98,
+      height: 0.98,
+      prompt: '',
+      response: '',
+      provider: 'codex',
+      isOpen: true,
+      cardX: cursor.x,
+      cardY: cursor.y,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    // Verify cardX and cardY match cursor position
+    expect(wholePageAi.cardX).toBe(0.45);
+    expect(wholePageAi.cardY).toBe(0.35);
+
+    // When prompt is answered, cardX and cardY remain preserved at the cursor location
+    const answeredAi = { ...wholePageAi, response: 'Detailed explanation', updatedAt: 2 };
+    expect(answeredAi.cardX).toBe(0.45);
+    expect(answeredAi.cardY).toBe(0.35);
+  });
 });

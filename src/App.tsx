@@ -653,6 +653,11 @@ export function App() {
     (pageNumber: number) => {
       if (!pdfDoc) return;
       const now = Date.now();
+      const cursor =
+        cursorPosRef.current && cursorPosRef.current.pageNumber === pageNumber
+          ? { x: cursorPosRef.current.x, y: cursorPosRef.current.y }
+          : null;
+
       const annotation: AiExplanationAnnotation = {
         id: `ai_page_${now}_${Math.random().toString(36).slice(2, 7)}`,
         pageNumber,
@@ -664,6 +669,9 @@ export function App() {
         prompt: '',
         response: '',
         provider: 'codex',
+        isOpen: true,
+        cardX: cursor ? cursor.x : undefined,
+        cardY: cursor ? cursor.y : undefined,
         createdAt: now,
         updatedAt: now,
       };

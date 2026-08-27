@@ -147,8 +147,8 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
       cardLeft = liveDrag.left;
       cardTop = liveDrag.top;
     } else if (annotation.cardX !== undefined && annotation.cardY !== undefined) {
-      cardLeft = annotation.cardX * pageWidth;
-      cardTop = annotation.cardY * pageHeight;
+      cardLeft = Math.max(8, Math.min(pageWidth - cardWidth - 8, annotation.cardX * pageWidth));
+      cardTop = Math.max(8, Math.min(pageHeight - 80, annotation.cardY * pageHeight));
     } else {
       const selectionLeft = annotation.x * pageWidth;
       const selectionRight = (annotation.x + annotation.width) * pageWidth;
