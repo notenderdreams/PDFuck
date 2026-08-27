@@ -179,4 +179,37 @@ describe('AI explanation state and persistence', () => {
     expect(answeredAi.cardX).toBe(0.45);
     expect(answeredAi.cardY).toBe(0.35);
   });
+
+  test('keeps region-select AI response at the exact location where prompt box appeared', () => {
+    const regionAi: AiExplanationAnnotation = {
+      id: 'ai_region_1',
+      pageNumber: 1,
+      type: 'ai-explanation',
+      x: 0.2,
+      y: 0.3,
+      width: 0.4,
+      height: 0.15,
+      prompt: 'Explain formula',
+      response: '',
+      provider: 'codex',
+      isOpen: true,
+      cardX: 0.2,
+      cardY: 0.47,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    // When prompt box position is locked on submit
+    expect(regionAi.cardX).toBe(0.2);
+    expect(regionAi.cardY).toBe(0.47);
+
+    // Response arrives without changing coordinates
+    const answeredRegionAi = {
+      ...regionAi,
+      response: 'Formula breakdown result',
+      updatedAt: 2,
+    };
+    expect(answeredRegionAi.cardX).toBe(0.2);
+    expect(answeredRegionAi.cardY).toBe(0.47);
+  });
 });

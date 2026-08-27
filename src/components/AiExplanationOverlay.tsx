@@ -151,29 +151,10 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
       cardTop = Math.max(8, Math.min(pageHeight - 80, annotation.cardY * pageHeight));
     } else {
       const selectionLeft = annotation.x * pageWidth;
-      const selectionRight = (annotation.x + annotation.width) * pageWidth;
-      const selectionTop = annotation.y * pageHeight;
       const selectionBottom = (annotation.y + annotation.height) * pageHeight;
 
-      if (isPromptComposer) {
-        cardLeft = Math.max(8, Math.min(selectionLeft, pageWidth - cardWidth - 8));
-        cardTop = selectionBottom + 10;
-      } else {
-        const rightSpace = pageWidth - selectionRight;
-        if (rightSpace >= cardWidth * 0.6) {
-          cardLeft = selectionRight + 16;
-          cardTop = selectionTop;
-        } else {
-          const leftSpace = selectionLeft;
-          if (leftSpace >= cardWidth * 0.6) {
-            cardLeft = selectionLeft - cardWidth - 16;
-            cardTop = selectionTop;
-          } else {
-            cardLeft = selectionRight + 16;
-            cardTop = selectionTop;
-          }
-        }
-      }
+      cardLeft = Math.max(8, Math.min(selectionLeft, pageWidth - cardWidth - 8));
+      cardTop = Math.max(8, Math.min(pageHeight - 80, selectionBottom + 10));
     }
 
     const providerName =
@@ -188,13 +169,23 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
       e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 48), 120)}px`;
     };
 
+    const handleSubmitPrompt = () => {
+      const trimmed = (promptText || annotation.prompt || DEFAULT_PROMPT).trim();
+      if (trimmed) {
+        if (annotation.cardX === undefined || annotation.cardY === undefined) {
+          onUpdate(annotation.id, {
+            cardX: cardLeft / pageWidth,
+            cardY: cardTop / pageHeight,
+          });
+        }
+        onSubmit(annotation, trimmed);
+      }
+    };
+
     const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
         e.preventDefault();
-        const trimmed = (promptText || annotation.prompt || DEFAULT_PROMPT).trim();
-        if (trimmed) {
-          onSubmit(annotation, trimmed);
-        }
+        handleSubmitPrompt();
       }
     };
 
@@ -218,13 +209,6 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
       }
     };
 
-    const handleSubmitPrompt = () => {
-      const trimmed = (promptText || annotation.prompt || DEFAULT_PROMPT).trim();
-      if (trimmed) {
-        onSubmit(annotation, trimmed);
-      }
-    };
-
     const handleCopyText = async (text: string) => {
       try {
         await navigator.clipboard.writeText(text);
@@ -245,6 +229,8 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
             response: text.trim(),
             provider: 'external',
             isOpen: true,
+            cardX: annotation.cardX ?? (cardLeft / pageWidth),
+            cardY: annotation.cardY ?? (cardTop / pageHeight),
             updatedAt: Date.now(),
           });
           setClipboardNotice(null);
@@ -273,6 +259,8 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
         response: respText,
         provider,
         isOpen: true,
+        cardX: annotation.cardX ?? (cardLeft / pageWidth),
+        cardY: annotation.cardY ?? (cardTop / pageHeight),
         updatedAt: Date.now(),
       });
       setIsPasting(false);
