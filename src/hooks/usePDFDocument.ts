@@ -139,11 +139,16 @@ export function usePDFDocument() {
     [pdfDoc, docKey, docInfo]
   );
 
+  const searchSequenceRef = useRef(0);
+
   // Full-Text Search
   const searchInDocument = useCallback(async (query: string) => {
+    const currentSearchId = ++searchSequenceRef.current;
+
     if (!pdfDoc || !query.trim()) {
       setSearchResults([]);
       setCurrentMatchIndex(-1);
+      setIsSearching(false);
       return;
     }
 
@@ -152,22 +157,41 @@ export function usePDFDocument() {
     const lowerQuery = query.toLowerCase();
 
     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      if (searchSequenceRef.current !== currentSearchId) {
+        return;
+      }
+
       try {
         const page = await pdfDoc.getPage(pageNum);
+        if (searchSequenceRef.current !== currentSearchId) {
+          try {
+            page.cleanup();
+          } catch {}
+          return;
+        }
+
         const textContent = await page.getTextContent();
-        const fullPageText = textContent.items
-          .map((item) => ('str' in item ? item.str : ''))
-          .join(' ');
-        
+        let fullPageText = '';
+        const items = textContent.items;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if ('str' in item && item.str) {
+            fullPageText += (fullPageText.length > 0 ? ' ' : '') + item.str;
+          }
+        }
+
         let matchPos = 0;
-        let lowerPageText = fullPageText.toLowerCase();
+        const lowerPageText = fullPageText.toLowerCase();
         let occurrence = 0;
-        
+
         while ((matchPos = lowerPageText.indexOf(lowerQuery, matchPos)) !== -1) {
           const start = Math.max(0, matchPos - 30);
           const end = Math.min(fullPageText.length, matchPos + lowerQuery.length + 30);
-          const snippet = (start > 0 ? '...' : '') + fullPageText.slice(start, end) + (end < fullPageText.length ? '...' : '');
-          
+          const snippet =
+            (start > 0 ? '...' : '') +
+            fullPageText.slice(start, end) +
+            (end < fullPageText.length ? '...' : '');
+
           results.push({
             pageNumber: pageNum,
             matchIndex: occurrence,
@@ -185,9 +209,11 @@ export function usePDFDocument() {
       }
     }
 
-    setSearchResults(results);
-    setCurrentMatchIndex(results.length > 0 ? 0 : -1);
-    setIsSearching(false);
+    if (searchSequenceRef.current === currentSearchId) {
+      setSearchResults(results);
+      setCurrentMatchIndex(results.length > 0 ? 0 : -1);
+      setIsSearching(false);
+    }
   }, [pdfDoc]);
 
   const nextSearchResult = useCallback(() => {

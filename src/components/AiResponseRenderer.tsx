@@ -11,7 +11,7 @@ interface AiResponseRendererProps {
   response: string;
 }
 
-export const AiResponseRenderer: React.FC<AiResponseRendererProps> = ({ response }) => {
+export const AiResponseRenderer: React.FC<AiResponseRendererProps> = React.memo(({ response }) => {
   const normalizedResponse = useMemo(() => normalizeAiResponseMarkdown(response), [response]);
 
   return (
@@ -42,4 +42,4 @@ export const AiResponseRenderer: React.FC<AiResponseRendererProps> = ({ response
       </ReactMarkdown>
     </div>
   );
-};
+});

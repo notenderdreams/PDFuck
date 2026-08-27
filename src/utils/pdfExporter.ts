@@ -58,12 +58,18 @@ async function dataUrlToPngBytes(dataUrl: string, invertColors: boolean = false)
       }
 
       canvas.toBlob(async (blob) => {
+        canvas.width = 0;
+        canvas.height = 0;
         if (!blob) {
           reject(new Error('Failed to create image blob'));
           return;
         }
-        const arrayBuffer = await blob.arrayBuffer();
-        resolve(new Uint8Array(arrayBuffer));
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          resolve(new Uint8Array(arrayBuffer));
+        } catch (e) {
+          reject(e);
+        }
       }, 'image/png');
     };
     img.onerror = (err) => reject(err);

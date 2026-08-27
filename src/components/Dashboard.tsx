@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from 'react';
 import {
   FolderPlus,
   FolderOpen,
@@ -94,6 +94,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
   const [activeFilter, setActiveFilter] = useState<FilterTab>(() => loadLibraryFilter());
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortBy, setSortBy] = useState<SortOption>(() => loadLibrarySort());
   const [isScanning, setIsScanning] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -359,8 +360,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     // Filter by Search Query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (deferredSearchQuery.trim()) {
+      const q = deferredSearchQuery.toLowerCase();
       list = list.filter(
         (i) =>
           i.fileName.toLowerCase().includes(q) ||
@@ -383,7 +384,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
 
     return list;
-  }, [combinedItems, activeFilter, searchQuery, sortBy]);
+  }, [combinedItems, activeFilter, deferredSearchQuery, sortBy]);
 
   const handleOpenSelectedPair = useCallback(async () => {
     if (selectedPdfIds.length !== 2 || isOpeningPair) return;
