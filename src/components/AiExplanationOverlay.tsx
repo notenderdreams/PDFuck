@@ -8,6 +8,7 @@ import {
   Copy,
   GripHorizontal,
   Image as ImageIcon,
+  MessageCircle,
   RotateCcw,
   Trash2,
   X,
@@ -75,6 +76,7 @@ interface CardItemProps {
   onDelete: (id: string) => void;
   onAddAnnotation: (ann: Annotation) => void;
   onSelectAnnotation?: (id: string | null) => void;
+  onHover?: (id: string | null) => void;
 }
 
 const AiExplanationCard: React.FC<CardItemProps> = React.memo(
@@ -95,6 +97,7 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
     onDelete,
     onAddAnnotation,
     onSelectAnnotation,
+    onHover,
   }) => {
     const isRunning = job?.phase === 'running';
     const isPromptComposer = !annotation.response && !isRunning;
@@ -367,6 +370,8 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
             onPointerMove={(e) => onDragMove(e, annotation)}
             onPointerUp={(e) => onDragEnd(e, annotation)}
             onPointerCancel={(e) => onDragEnd(e, annotation)}
+            onMouseEnter={() => onHover?.(annotation.id)}
+            onMouseLeave={() => onHover?.(null)}
             className="flex items-center justify-between gap-2 px-3.5 py-2 border-b border-[var(--border)] shrink-0 select-none bg-[var(--popover)]/60 backdrop-blur-xs cursor-grab active:cursor-grabbing"
             title="Drag to move sticky note"
           >
@@ -722,7 +727,144 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
   }
 );
 
-AiExplanationCard.displayName = 'AiExplanationCard';
+interface BadgeItemProps {
+  annotation: AiExplanationAnnotation;
+  job?: AiJobState;
+  pageWidth: number;
+  pageHeight: number;
+  isSelected: boolean;
+  activeTool?: ToolType;
+  liveDrag?: { left: number; top: number };
+  onDragStart: (
+    e: React.PointerEvent,
+    annotation: AiExplanationAnnotation,
+    currentLeft: number,
+    currentTop: number
+  ) => void;
+  onDragMove: (e: React.PointerEvent, annotation: AiExplanationAnnotation) => void;
+  onDragEnd: (e: React.PointerEvent, annotation: AiExplanationAnnotation) => void;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+  onSelectAnnotation?: (id: string | null) => void;
+  onHover?: (id: string | null) => void;
+}
+
+const AiCollapsedBadge: React.FC<BadgeItemProps> = React.memo(
+  ({
+    annotation,
+    job,
+    pageWidth,
+    pageHeight,
+    isSelected,
+    activeTool,
+    liveDrag,
+    onDragStart,
+    onDragMove,
+    onDragEnd,
+    onOpen,
+    onDelete,
+    onHover,
+  }) => {
+    const isRunning = job?.phase === 'running';
+    const hasMovedRef = useRef(false);
+    const startPosRef = useRef({ x: 0, y: 0 });
+
+    const badgeSize = 34;
+    let badgeLeft: number;
+    let badgeTop: number;
+
+    if (liveDrag) {
+      badgeLeft = liveDrag.left;
+      badgeTop = liveDrag.top;
+    } else if (annotation.cardX !== undefined && annotation.cardY !== undefined) {
+      badgeLeft = annotation.cardX * pageWidth;
+      badgeTop = annotation.cardY * pageHeight;
+    } else {
+      badgeLeft = Math.max(8, Math.min(pageWidth - badgeSize - 8, (annotation.x + annotation.width) * pageWidth - 14));
+      badgeTop = Math.max(8, Math.min(pageHeight - badgeSize - 8, annotation.y * pageHeight - 14));
+    }
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+      e.stopPropagation();
+      if (activeTool === 'eraser') {
+        onDelete(annotation.id);
+        return;
+      }
+      hasMovedRef.current = false;
+      startPosRef.current = { x: e.clientX, y: e.clientY };
+      onDragStart(e, annotation, badgeLeft, badgeTop);
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+      if (Math.hypot(e.clientX - startPosRef.current.x, e.clientY - startPosRef.current.y) > 4) {
+        hasMovedRef.current = true;
+      }
+      onDragMove(e, annotation);
+    };
+
+    const handlePointerUp = (e: React.PointerEvent) => {
+      e.stopPropagation();
+      onDragEnd(e, annotation);
+      if (!hasMovedRef.current && activeTool !== 'eraser') {
+        onOpen(annotation.id);
+      }
+    };
+
+    return (
+      <div
+        style={{
+          width: `${badgeSize}px`,
+          height: `${badgeSize}px`,
+          left: `${badgeLeft}px`,
+          top: `${badgeTop}px`,
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Open AI explanation"
+        title={
+          annotation.prompt
+            ? `AI Explanation: "${annotation.prompt.slice(0, 50)}${annotation.prompt.length > 50 ? '…' : ''}"`
+            : 'Open AI explanation'
+        }
+        className={`absolute pointer-events-auto z-30 flex items-center justify-center rounded-full cursor-pointer select-none transition-all duration-150 ${
+          isSelected ? 'ring-2 ring-[var(--primary)] ring-offset-2 scale-110 shadow-lg' : 'hover:scale-110 shadow-md'
+        } ${
+          isRunning
+            ? 'bg-[var(--primary)] text-white animate-pulse border border-[var(--primary)]'
+            : 'bg-white dark:bg-[var(--card)] text-[var(--primary)] border border-[var(--border)] hover:bg-blue-50/50 dark:hover:bg-[var(--secondary)] hover:border-[var(--primary)]/50 hover:shadow-lg'
+        }`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={(e) => onDragEnd(e, annotation)}
+        onMouseEnter={() => onHover?.(annotation.id)}
+        onMouseLeave={() => onHover?.(null)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (activeTool === 'eraser') {
+            onDelete(annotation.id);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen(annotation.id);
+          }
+        }}
+      >
+        <MessageCircle className="w-4 h-4 text-[var(--primary)]" />
+        {isRunning && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-400 border border-white" />
+          </span>
+        )}
+      </div>
+    );
+  }
+);
+
+AiCollapsedBadge.displayName = 'AiCollapsedBadge';
 
 export const AiExplanationOverlay: React.FC<Props> = ({
   pageWidth,
@@ -740,6 +882,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
   onSelectAnnotation,
 }) => {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [dragPositions, setDragPositions] = useState<Record<string, { left: number; top: number }>>({});
   const dragStartRef = useRef<{
     clientX: number;
@@ -778,7 +921,11 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       currentLeft: number,
       currentTop: number
     ) => {
-      if ((e.target as HTMLElement).closest('button, input, textarea, a, select, [role="button"]')) {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('button, input, textarea, a, select') ||
+        (target.closest('[role="button"]') && target.closest('[role="button"]') !== e.currentTarget)
+      ) {
         return;
       }
       e.preventDefault();
@@ -840,18 +987,24 @@ export const AiExplanationOverlay: React.FC<Props> = ({
 
   return (
     <div className="absolute inset-0 z-20 pointer-events-none">
-      {/* 1. Interactive Selection Hitboxes for AI Regions on Canvas */}
+      {/* 1. Interactive Selection Hitboxes & Dynamic AI Region Highlights */}
       {annotations.map((annotation) => {
-        const isSelected = selectedAnnotationId === annotation.id;
+        const isHovered = hoveredAnnotationId === annotation.id;
+        const isDragging = activeDragId === annotation.id;
+
+        // Show the region ONLY when hovering on the top bar (where drag enables), hovering the collapsed bubble, or dragging
+        const isRegionVisible = isHovered || isDragging;
 
         return (
           <div
             key={`ai-hitbox-${annotation.id}`}
             data-ai-annotation-id={annotation.id}
-            className={`absolute cursor-pointer transition-all duration-150 ${
-              activeTool === 'eraser' ? 'pointer-events-none' : 'pointer-events-auto'
+            className={`absolute transition-opacity duration-150 ${
+              activeTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'
             } ${
-              isSelected ? 'ring-2 ring-blue-500/80 bg-blue-500/10' : 'hover:bg-blue-500/10'
+              isRegionVisible
+                ? 'border-2 border-dashed border-[var(--primary)] bg-transparent opacity-100'
+                : 'border-2 border-dashed border-transparent bg-transparent opacity-0'
             }`}
             style={{
               left: `${annotation.x * pageWidth}px`,
@@ -860,18 +1013,19 @@ export const AiExplanationOverlay: React.FC<Props> = ({
               height: `${annotation.height * pageHeight}px`,
             }}
             onClick={(event) => {
-              event.stopPropagation();
-              onUpdate(annotation.id, { isOpen: true, updatedAt: Date.now() });
-              onSelectAnnotation?.(annotation.id);
+              if (activeTool === 'eraser') {
+                event.stopPropagation();
+                onDelete(annotation.id);
+              }
             }}
-            role="button"
-            tabIndex={0}
-            aria-label={annotation.response ? 'Open AI explanation' : 'Open AI prompt'}
+            role={activeTool === 'eraser' ? 'button' : undefined}
+            tabIndex={activeTool === 'eraser' ? 0 : -1}
+            aria-label="AI region"
           />
         );
       })}
 
-      {/* 2. Persistent AI Sticky Windows (Rendered inside reader area) */}
+      {/* 2. Persistent AI Sticky Windows (when open) or Circular Message Icons (when closed) */}
       {annotations.map((annotation) => {
         const job = jobs[annotation.id];
         const isRunning = job?.phase === 'running';
@@ -879,27 +1033,51 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         const isOpen =
           annotation.isOpen !== false || isPromptComposer || isRunning || selectedAnnotationId === annotation.id;
 
-        if (!isOpen) return null;
+        if (isOpen) {
+          return (
+            <AiExplanationCard
+              key={`ai-card-${annotation.id}`}
+              annotation={annotation}
+              job={job}
+              pageWidth={pageWidth}
+              pageHeight={pageHeight}
+              isSelected={selectedAnnotationId === annotation.id}
+              liveDrag={dragPositions[annotation.id]}
+              onDragStart={handleDragPointerDown}
+              onDragMove={handleDragPointerMove}
+              onDragEnd={handleDragPointerUp}
+              onSubmit={onSubmit}
+              onCancel={onCancel}
+              onCloseJob={onCloseJob}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              onAddAnnotation={onAddAnnotation}
+              onSelectAnnotation={onSelectAnnotation}
+              onHover={setHoveredAnnotationId}
+            />
+          );
+        }
 
         return (
-          <AiExplanationCard
-            key={`ai-card-${annotation.id}`}
+          <AiCollapsedBadge
+            key={`ai-badge-${annotation.id}`}
             annotation={annotation}
             job={job}
             pageWidth={pageWidth}
             pageHeight={pageHeight}
             isSelected={selectedAnnotationId === annotation.id}
+            activeTool={activeTool}
             liveDrag={dragPositions[annotation.id]}
             onDragStart={handleDragPointerDown}
             onDragMove={handleDragPointerMove}
             onDragEnd={handleDragPointerUp}
-            onSubmit={onSubmit}
-            onCancel={onCancel}
-            onCloseJob={onCloseJob}
-            onUpdate={onUpdate}
+            onOpen={(id) => {
+              onUpdate(id, { isOpen: true, updatedAt: Date.now() });
+              onSelectAnnotation?.(id);
+            }}
             onDelete={onDelete}
-            onAddAnnotation={onAddAnnotation}
             onSelectAnnotation={onSelectAnnotation}
+            onHover={setHoveredAnnotationId}
           />
         );
       })}

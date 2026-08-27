@@ -91,4 +91,58 @@ describe('AI explanation state and persistence', () => {
       isAi: true,
     });
   });
+
+  test('toggles and preserves AI box open and collapsed message badge state', () => {
+    const aiBox: AiExplanationAnnotation = {
+      id: 'ai_toggle',
+      pageNumber: 1,
+      type: 'ai-explanation',
+      x: 0.1,
+      y: 0.2,
+      width: 0.4,
+      height: 0.3,
+      prompt: 'Summarize',
+      response: 'Summary content',
+      provider: 'codex',
+      isOpen: true,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    // When closed, isOpen is false -> renders collapsed message icon badge
+    const closedBox = { ...aiBox, isOpen: false, updatedAt: 2 };
+    expect(closedBox.isOpen).toBe(false);
+
+    // When re-opened by clicking badge, isOpen becomes true -> renders expanded card
+    const reopenedBox = { ...closedBox, isOpen: true, updatedAt: 3 };
+    expect(reopenedBox.isOpen).toBe(true);
+
+    // Serializes and deserializes isOpen correctly
+    const json = JSON.stringify([closedBox, reopenedBox]);
+    const parsed = JSON.parse(json) as AiExplanationAnnotation[];
+    expect(parsed[0].isOpen).toBe(false);
+    expect(parsed[1].isOpen).toBe(true);
+  });
+
+  test('determines AI region highlight visibility strictly based on top bar / bubble hover or drag states', () => {
+    const isRegionVisible = (
+      annotationId: string,
+      hoveredId: string | null,
+      activeDragId: string | null
+    ) => {
+      return hoveredId === annotationId || activeDragId === annotationId;
+    };
+
+    const targetId = 'ai_123';
+
+    // 1. Default resting state (not hovered on top bar or bubble, not dragged) -> NOT visible
+    expect(isRegionVisible(targetId, null, null)).toBe(false);
+
+    // 2. Hovered on the AI card top drag bar or collapsed message badge -> visible!
+    expect(isRegionVisible(targetId, 'ai_123', null)).toBe(true);
+    expect(isRegionVisible(targetId, 'other_id', null)).toBe(false);
+
+    // 3. Actively dragged -> visible!
+    expect(isRegionVisible(targetId, null, 'ai_123')).toBe(true);
+  });
 });

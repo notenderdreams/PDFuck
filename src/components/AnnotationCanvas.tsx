@@ -598,6 +598,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           prompt: '',
           response: '',
           provider: 'codex',
+          isOpen: true,
           createdAt: now,
           updatedAt: now,
         };
@@ -927,24 +928,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           />
         )}
 
-        {/* AI regions remain outlined so document content stays readable */}
-        {pageAnnotations
-          .filter((a) => a.type === 'ai-explanation')
-          .map((a) => {
-            const box = a as AiExplanationAnnotation;
-            return (
-              <rect
-                key={box.id}
-                x={box.x * pageWidth}
-                y={box.y * pageHeight}
-                width={box.width * pageWidth}
-                height={box.height * pageHeight}
-                fill="rgba(59,130,246,0.05)"
-                stroke="#3b82f6"
-                strokeWidth={1.5}
-              />
-            );
-          })}
+
 
         {/* Active Snip Rectangle in progress */}
         {activeTool === 'snip' && snipStart && snipCurrent && (

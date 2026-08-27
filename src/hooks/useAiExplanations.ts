@@ -56,7 +56,7 @@ export function useAiExplanations({ pdfDoc, documentName, docKey, updateAnnotati
       if (generation !== generationRef.current || activeRequests.current.get(annotation.id) !== requestId) return;
       activeRequests.current.delete(annotation.id);
       if (result.ok) {
-        updateAnnotation(annotation.id, { response: result.response, updatedAt: Date.now() });
+        updateAnnotation(annotation.id, { response: result.response, isOpen: true, updatedAt: Date.now() });
         close(annotation.id);
       } else {
         setJobs((current) => transitionAiJob(current, annotation.id, { phase: 'error', message: result.message }));
