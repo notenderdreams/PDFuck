@@ -62,4 +62,19 @@ describe('annotation keyboard shortcuts', () => {
     );
     expect(toolbarSource).not.toContain('text-white mix-blend-difference');
   });
+
+  test('Cmd+Enter toggles application fullscreen without triggering zen focus mode', async () => {
+    const [keyboardSource, appSource, modalSource, bridgeSource] = await Promise.all([
+      projectFile('src/hooks/useKeyboard.ts'),
+      projectFile('src/App.tsx'),
+      projectFile('src/components/KeyboardShortcutsModal.tsx'),
+      projectFile('src/utils/tauriBridge.ts'),
+    ]);
+
+    expect(keyboardSource).toContain("} else if (e.key === 'Enter') {");
+    expect(keyboardSource).toContain('options.onToggleFullscreen?.()');
+    expect(appSource).toContain('onToggleFullscreen: () => void toggleFullscreenWindow()');
+    expect(bridgeSource).toContain('export async function toggleFullscreenWindow()');
+    expect(modalSource).toContain("{ keys: ['Cmd', 'Enter'], desc: 'Toggle App Fullscreen' }");
+  });
 });

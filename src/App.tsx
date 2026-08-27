@@ -27,7 +27,7 @@ import {
   saveHighlightPalette,
   saveViewMode,
 } from './utils/storage';
-import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf } from './utils/tauriBridge';
+import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf, toggleFullscreenWindow } from './utils/tauriBridge';
 import {
   extractPageText,
   copyTextToClipboard,
@@ -903,6 +903,7 @@ export function App() {
       handleNavigatePage(viewMode === 'spread' ? Math.max(1, spreadStart - 2) : currentPage - 1);
     },
     onToggleZen: () => setIsZenMode((prev) => !prev),
+    onToggleFullscreen: () => void toggleFullscreenWindow(),
     onToggleSidebar: () => {
       if (currentScreen === 'reader') {
         setIsSidebarOpen((prev) => !prev);

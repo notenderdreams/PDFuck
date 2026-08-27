@@ -19,6 +19,7 @@ interface KeyboardShortcutOptions {
   onNextPage: () => void;
   onPrevPage: () => void;
   onToggleZen: () => void;
+  onToggleFullscreen?: () => void;
   onToggleSidebar?: () => void;
   onToggleShortcuts: () => void;
   onChangeViewMode?: (mode: ViewMode) => void;
@@ -123,6 +124,9 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
         } else if (e.key === '0') {
           e.preventDefault();
           options.onResetZoom();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          options.onToggleFullscreen?.();
         }
       } else {
         // Single key shortcuts

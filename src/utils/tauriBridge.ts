@@ -116,6 +116,33 @@ export async function toggleMaximizeWindow(): Promise<void> {
   }
 }
 
+export async function toggleFullscreenWindow(): Promise<void> {
+  if (isTauri()) {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const win = getCurrentWindow();
+      const isFull = await win.isFullscreen();
+      await win.setFullscreen(!isFull);
+      return;
+    } catch (err) {
+      console.warn('Tauri toggleFullscreen failed:', err);
+    }
+  }
+
+  // Browser fallback
+  try {
+    if (typeof document !== 'undefined') {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    }
+  } catch (err) {
+    console.warn('Browser toggleFullscreen failed:', err);
+  }
+}
+
 export function handleTitlebarMouseDown(e: React.MouseEvent): void {
   if (e.button !== 0) return;
   const target = e.target as HTMLElement | null;

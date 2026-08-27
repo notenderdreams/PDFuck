@@ -50,7 +50,8 @@ const SHORTCUT_GROUPS = [
       { keys: ['Cmd+Shift+X'], desc: 'Dump All Snippets' },
       { keys: ['→', 'J'], desc: 'Next Page' },
       { keys: ['←', 'K'], desc: 'Previous Page' },
-      { keys: ['F'], desc: 'Fullscreen Focus Mode' },
+      { keys: ['Cmd', 'Enter'], desc: 'Toggle App Fullscreen' },
+      { keys: ['F'], desc: 'Fullscreen Focus Mode (Zen)' },
     ],
   },
 ];
