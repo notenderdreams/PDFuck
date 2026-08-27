@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { ToolType } from '../utils/types';
+import type { ToolType, ViewMode } from '../utils/types';
 
 interface KeyboardShortcutOptions {
   onOpenPdf: () => void;
@@ -21,6 +21,7 @@ interface KeyboardShortcutOptions {
   onToggleZen: () => void;
   onToggleSidebar?: () => void;
   onToggleShortcuts: () => void;
+  onChangeViewMode?: (mode: ViewMode) => void;
   onToggleLibrary?: () => void;
   onCopyPageText?: () => void;
   onCopyPageJpg?: () => void;
@@ -52,7 +53,16 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (cmdOrCtrl) {
-        if (e.shiftKey && e.key.toLowerCase() === 'h') {
+        if (e.shiftKey && e.key === '1') {
+          e.preventDefault();
+          options.onChangeViewMode?.('single');
+        } else if (e.shiftKey && e.key === '2') {
+          e.preventDefault();
+          options.onChangeViewMode?.('spread');
+        } else if (e.shiftKey && e.key === '3') {
+          e.preventDefault();
+          options.onChangeViewMode?.('continuous');
+        } else if (e.shiftKey && e.key.toLowerCase() === 'h') {
           e.preventDefault();
           options.onHighlightSelectedText?.();
         } else if (e.altKey && e.key.toLowerCase() === 'c') {

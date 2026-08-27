@@ -249,7 +249,9 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Continuous Vertical View"
+            title="Continuous Scroll (Cmd/Ctrl+Shift+3)"
+            aria-label="Continuous scroll"
+            aria-pressed={viewMode === 'continuous'}
           >
             <Rows className="w-3.5 h-3.5" />
           </button>
@@ -264,7 +266,9 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Single Page View"
+            title="Single Page (Cmd/Ctrl+Shift+1)"
+            aria-label="Single page"
+            aria-pressed={viewMode === 'single'}
           >
             <Square className="w-3.5 h-3.5" />
           </button>
@@ -279,7 +283,9 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'text-blue-500 dark:text-blue-400 font-semibold'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Two-Page Spread"
+            title="Side by Side (Cmd/Ctrl+Shift+2)"
+            aria-label="Side-by-side pages"
+            aria-pressed={viewMode === 'spread'}
           >
             <Columns2 className="w-3.5 h-3.5" />
           </button>

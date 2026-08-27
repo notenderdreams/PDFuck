@@ -738,8 +738,14 @@ export function App() {
     onZoomIn: () => setZoom((z) => Math.min(3.5, z + 0.15)),
     onZoomOut: () => setZoom((z) => Math.max(0.3, z - 0.15)),
     onResetZoom: () => setZoom(1.15),
-    onNextPage: () => handleNavigatePage(currentPage + 1),
-    onPrevPage: () => handleNavigatePage(currentPage - 1),
+    onNextPage: () => {
+      const spreadStart = currentPage % 2 === 0 ? currentPage - 1 : currentPage;
+      handleNavigatePage(viewMode === 'spread' ? spreadStart + 2 : currentPage + 1);
+    },
+    onPrevPage: () => {
+      const spreadStart = currentPage % 2 === 0 ? currentPage - 1 : currentPage;
+      handleNavigatePage(viewMode === 'spread' ? Math.max(1, spreadStart - 2) : currentPage - 1);
+    },
     onToggleZen: () => setIsZenMode((prev) => !prev),
     onToggleSidebar: () => {
       if (currentScreen === 'reader') {
@@ -747,6 +753,7 @@ export function App() {
       }
     },
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
+    onChangeViewMode: handleChangeViewMode,
     onToggleLibrary: () =>
       setCurrentScreen((prev) => (prev === 'dashboard' ? 'reader' : 'dashboard')),
     onCopyPageText: () => handleCopyPageText(currentPage),

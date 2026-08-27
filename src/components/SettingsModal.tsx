@@ -88,6 +88,14 @@ const THEMES: {
 
 const SHORTCUT_GROUPS = [
   {
+    title: 'Reading Layout',
+    items: [
+      { keys: ['Cmd / Ctrl', 'Shift', '1'], desc: 'Single Page' },
+      { keys: ['Cmd / Ctrl', 'Shift', '2'], desc: 'Side-by-Side Pages' },
+      { keys: ['Cmd / Ctrl', 'Shift', '3'], desc: 'Continuous Scroll' },
+    ],
+  },
+  {
     title: 'Mouse & Gestures',
     items: [
       { keys: ['Cmd / Ctrl', 'Wheel'], desc: 'Zoom In / Out Smoothly' },
@@ -257,7 +265,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {[
                       { id: 'continuous' as ViewMode, label: 'Continuous Scroll', icon: Layers },
                       { id: 'single' as ViewMode, label: 'Single Page', icon: FileText },
-                      { id: 'book' as ViewMode, label: 'Two Page Book', icon: BookOpen },
+                      { id: 'spread' as ViewMode, label: 'Side by Side', icon: BookOpen },
                     ].map((mode) => {
                       const Icon = mode.icon;
                       const isCurrent = viewMode === mode.id;

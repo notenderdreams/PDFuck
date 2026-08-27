@@ -3,6 +3,21 @@ import { describe, expect, test } from 'bun:test';
 const projectFile = (path: string) => Bun.file(new URL(`../${path}`, import.meta.url)).text();
 
 describe('annotation keyboard shortcuts', () => {
+  test('reading layouts have discoverable shortcuts and a valid side-by-side mode', async () => {
+    const [keyboardSource, appSource, headerSource, settingsSource] = await Promise.all([
+      projectFile('src/hooks/useKeyboard.ts'),
+      projectFile('src/App.tsx'),
+      projectFile('src/components/Header.tsx'),
+      projectFile('src/components/SettingsModal.tsx'),
+    ]);
+
+    expect(keyboardSource).toContain("options.onChangeViewMode?.('spread')");
+    expect(appSource).toContain("viewMode === 'spread' ? spreadStart + 2");
+    expect(headerSource).toContain('aria-label="Side-by-side pages"');
+    expect(settingsSource).toContain("{ id: 'spread' as ViewMode, label: 'Side by Side'");
+    expect(settingsSource).not.toContain("id: 'book' as ViewMode");
+  });
+
   test('U underlines selected text before falling back to the underline-line tool', async () => {
     const [keyboardSource, appSource, modalSource] = await Promise.all([
       projectFile('src/hooks/useKeyboard.ts'),
