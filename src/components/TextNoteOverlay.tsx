@@ -47,18 +47,22 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
   const leftPx = annotation.x * pageWidth;
   const topPx = annotation.y * pageHeight;
 
-  // Auto focus textarea when editing starts
+  // Auto focus textarea and auto-expand height when editing starts
   useEffect(() => {
     if (isEditing) {
       setEditText(annotation.text);
       setTimeout(() => {
-        textareaRef.current?.focus();
-        if (annotation.kind === 'plain') {
-          textareaRef.current?.setSelectionRange(annotation.text.length, annotation.text.length);
-        } else {
-          textareaRef.current?.select();
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = `${Math.max(48, textareaRef.current.scrollHeight)}px`;
+          if (annotation.kind === 'plain') {
+            textareaRef.current?.setSelectionRange(annotation.text.length, annotation.text.length);
+          } else {
+            textareaRef.current?.select();
+          }
         }
-      }, 50);
+      }, 30);
     }
   }, [isEditing, annotation.kind, annotation.text]);
 
@@ -185,7 +189,11 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
             ref={textareaRef}
             rows={Math.max(1, editText.split('\n').length)}
             value={editText}
-            onChange={(e) => setEditText(e.target.value)}
+            onChange={(e) => {
+              setEditText(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
             onBlur={handleSaveEdit}
             aria-label="Edit plain text"
             onKeyDown={(e) => {
@@ -199,7 +207,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 setIsEditing(false);
               }
             }}
-            className="min-w-[12ch] max-w-[420px] resize-none overflow-hidden border-0 bg-transparent p-0 font-sans leading-relaxed outline-none"
+            className="min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 font-sans leading-relaxed outline-none shadow-sm"
             style={{ color: annotation.color, fontSize: `${annotation.fontSize || 12}px` }}
           />
         ) : (
@@ -332,7 +340,11 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
               ref={textareaRef}
               rows={3}
               value={editText}
-              onChange={(e) => setEditText(e.target.value)}
+              onChange={(e) => {
+                setEditText(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.max(48, e.target.scrollHeight)}px`;
+              }}
               placeholder="Write your note..."
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -348,7 +360,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 backgroundColor: 'rgba(255, 255, 255, 0.4)',
                 color: currentColor.text,
               }}
-              className="w-full rounded p-1.5 text-xs font-sans focus:outline-none focus:ring-1 focus:ring-black/30 resize-none leading-relaxed"
+              className="w-full rounded p-1.5 text-xs font-sans focus:outline-none focus:ring-1 focus:ring-black/30 resize-none leading-relaxed min-h-[48px]"
             />
             <div className="flex justify-end gap-1">
               <button

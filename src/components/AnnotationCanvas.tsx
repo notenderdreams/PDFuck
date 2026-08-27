@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, X, Underline, Square, GripHorizontal } from 'lucide-react';
+import { Trash2, X, Underline, Square, GripHorizontal, Check } from 'lucide-react';
 import type {
   Annotation,
   AiExplanationAnnotation,
@@ -1132,11 +1132,15 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           ref={textNoteTextareaRef}
           rows={Math.max(1, textInputValue.split('\n').length)}
           value={textInputValue}
-          onChange={(e) => setTextInputValue(e.target.value)}
+          onChange={(e) => {
+            setTextInputValue(e.target.value);
+            e.target.style.height = 'auto';
+            e.target.style.height = `${e.target.scrollHeight}px`;
+          }}
           onBlur={handleSaveTextNote}
           placeholder="Type text..."
           aria-label="Add plain text"
-          className="absolute z-50 min-w-[12ch] max-w-[420px] resize-none overflow-hidden border-0 bg-transparent p-0 font-sans text-xs leading-relaxed outline-none placeholder:opacity-45 pointer-events-auto"
+          className="absolute z-50 min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 font-sans text-xs leading-relaxed outline-none placeholder:opacity-50 pointer-events-auto shadow-sm"
           style={{
             left: `${textInputPos.x * pageWidth}px`,
             top: `${textInputPos.y * pageHeight}px`,
@@ -1163,18 +1167,26 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {textInputPos && textInputKind === 'sticky' && (
         <div
           style={{
-            left: `${Math.min(textInputPos.x * pageWidth, pageWidth - 240)}px`,
-            top: `${Math.min(textInputPos.y * pageHeight, pageHeight - 140)}px`,
+            left: `${Math.min(textInputPos.x * pageWidth, Math.max(0, pageWidth - 240))}px`,
+            top: `${Math.min(textInputPos.y * pageHeight, Math.max(0, pageHeight - 160))}px`,
+            width: '220px',
+            minWidth: '140px',
+            backgroundColor: '#fef08a',
+            color: '#713f12',
+            borderColor: '#fde047',
           }}
-          className="absolute z-50 p-2.5 rounded-xl bg-[#24242b] border border-[#383846] shadow-2xl flex flex-col gap-2 min-w-[220px] pointer-events-auto"
+          className="absolute z-50 p-2.5 rounded-lg border shadow-xl flex flex-col gap-1.5 font-sans text-xs pointer-events-auto animate-fade-in"
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between text-zinc-400 text-[10.5px] font-medium">
-            <span>New Sticky Note</span>
-            <span className="text-[9px] text-zinc-500">Enter to save</span>
+          <div className="flex items-center justify-between pb-1 border-b border-black/10 text-black/60">
+            <div className="flex items-center gap-1">
+              <GripHorizontal className="w-3.5 h-3.5 opacity-60" />
+              <span className="text-[10px] font-medium uppercase tracking-wider opacity-75">New Note</span>
+            </div>
+            <span className="text-[9.5px] opacity-60">⌘↵ Save</span>
           </div>
 
           <textarea
@@ -1182,12 +1194,21 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             autoFocus
             rows={3}
             value={textInputValue}
-            onChange={(e) => setTextInputValue(e.target.value)}
+            onChange={(e) => {
+              setTextInputValue(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${Math.max(54, e.target.scrollHeight)}px`;
+            }}
             placeholder="Type your note..."
-            className="w-full bg-[#1c1c22] border border-[#343440] rounded-md p-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 font-sans resize-none leading-relaxed"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              color: '#713f12',
+            }}
+            className="w-full rounded p-1.5 text-xs font-sans placeholder:text-black/40 focus:outline-none focus:ring-1 focus:ring-black/30 resize-none leading-relaxed min-h-[54px]"
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
+                e.stopPropagation();
                 handleSaveTextNote();
               } else if (e.key === 'Escape') {
                 e.preventDefault();
@@ -1198,21 +1219,22 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             }}
           />
 
-          <div className="flex items-center justify-end gap-1.5 pt-0.5">
+          <div className="flex items-center justify-end gap-1 pt-0.5">
             <button
               onClick={() => {
                 setTextInputPos(null);
                 setTextInputValue('');
               }}
-              className="px-2 py-1 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-[#2c2c34]"
+              className="px-2 py-0.5 rounded text-[10.5px] opacity-75 hover:opacity-100"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTextNote}
-              className="btn-primary px-3 py-1"
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded bg-black/80 hover:bg-black text-white text-[10.5px] font-medium shadow-xs"
             >
-              Add Note
+              <Check className="w-3 h-3" />
+              <span>Save</span>
             </button>
           </div>
         </div>
