@@ -69,6 +69,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         onNext();
       }
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       onClose();
     }
   };

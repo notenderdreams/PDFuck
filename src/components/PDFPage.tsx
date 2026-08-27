@@ -102,8 +102,8 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({
-    width: 595,
-    height: 842,
+    width: Math.floor(595 * scale),
+    height: Math.floor(842 * scale),
   });
   const [isRendered, setIsRendered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);

@@ -27,7 +27,7 @@ import {
   saveHighlightPalette,
   saveViewMode,
 } from './utils/storage';
-import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf, toggleFullscreenWindow } from './utils/tauriBridge';
+import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf, toggleFullscreenWindow, exitFullscreenWindow } from './utils/tauriBridge';
 import {
   extractPageText,
   copyTextToClipboard,
@@ -904,6 +904,45 @@ export function App() {
     },
     onToggleZen: () => setIsZenMode((prev) => !prev),
     onToggleFullscreen: () => void toggleFullscreenWindow(),
+    onEscape: () => {
+      if (pagePendingDeletion !== null) {
+        setPagePendingDeletion(null);
+        return;
+      }
+      if (isShortcutsModalOpen) {
+        setIsShortcutsModalOpen(false);
+        return;
+      }
+      if (isExportModalOpen) {
+        setIsExportModalOpen(false);
+        return;
+      }
+      if (isThemeModalOpen) {
+        setIsThemeModalOpen(false);
+        return;
+      }
+      if (isSearchOpen) {
+        setIsSearchOpen(false);
+        return;
+      }
+      if (selectedAnnotationId) {
+        const selectedAnn = annotations.find((a) => a.id === selectedAnnotationId);
+        if (selectedAnn && selectedAnn.type === 'ai-explanation') {
+          if (!selectedAnn.response) {
+            deleteAnnotation(selectedAnn.id);
+          } else {
+            updateAnnotation(selectedAnn.id, { isOpen: false, updatedAt: Date.now() });
+          }
+        }
+        setSelectedAnnotationId(null);
+        return;
+      }
+      if (isZenMode) {
+        setIsZenMode(false);
+        return;
+      }
+      void exitFullscreenWindow();
+    },
     onToggleSidebar: () => {
       if (currentScreen === 'reader') {
         setIsSidebarOpen((prev) => !prev);

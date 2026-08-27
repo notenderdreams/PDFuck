@@ -1150,6 +1150,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               e.preventDefault();
               handleSaveTextNote();
             } else if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
               setTextInputPos(null);
               setTextInputValue('');
             }
@@ -1188,6 +1190,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 e.preventDefault();
                 handleSaveTextNote();
               } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
                 setTextInputPos(null);
                 setTextInputValue('');
               }

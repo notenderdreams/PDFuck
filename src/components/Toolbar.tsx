@@ -109,6 +109,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         setShowPalette(false);
       }
     };

@@ -15,6 +15,20 @@ pub fn toggle_fullscreen_window(window: tauri::Window) -> CommandResult<bool> {
     Ok(!is_fullscreen)
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn exit_fullscreen_window(window: tauri::Window) -> CommandResult<bool> {
+    let is_fullscreen = window
+        .is_fullscreen()
+        .map_err(|e| command_error(anyhow::anyhow!(e)))?;
+    if is_fullscreen {
+        window
+            .set_fullscreen(false)
+            .map_err(|e| command_error(anyhow::anyhow!(e)))?;
+    }
+    Ok(false)
+}
+
 pub(super) fn home_directory() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))

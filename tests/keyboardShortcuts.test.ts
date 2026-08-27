@@ -77,4 +77,49 @@ describe('annotation keyboard shortcuts', () => {
     expect(bridgeSource).toContain('export async function toggleFullscreenWindow()');
     expect(modalSource).toContain("{ keys: ['Cmd', 'Enter'], desc: 'Toggle App Fullscreen' }");
   });
+
+  test('Escape dismisses active inputs and modals before exiting fullscreen mode', async () => {
+    const [keyboardSource, appSource, overlaySource, canvasSource, noteSource, bridgeSource] =
+      await Promise.all([
+        projectFile('src/hooks/useKeyboard.ts'),
+        projectFile('src/App.tsx'),
+        projectFile('src/components/AiExplanationOverlay.tsx'),
+        projectFile('src/components/AnnotationCanvas.tsx'),
+        projectFile('src/components/TextNoteOverlay.tsx'),
+        projectFile('src/utils/tauriBridge.ts'),
+      ]);
+
+    // useKeyboard intercepts Escape inside inputs with preventDefault + stopPropagation
+    expect(keyboardSource).toContain("if (e.key === 'Escape') {");
+    expect(keyboardSource).toContain('e.preventDefault();');
+    expect(keyboardSource).toContain('e.stopPropagation();');
+    expect(keyboardSource).toContain("case 'escape':");
+    expect(keyboardSource).toContain('options.onEscape?.()');
+
+    // Overlay, Canvas, Note components also prevent bubbling on Escape during edit
+    expect(overlaySource).toContain('handleClose()');
+    expect(canvasSource).toContain('setTextInputPos(null)');
+    expect(noteSource).toContain('setIsEditing(false)');
+
+    // App onEscape hierarchically checks open modals, selection, zen, and finally exits fullscreen
+    expect(appSource).toContain('onEscape: () => {');
+    expect(appSource).toContain('void exitFullscreenWindow()');
+    expect(bridgeSource).toContain('export async function exitFullscreenWindow()');
+  });
+
+  test('PDFViewer anchors scroll position during window resize and fullscreen transitions', async () => {
+    const [viewerSource, overlaySource] = await Promise.all([
+      projectFile('src/components/PDFViewer.tsx'),
+      projectFile('src/components/AiExplanationOverlay.tsx'),
+    ]);
+
+    // Viewer tracks active page and compensates for layout shifts on resize
+    expect(viewerSource).toContain('preResizeOffset');
+    expect(viewerSource).toContain('anchorPage');
+    expect(viewerSource).toContain('isProgrammaticScrollRef.current = true');
+    expect(viewerSource).toContain('currentContainer.scrollTop += delta');
+
+    // AiExplanationOverlay no longer registers individual window keydown listeners
+    expect(overlaySource).not.toContain("window.addEventListener('keydown', handleKeyDown)");
+  });
 });

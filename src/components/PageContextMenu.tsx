@@ -23,7 +23,11 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
   useEffect(() => {
     const close = () => onClose();
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }
     };
 
     window.addEventListener('pointerdown', close);

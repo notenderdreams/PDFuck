@@ -375,6 +375,51 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   }, [pdfDoc, viewMode, scrollToPage]);
 
+  // Prevent unintended page shifts and false scroll events during window resize or fullscreen transition
+  useEffect(() => {
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    let preResizeOffset: number | null = null;
+    let anchorPage: number = lastReportedPageRef.current;
+
+    const handleResize = () => {
+      isProgrammaticScrollRef.current = true;
+      companionProgrammaticScrollRef.current = true;
+
+      const container = viewerContainerRef.current;
+      if (container && preResizeOffset === null && viewMode === 'continuous') {
+        anchorPage = lastReportedPageRef.current;
+        const pageEl = document.getElementById(`pdf-page-${anchorPage}`);
+        if (pageEl) {
+          preResizeOffset = pageEl.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        }
+      }
+
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const currentContainer = viewerContainerRef.current;
+        if (currentContainer && preResizeOffset !== null && viewMode === 'continuous') {
+          const pageEl = document.getElementById(`pdf-page-${anchorPage}`);
+          if (pageEl) {
+            const currentOffset = pageEl.getBoundingClientRect().top - currentContainer.getBoundingClientRect().top;
+            const delta = currentOffset - preResizeOffset;
+            if (Math.abs(delta) > 1) {
+              currentContainer.scrollTop += delta;
+            }
+          }
+        }
+        preResizeOffset = null;
+        isProgrammaticScrollRef.current = false;
+        companionProgrammaticScrollRef.current = false;
+      }, 450);
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
+  }, [viewMode]);
+
   // Handle explicit page jump requests (from sidebar thumbnail click, outline click, search result click, etc.)
   useEffect(() => {
     if (pageNavRequest && pageNavRequest.timestamp !== lastNavTimestampRef.current) {
@@ -383,15 +428,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   }, [pageNavRequest, scrollToPage]);
 
-  // Handle external currentPage prop changes (when not already initiated by user scroll)
+  // Handle external currentPage prop changes in single/spread view modes
   useEffect(() => {
     if (currentPage !== prevPropCurrentPageRef.current) {
       prevPropCurrentPageRef.current = currentPage;
-      if (currentPage !== lastReportedPageRef.current && !isProgrammaticScrollRef.current) {
-        scrollToPage(currentPage, 'smooth');
+      if (viewMode !== 'continuous' && currentPage !== lastReportedPageRef.current) {
+        lastReportedPageRef.current = currentPage;
+        const container = viewerContainerRef.current;
+        if (container) {
+          container.scrollTo({ top: 0, behavior: 'instant' });
+        }
       }
     }
-  }, [currentPage, scrollToPage]);
+  }, [currentPage, viewMode]);
 
   // Fit the active page inside the available viewport, then bring it into view.
   useEffect(() => {
@@ -484,20 +533,21 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         // Focal line at upper 35% of the viewport where user naturally reads
         const focalLine = containerRect.top + Math.min(containerRect.height * 0.35, 240);
 
-        const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
-        const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / maxScroll));
-        const estimatedPage = Math.max(1, Math.min(numPages, Math.round(scrollFraction * (numPages - 1)) + 1));
-        const minPage = Math.max(1, estimatedPage - 4);
-        const maxPage = Math.min(numPages, estimatedPage + 4);
-
+        const pageElements = container.querySelectorAll<HTMLElement>('[data-pdf-page-number]');
         let focalPage: number | null = null;
         let maxOverlap = 0;
         let maxOverlapPage = lastReportedPageRef.current;
 
-        for (let pageNum = minPage; pageNum <= maxPage; pageNum++) {
-          const el = document.getElementById(`pdf-page-${pageNum}`);
-          if (!el) continue;
+        for (let i = 0; i < pageElements.length; i++) {
+          const el = pageElements[i];
+          const pageNum = Number(el.getAttribute('data-pdf-page-number'));
+          if (!pageNum) continue;
           const rect = el.getBoundingClientRect();
+
+          // Skip elements completely outside the container viewport
+          if (rect.bottom < containerRect.top || rect.top > containerRect.bottom) {
+            continue;
+          }
 
           // Check if page covers the focal line
           if (rect.top <= focalLine && rect.bottom > focalLine) {
@@ -544,20 +594,21 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         rafId = null;
         const containerRect = container.getBoundingClientRect();
         const focalLine = containerRect.top + Math.min(containerRect.height * 0.35, 240);
-        const compNumPages = companionPdfDoc.numPages;
-        const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
-        const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / maxScroll));
-        const estimatedPage = Math.max(1, Math.min(compNumPages, Math.round(scrollFraction * (compNumPages - 1)) + 1));
-        const minPage = Math.max(1, estimatedPage - 4);
-        const maxPage = Math.min(compNumPages, estimatedPage + 4);
 
+        const pageElements = container.querySelectorAll<HTMLElement>('[data-pdf-page-number]');
         let activePage = companionLastReportedPageRef.current;
         let largestOverlap = 0;
 
-        for (let pageNum = minPage; pageNum <= maxPage; pageNum++) {
-          const page = document.getElementById(`companion-pdf-page-${pageNum}`);
-          if (!page) continue;
+        for (let i = 0; i < pageElements.length; i++) {
+          const page = pageElements[i];
+          const pageNum = Number(page.getAttribute('data-pdf-page-number'));
+          if (!pageNum) continue;
           const rect = page.getBoundingClientRect();
+
+          if (rect.bottom < containerRect.top || rect.top > containerRect.bottom) {
+            continue;
+          }
+
           if (rect.top <= focalLine && rect.bottom > focalLine) {
             activePage = pageNum;
             break;

@@ -26,5 +26,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         ai::cancel_ai_explanation,
         platform::open_url,
         platform::toggle_fullscreen_window,
+        platform::exit_fullscreen_window,
     ])
 }

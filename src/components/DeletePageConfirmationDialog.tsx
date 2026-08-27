@@ -21,7 +21,11 @@ export const DeletePageConfirmationDialog: React.FC<DeletePageConfirmationDialog
 
     cancelButtonRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isDeleting) onCancel();
+      if (event.key === 'Escape' && !isDeleting) {
+        event.preventDefault();
+        event.stopPropagation();
+        onCancel();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

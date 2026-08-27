@@ -24,6 +24,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isExporting) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExporting, isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const triggerConfetti = () => {

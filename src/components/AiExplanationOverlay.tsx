@@ -186,6 +186,10 @@ const AiExplanationCard: React.FC<CardItemProps> = React.memo(
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
         e.preventDefault();
         handleSubmitPrompt();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleClose();
       }
     };
 
@@ -881,29 +885,6 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     initialTop: number;
     hasDragged: boolean;
   }>({ clientX: 0, clientY: 0, initialLeft: 0, initialTop: 0, hasDragged: false });
-
-  // Handle escape key
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && selectedAnnotationId) {
-        const selectedAnn = annotations.find((a) => a.id === selectedAnnotationId);
-        if (selectedAnn) {
-          if (jobs[selectedAnn.id]?.phase === 'running') {
-            void onCancel(selectedAnn.id);
-          }
-          if (!selectedAnn.response && jobs[selectedAnn.id]?.phase !== 'running') {
-            onDelete(selectedAnn.id);
-            onCloseJob(selectedAnn.id);
-          } else {
-            onUpdate(selectedAnn.id, { isOpen: false, updatedAt: Date.now() });
-          }
-          onSelectAnnotation?.(null);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [annotations, jobs, onCancel, onCloseJob, onDelete, onSelectAnnotation, onUpdate, selectedAnnotationId]);
 
   const handleDragPointerDown = useCallback(
     (

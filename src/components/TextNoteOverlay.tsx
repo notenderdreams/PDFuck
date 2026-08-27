@@ -159,6 +159,8 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 e.preventDefault();
                 handleSaveEdit();
               } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
                 setEditText(annotation.text);
                 setIsEditing(false);
               }
@@ -298,6 +300,9 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   handleSaveEdit();
                 } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEditText(annotation.text);
                   setIsEditing(false);
                 }
               }}

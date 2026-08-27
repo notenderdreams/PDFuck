@@ -190,6 +190,66 @@ export async function toggleFullscreenWindow(): Promise<void> {
   }
 }
 
+export async function exitFullscreenWindow(): Promise<void> {
+  if (isTauri()) {
+    try {
+      const res = await commands.exitFullscreenWindow();
+      unwrapNativeResult(res);
+      return;
+    } catch (err) {
+      console.warn('Native exitFullscreenWindow command failed, falling back to window API:', err);
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const win = getCurrentWindow();
+        const isFull = await win.isFullscreen();
+        if (isFull) {
+          await win.setFullscreen(false);
+        }
+        return;
+      } catch (err2) {
+        console.warn('Tauri window API exitFullscreen failed:', err2);
+      }
+    }
+  }
+
+  // Browser / WebKit fallback
+  try {
+    if (typeof document !== 'undefined') {
+      const doc = document as unknown as {
+        fullscreenElement?: Element | null;
+        webkitFullscreenElement?: Element | null;
+        mozFullScreenElement?: Element | null;
+        msFullscreenElement?: Element | null;
+        exitFullscreen?: () => Promise<void>;
+        webkitExitFullscreen?: () => Promise<void>;
+        mozCancelFullScreen?: () => Promise<void>;
+        msExitFullscreen?: () => Promise<void>;
+      };
+
+      const isFullScreen = !!(
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement
+      );
+
+      if (isFullScreen) {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Browser exitFullscreen failed:', err);
+  }
+}
+
 export function handleTitlebarMouseDown(e: React.MouseEvent): void {
   if (e.button !== 0) return;
   const target = e.target as HTMLElement | null;

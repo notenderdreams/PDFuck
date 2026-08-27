@@ -20,6 +20,7 @@ interface KeyboardShortcutOptions {
   onPrevPage: () => void;
   onToggleZen: () => void;
   onToggleFullscreen?: () => void;
+  onEscape?: () => void;
   onToggleSidebar?: () => void;
   onToggleShortcuts: () => void;
   onChangeViewMode?: (mode: ViewMode) => void;
@@ -57,6 +58,8 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
       ) {
         // Only allow Escape to close inside inputs
         if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
           target.blur();
         }
         return;
@@ -198,6 +201,10 @@ export function useKeyboard(options: KeyboardShortcutOptions) {
           case 'arrowleft':
           case 'k':
             options.onPrevPage();
+            break;
+          case 'escape':
+            e.preventDefault();
+            options.onEscape?.();
             break;
         }
       }
