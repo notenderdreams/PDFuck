@@ -444,11 +444,9 @@ const ThumbnailItem: React.FC<{
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        setIsNearViewport(true);
-        observer.disconnect();
+        setIsNearViewport(entry.isIntersecting);
       },
-      { rootMargin: '180px 0px' },
+      { rootMargin: '300px 0px' },
     );
     observer.observe(thumbnail);
     return () => observer.disconnect();
@@ -457,9 +455,17 @@ const ThumbnailItem: React.FC<{
   const shouldRender = isNearViewport || isActive;
 
   useEffect(() => {
-    if (!pdfDoc || !shouldRender) return;
+    if (!pdfDoc || !shouldRender) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      return;
+    }
     let isCancelled = false;
     let renderTask: RenderTask | undefined;
+    let pageProxy: Awaited<ReturnType<typeof pdfDoc.getPage>> | null = null;
 
     const scheduleContinuation = (continueRender: () => void) => {
       const idleWindow = window as Window & {
@@ -480,6 +486,7 @@ const ThumbnailItem: React.FC<{
       try {
         const page = await pdfDoc.getPage(pageNumber);
         if (isCancelled) return;
+        pageProxy = page;
 
         const viewport = page.getViewport({ scale: 0.25 });
         const canvas = canvasRef.current;
@@ -496,7 +503,13 @@ const ThumbnailItem: React.FC<{
         });
         renderTask.onContinue = scheduleContinuation;
         await renderTask.promise;
-      } catch {}
+      } catch {} finally {
+        if (pageProxy) {
+          try {
+            pageProxy.cleanup();
+          } catch {}
+        }
+      }
     };
 
     const cancelQueuedRender = renderQueue.enqueue(renderThumbnail, isActive ? 'high' : 'normal');
@@ -504,6 +517,16 @@ const ThumbnailItem: React.FC<{
       isCancelled = true;
       cancelQueuedRender();
       renderTask?.cancel();
+      if (pageProxy) {
+        try {
+          pageProxy.cleanup();
+        } catch {}
+      }
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
     };
   }, [isActive, pageNumber, pdfDoc, renderQueue, shouldRender]);
 

@@ -34,12 +34,21 @@ export function usePDFDocument() {
       if (!silent) setIsLoading(true);
       setError(null);
       try {
+        // Clean up previous active document if one was loaded
+        if (activeDocRef.current) {
+          try {
+            activeDocRef.current.cleanup();
+            void activeDocRef.current.destroy();
+          } catch {}
+          activeDocRef.current = null;
+        }
+
         // PDF.js may transfer its input buffer to the worker. Keep an owned copy
         // for export and page editing, and give the viewer a separate copy.
         const bytes = data instanceof Uint8Array ? data.slice() : new Uint8Array(data.slice(0));
 
         const loadingTask = pdfjsLib.getDocument({
-          data: bytes.slice(),
+          data: bytes,
           cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
           cMapPacked: true,
         });
@@ -167,6 +176,10 @@ export function usePDFDocument() {
           occurrence++;
           matchPos += lowerQuery.length;
         }
+
+        try {
+          page.cleanup();
+        } catch {}
       } catch (err) {
         console.warn(`Search failed on page ${pageNum}:`, err);
       }

@@ -110,9 +110,10 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const renderTaskRef = useRef<unknown>(null);
 
-  const [hasEnteredViewport, setHasEnteredViewport] = useState(
+  const [isVisible, setIsVisible] = useState(
     typeof IntersectionObserver === 'undefined'
   );
+  const pageProxyRef = useRef<PDFPageProxy | null>(null);
 
   // Measure page dimensions quickly without full rasterization
   useEffect(() => {
@@ -133,33 +134,54 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
     };
   }, [pdfDoc, pageNumber, scale]);
 
-  // Observer to trigger canvas & textLayer rendering once near viewport
+  // Two-way IntersectionObserver to mount/render near viewport and teardown offscreen pages
   useEffect(() => {
-    if (hasEnteredViewport) return;
     const el = containerRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') {
-      setHasEnteredViewport(true);
+      setIsVisible(true);
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setHasEnteredViewport(true);
-            observer.disconnect();
-          }
+          setIsVisible(entry.isIntersecting);
         }
       },
-      { rootMargin: '800px 0px' }
+      { rootMargin: '1000px 0px' }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasEnteredViewport]);
+  }, []);
 
   useEffect(() => {
-    if (!hasEnteredViewport) return;
+    if (!isVisible) {
+      // Release GPU canvas buffer, text layer DOM nodes, and PDF.js page resources when offscreen
+      if (renderTaskRef.current) {
+        try {
+          (renderTaskRef.current as { cancel: () => void }).cancel();
+        } catch {}
+        renderTaskRef.current = null;
+      }
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      const textLayerDiv = textLayerRef.current;
+      if (textLayerDiv) {
+        textLayerDiv.innerHTML = '';
+      }
+      if (pageProxyRef.current) {
+        try {
+          pageProxyRef.current.cleanup();
+        } catch {}
+        pageProxyRef.current = null;
+      }
+      setIsRendered(false);
+      return;
+    }
 
     let isCancelled = false;
 
@@ -167,6 +189,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       try {
         const page: PDFPageProxy = await pdfDoc.getPage(pageNumber);
         if (isCancelled) return;
+        pageProxyRef.current = page;
 
         const baseViewport = page.getViewport({ scale });
         setPageDimensions({
@@ -181,7 +204,15 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         if (!ctx) return;
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-        const scaledViewport = page.getViewport({ scale: scale * dpr });
+        let renderScale = scale * dpr;
+        const maxDimension = 4096;
+        const unscaledWidth = baseViewport.width / scale;
+        const unscaledHeight = baseViewport.height / scale;
+        if (unscaledWidth * renderScale > maxDimension || unscaledHeight * renderScale > maxDimension) {
+          const capScale = Math.min(maxDimension / unscaledWidth, maxDimension / unscaledHeight);
+          renderScale = Math.min(renderScale, capScale);
+        }
+        const scaledViewport = page.getViewport({ scale: renderScale });
 
         canvas.width = Math.floor(scaledViewport.width);
         canvas.height = Math.floor(scaledViewport.height);
@@ -236,9 +267,26 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         try {
           (renderTaskRef.current as { cancel: () => void }).cancel();
         } catch {}
+        renderTaskRef.current = null;
       }
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      const textLayerDiv = textLayerRef.current;
+      if (textLayerDiv) {
+        textLayerDiv.innerHTML = '';
+      }
+      if (pageProxyRef.current) {
+        try {
+          pageProxyRef.current.cleanup();
+        } catch {}
+        pageProxyRef.current = null;
+      }
+      setIsRendered(false);
     };
-  }, [pdfDoc, pageNumber, scale, hasEnteredViewport]);
+  }, [pdfDoc, pageNumber, scale, isVisible]);
 
   // Track cursor coordinates across the page
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {

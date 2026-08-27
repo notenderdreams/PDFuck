@@ -78,8 +78,9 @@ export async function cropCanvasRegion(
 
   // Fallback: render directly from PDF document proxy at 2x scale if DOM canvas is not mounted
   if (pdfDoc) {
+    let page: Awaited<ReturnType<typeof pdfDoc.getPage>> | null = null;
     try {
-      const page = await pdfDoc.getPage(safePageNum);
+      page = await pdfDoc.getPage(safePageNum);
       const viewport = page.getViewport({ scale: 2.0 });
       const fullCanvas = document.createElement('canvas');
       fullCanvas.width = Math.floor(viewport.width);
@@ -126,6 +127,12 @@ export async function cropCanvasRegion(
       };
     } catch (err) {
       console.error(`Direct render fallback failed for snippet crop:`, err);
+    } finally {
+      if (page) {
+        try {
+          page.cleanup();
+        } catch {}
+      }
     }
   }
 

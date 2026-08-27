@@ -103,44 +103,50 @@ export async function getRegionContext(
 ): Promise<RegionContext> {
   const safePage = Math.max(1, Math.floor(pageNumber));
   const page = await pdfDoc.getPage(safePage);
-  const viewport = page.getViewport({ scale: 1 });
-  const textContent = await page.getTextContent();
-  const items: RegionTextItem[] = [];
+  try {
+    const viewport = page.getViewport({ scale: 1 });
+    const textContent = await page.getTextContent();
+    const items: RegionTextItem[] = [];
 
-  for (const raw of textContent.items) {
-    if (!('str' in raw) || !raw.str.trim()) continue;
-    const transformed = Util.transform(viewport.transform, raw.transform);
-    const height = Math.max(1, Math.hypot(transformed[2], transformed[3]));
-    const item: RegionTextItem = {
-      text: raw.str,
-      x: transformed[4] / viewport.width,
-      y: (transformed[5] - height) / viewport.height,
-      width: Math.max(1, raw.width * viewport.scale) / viewport.width,
-      height: height / viewport.height,
+    for (const raw of textContent.items) {
+      if (!('str' in raw) || !raw.str.trim()) continue;
+      const transformed = Util.transform(viewport.transform, raw.transform);
+      const height = Math.max(1, Math.hypot(transformed[2], transformed[3]));
+      const item: RegionTextItem = {
+        text: raw.str,
+        x: transformed[4] / viewport.width,
+        y: (transformed[5] - height) / viewport.height,
+        width: Math.max(1, raw.width * viewport.scale) / viewport.width,
+        height: height / viewport.height,
+      };
+      if (rectanglesIntersect(rect, item)) items.push(item);
+    }
+
+    let crop: ReturnType<typeof cropCanvas> = null;
+    const mountedCanvas = document.querySelector(`#pdf-page-${safePage} canvas`) as HTMLCanvasElement | null;
+    if (mountedCanvas?.width && mountedCanvas.height) crop = cropCanvas(mountedCanvas, rect);
+
+    if (!crop) {
+      const renderViewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(renderViewport.width);
+      canvas.height = Math.floor(renderViewport.height);
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) throw new Error('Could not create a canvas for the selected region.');
+      await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
+      crop = cropCanvas(canvas, rect);
+    }
+    if (!crop) throw new Error('Could not capture the selected region.');
+
+    return {
+      ...crop,
+      text: joinRegionText(items),
+      pageNumber: safePage,
+      documentName,
     };
-    if (rectanglesIntersect(rect, item)) items.push(item);
+  } finally {
+    try {
+      page.cleanup();
+    } catch {}
   }
-
-  let crop: ReturnType<typeof cropCanvas> = null;
-  const mountedCanvas = document.querySelector(`#pdf-page-${safePage} canvas`) as HTMLCanvasElement | null;
-  if (mountedCanvas?.width && mountedCanvas.height) crop = cropCanvas(mountedCanvas, rect);
-
-  if (!crop) {
-    const renderViewport = page.getViewport({ scale: 2 });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(renderViewport.width);
-    canvas.height = Math.floor(renderViewport.height);
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) throw new Error('Could not create a canvas for the selected region.');
-    await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
-    crop = cropCanvas(canvas, rect);
-  }
-  if (!crop) throw new Error('Could not capture the selected region.');
-
-  return {
-    ...crop,
-    text: joinRegionText(items),
-    pageNumber: safePage,
-    documentName,
-  };
 }

@@ -63,8 +63,9 @@ export async function extractPageText(
       ? Math.max(1, Math.floor(pageNumber))
       : 1;
 
+  let page: Awaited<ReturnType<typeof pdfDoc.getPage>> | null = null;
   try {
-    const page = await pdfDoc.getPage(safePageNum);
+    page = await pdfDoc.getPage(safePageNum);
     const textContent = await page.getTextContent();
 
     if (!textContent || !textContent.items || textContent.items.length === 0) {
@@ -106,6 +107,12 @@ export async function extractPageText(
   } catch (err) {
     console.error(`Error extracting text from page ${safePageNum}:`, err);
     return '';
+  } finally {
+    if (page) {
+      try {
+        page.cleanup();
+      } catch {}
+    }
   }
 }
 
@@ -153,10 +160,10 @@ export async function capturePageCompositeCanvas(
     return outputCanvas;
   }
 
-  // Fallback: render pristine 2x raster directly from PDF.js document proxy
   if (pdfDoc) {
+    let page: Awaited<ReturnType<PDFDocumentProxy['getPage']>> | null = null;
     try {
-      const page = await pdfDoc.getPage(safePageNum);
+      page = await pdfDoc.getPage(safePageNum);
       const viewport = page.getViewport({ scale: 2.0 });
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = Math.floor(viewport.width);
@@ -175,6 +182,12 @@ export async function capturePageCompositeCanvas(
       return offscreenCanvas;
     } catch (err) {
       console.error(`Direct offscreen render failed for page ${safePageNum}:`, err);
+    } finally {
+      if (page) {
+        try {
+          page.cleanup();
+        } catch {}
+      }
     }
   }
 
