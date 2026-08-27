@@ -1,10 +1,16 @@
 import { toPng } from 'html-to-image';
 
+let cachedEmbeddedStyles: string | null = null;
+
 /**
  * Extracts KaTeX and markdown styling rules from loaded stylesheets to ensure
  * mathematical notation and typography render identically inside SVG foreignObject snapshots.
  */
 function getEmbeddedStyles(): string {
+  if (cachedEmbeddedStyles !== null) {
+    return cachedEmbeddedStyles;
+  }
+
   let css = `
     .katex-mathml { display: none !important; }
     .katex-html { display: inline-block !important; }
@@ -46,6 +52,7 @@ function getEmbeddedStyles(): string {
     }
   }
 
+  cachedEmbeddedStyles = css;
   return css;
 }
 

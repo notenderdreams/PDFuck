@@ -146,17 +146,37 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   }, []);
 
+  const prevAnnotationsByPageRef = useRef<Map<number, Annotation[]>>(new Map());
+
   const annotationsByPage = React.useMemo(() => {
-    const map = new Map<number, Annotation[]>();
+    const nextMap = new Map<number, Annotation[]>();
     for (const ann of annotations) {
-      const list = map.get(ann.pageNumber);
+      const list = nextMap.get(ann.pageNumber);
       if (list) {
         list.push(ann);
       } else {
-        map.set(ann.pageNumber, [ann]);
+        nextMap.set(ann.pageNumber, [ann]);
       }
     }
-    return map;
+
+    const prevMap = prevAnnotationsByPageRef.current;
+    const stableMap = new Map<number, Annotation[]>();
+
+    for (const [pageNum, nextList] of nextMap.entries()) {
+      const prevList = prevMap.get(pageNum);
+      if (
+        prevList &&
+        prevList.length === nextList.length &&
+        prevList.every((ann, i) => ann === nextList[i])
+      ) {
+        stableMap.set(pageNum, prevList);
+      } else {
+        stableMap.set(pageNum, nextList);
+      }
+    }
+
+    prevAnnotationsByPageRef.current = stableMap;
+    return stableMap;
   }, [annotations]);
 
   // Global Eraser Tool State & Cross-Page Sweeping
@@ -464,18 +484,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         // Focal line at upper 35% of the viewport where user naturally reads
         const focalLine = containerRect.top + Math.min(containerRect.height * 0.35, 240);
 
-        const pageElements = container.querySelectorAll<HTMLElement>('[id^="pdf-page-"]');
-        if (pageElements.length === 0) return;
+        const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
+        const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / maxScroll));
+        const estimatedPage = Math.max(1, Math.min(numPages, Math.round(scrollFraction * (numPages - 1)) + 1));
+        const minPage = Math.max(1, estimatedPage - 4);
+        const maxPage = Math.min(numPages, estimatedPage + 4);
 
         let focalPage: number | null = null;
         let maxOverlap = 0;
         let maxOverlapPage = lastReportedPageRef.current;
 
-        for (let i = 0; i < pageElements.length; i++) {
-          const el = pageElements[i];
+        for (let pageNum = minPage; pageNum <= maxPage; pageNum++) {
+          const el = document.getElementById(`pdf-page-${pageNum}`);
+          if (!el) continue;
           const rect = el.getBoundingClientRect();
-          const pageNum = parseInt(el.id.replace('pdf-page-', ''), 10);
-          if (isNaN(pageNum)) continue;
 
           // Check if page covers the focal line
           if (rect.top <= focalLine && rect.bottom > focalLine) {
@@ -507,7 +529,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       container.removeEventListener('scroll', handleScroll);
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [viewMode, pdfDoc, onPageChange]);
+  }, [viewMode, pdfDoc, numPages, onPageChange]);
 
   // The companion pane owns independent page tracking and programmatic navigation.
   useEffect(() => {
@@ -522,15 +544,22 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         rafId = null;
         const containerRect = container.getBoundingClientRect();
         const focalLine = containerRect.top + Math.min(containerRect.height * 0.35, 240);
-        const pages = container.querySelectorAll<HTMLElement>('[id^="companion-pdf-page-"]');
+        const compNumPages = companionPdfDoc.numPages;
+        const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
+        const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / maxScroll));
+        const estimatedPage = Math.max(1, Math.min(compNumPages, Math.round(scrollFraction * (compNumPages - 1)) + 1));
+        const minPage = Math.max(1, estimatedPage - 4);
+        const maxPage = Math.min(compNumPages, estimatedPage + 4);
+
         let activePage = companionLastReportedPageRef.current;
         let largestOverlap = 0;
 
-        for (const page of pages) {
+        for (let pageNum = minPage; pageNum <= maxPage; pageNum++) {
+          const page = document.getElementById(`companion-pdf-page-${pageNum}`);
+          if (!page) continue;
           const rect = page.getBoundingClientRect();
-          const pageNumber = Number(page.id.replace('companion-pdf-page-', ''));
           if (rect.top <= focalLine && rect.bottom > focalLine) {
-            activePage = pageNumber;
+            activePage = pageNum;
             break;
           }
           const overlap = Math.max(
@@ -539,7 +568,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           );
           if (overlap > largestOverlap) {
             largestOverlap = overlap;
-            activePage = pageNumber;
+            activePage = pageNum;
           }
         }
 

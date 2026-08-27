@@ -178,6 +178,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     const rectWidth = rect.width;
     const rectHeight = rect.height;
 
+    let moveRafId: number | null = null;
+    let pendingUpdates: Partial<Annotation> | null = null;
+
     const handlePointerMove = (moveEvt: PointerEvent) => {
       if (!isDraggingHighlightRef.current) return;
       const dx = (moveEvt.clientX - startClientX) / pageWidth;
@@ -189,11 +192,26 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       const newX = Math.max(0, Math.min(initialX + dx, maxX));
       const newY = Math.max(0, Math.min(initialY + dy, maxY));
 
-      onUpdateAnnotation?.(rect.id, { x: newX, y: newY });
+      pendingUpdates = { x: newX, y: newY };
+      if (moveRafId === null) {
+        moveRafId = requestAnimationFrame(() => {
+          moveRafId = null;
+          if (pendingUpdates) {
+            onUpdateAnnotation?.(rect.id, pendingUpdates);
+          }
+        });
+      }
     };
 
     const handlePointerUp = () => {
       isDraggingHighlightRef.current = false;
+      if (moveRafId !== null) {
+        cancelAnimationFrame(moveRafId);
+        moveRafId = null;
+      }
+      if (pendingUpdates) {
+        onUpdateAnnotation?.(rect.id, pendingUpdates);
+      }
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -224,6 +242,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     const initialWidth = rect.width;
     const initialHeight = rect.height;
 
+    let moveRafId: number | null = null;
+    let pendingUpdates: Partial<Annotation> | null = null;
+
     const handlePointerMove = (moveEvt: PointerEvent) => {
       if (!isResizingHighlightRef.current) return;
       const dx = (moveEvt.clientX - startClientX) / pageWidth;
@@ -235,11 +256,26 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       const newWidth = Math.max(0.01, Math.min(initialWidth + dx, maxWidth));
       const newHeight = Math.max(0.005, Math.min(initialHeight + dy, maxHeight));
 
-      onUpdateAnnotation?.(rect.id, { width: newWidth, height: newHeight });
+      pendingUpdates = { width: newWidth, height: newHeight };
+      if (moveRafId === null) {
+        moveRafId = requestAnimationFrame(() => {
+          moveRafId = null;
+          if (pendingUpdates) {
+            onUpdateAnnotation?.(rect.id, pendingUpdates);
+          }
+        });
+      }
     };
 
     const handlePointerUp = () => {
       isResizingHighlightRef.current = false;
+      if (moveRafId !== null) {
+        cancelAnimationFrame(moveRafId);
+        moveRafId = null;
+      }
+      if (pendingUpdates) {
+        onUpdateAnnotation?.(rect.id, pendingUpdates);
+      }
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -270,6 +306,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     const initialEndX = line.endX;
     const initialEndY = line.endY;
 
+    let moveRafId: number | null = null;
+    let pendingUpdates: Partial<Annotation> | null = null;
+
     const handlePointerMove = (moveEvt: PointerEvent) => {
       if (!isDraggingLineRef.current) return;
       const dx = (moveEvt.clientX - startClientX) / pageWidth;
@@ -283,16 +322,32 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       const clampedDx = Math.max(-minX, Math.min(dx, 1 - maxX));
       const clampedDy = Math.max(-minY, Math.min(dy, 1 - maxY));
 
-      onUpdateAnnotation?.(line.id, {
+      pendingUpdates = {
         startX: initialStartX + clampedDx,
         startY: initialStartY + clampedDy,
         endX: initialEndX + clampedDx,
         endY: initialEndY + clampedDy,
-      });
+      };
+
+      if (moveRafId === null) {
+        moveRafId = requestAnimationFrame(() => {
+          moveRafId = null;
+          if (pendingUpdates) {
+            onUpdateAnnotation?.(line.id, pendingUpdates);
+          }
+        });
+      }
     };
 
     const handlePointerUp = () => {
       isDraggingLineRef.current = false;
+      if (moveRafId !== null) {
+        cancelAnimationFrame(moveRafId);
+        moveRafId = null;
+      }
+      if (pendingUpdates) {
+        onUpdateAnnotation?.(line.id, pendingUpdates);
+      }
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -317,6 +372,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     onSelectAnnotation?.(line.id);
 
     isDraggingEndpointRef.current = true;
+    let moveRafId: number | null = null;
+    let pendingUpdates: Partial<Annotation> | null = null;
 
     const handlePointerMove = (moveEvt: PointerEvent) => {
       if (!isDraggingEndpointRef.current || !containerRef.current) return;
@@ -333,15 +390,27 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       const nx = Math.max(0, Math.min(1, px / pageWidth));
       const ny = Math.max(0, Math.min(1, py / pageHeight));
 
-      if (endpoint === 'start') {
-        onUpdateAnnotation?.(line.id, { startX: nx, startY: ny });
-      } else {
-        onUpdateAnnotation?.(line.id, { endX: nx, endY: ny });
+      pendingUpdates = endpoint === 'start' ? { startX: nx, startY: ny } : { endX: nx, endY: ny };
+
+      if (moveRafId === null) {
+        moveRafId = requestAnimationFrame(() => {
+          moveRafId = null;
+          if (pendingUpdates) {
+            onUpdateAnnotation?.(line.id, pendingUpdates);
+          }
+        });
       }
     };
 
     const handlePointerUp = () => {
       isDraggingEndpointRef.current = false;
+      if (moveRafId !== null) {
+        cancelAnimationFrame(moveRafId);
+        moveRafId = null;
+      }
+      if (pendingUpdates) {
+        onUpdateAnnotation?.(line.id, pendingUpdates);
+      }
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);

@@ -52,12 +52,12 @@ export function useSnippets(docKey: string) {
       setHistory((prevHistory) => {
         const upToCurrent = prevHistory.slice(0, historyIndex + 1);
         const updated = [...upToCurrent, newEntries];
-        if (updated.length > 40) {
+        if (updated.length > 25) {
           updated.shift();
         }
         return updated;
       });
-      setHistoryIndex((prev) => Math.min(prev + 1, 39));
+      setHistoryIndex((prev) => Math.min(prev + 1, 24));
       setSnippets(newEntries);
       snippetsRef.current = newEntries;
     },
