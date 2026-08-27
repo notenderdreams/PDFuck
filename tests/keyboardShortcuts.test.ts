@@ -1,8 +1,60 @@
 import { describe, expect, test } from 'bun:test';
+import { handleKeyboardShortcut, type KeyboardShortcutOptions } from '../src/hooks/useKeyboard';
 
 const projectFile = (path: string) => Bun.file(new URL(`../${path}`, import.meta.url)).text();
 
 describe('annotation keyboard shortcuts', () => {
+  test('an Escape already handled by the text editor cannot reach the app fullscreen handler', () => {
+    let escapeCalls = 0;
+    let blurCalls = 0;
+    const noop = () => {};
+    const options: KeyboardShortcutOptions = {
+      onOpenPdf: noop,
+      onSavePdf: noop,
+      onSaveJson: noop,
+      onToggleInvert: noop,
+      onToggleSearch: noop,
+      onSelectTool: noop,
+      onUndo: noop,
+      onRedo: noop,
+      onZoomIn: noop,
+      onZoomOut: noop,
+      onResetZoom: noop,
+      onNextPage: noop,
+      onPrevPage: noop,
+      onToggleZen: noop,
+      onToggleShortcuts: noop,
+      onEscape: () => {
+        escapeCalls += 1;
+      },
+    };
+
+    handleKeyboardShortcut(
+      {
+        key: 'Escape',
+        code: 'Escape',
+        defaultPrevented: true,
+        target: {
+          tagName: 'TEXTAREA',
+          isContentEditable: false,
+          blur: () => {
+            blurCalls += 1;
+          },
+        },
+        metaKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    expect(escapeCalls).toBe(0);
+    expect(blurCalls).toBe(0);
+  });
+
   test('reading layouts have discoverable shortcuts and a valid side-by-side mode', async () => {
     const [keyboardSource, appSource, headerSource, settingsSource] = await Promise.all([
       projectFile('src/hooks/useKeyboard.ts'),

@@ -14,6 +14,7 @@ import type {
   ToolType,
 } from '../utils/types';
 import { resolveHighlightOpacity, toggleHighlightStyle } from '../utils/highlightStyle';
+import { focusWithoutMovingViewer, keepViewerPositionAfter } from '../utils/viewerPosition';
 
 interface AnnotationCanvasProps {
   pageNumber: number;
@@ -132,7 +133,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     if (textInputPos) {
       const focusTextarea = () => {
         if (textNoteTextareaRef.current) {
-          textNoteTextareaRef.current.focus();
+          focusWithoutMovingViewer(textNoteTextareaRef.current);
         }
       };
       const t1 = setTimeout(focusTextarea, 0);
@@ -1156,8 +1157,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             } else if (e.key === 'Escape') {
               e.preventDefault();
               e.stopPropagation();
-              setTextInputPos(null);
-              setTextInputValue('');
+              keepViewerPositionAfter(e.currentTarget, () => {
+                setTextInputPos(null);
+                setTextInputValue('');
+              });
             }
           }}
         />
@@ -1213,8 +1216,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               } else if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
-                setTextInputPos(null);
-                setTextInputValue('');
+                keepViewerPositionAfter(e.currentTarget, () => {
+                  setTextInputPos(null);
+                  setTextInputValue('');
+                });
               }
             }}
           />

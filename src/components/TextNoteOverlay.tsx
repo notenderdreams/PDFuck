@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, GripHorizontal, Edit3, Check, Palette } from 'lucide-react';
 import type { TextNoteAnnotation, ReadingTheme, ToolType } from '../utils/types';
+import { focusWithoutMovingViewer, keepViewerPositionAfter } from '../utils/viewerPosition';
 
 interface TextNoteOverlayProps {
   annotation: TextNoteAnnotation;
@@ -53,7 +54,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
       setEditText(annotation.text);
       setTimeout(() => {
         if (textareaRef.current) {
-          textareaRef.current.focus();
+          focusWithoutMovingViewer(textareaRef.current);
           textareaRef.current.style.height = 'auto';
           textareaRef.current.style.height = `${Math.max(48, textareaRef.current.scrollHeight)}px`;
           if (annotation.kind === 'plain') {
@@ -153,6 +154,17 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
     setShowColorPicker(false);
   };
 
+  const handleCancelEdit = (element: HTMLElement) => {
+    keepViewerPositionAfter(element, () => {
+      if (!annotation.text) {
+        onDelete(annotation.id);
+      } else {
+        setEditText(annotation.text);
+        setIsEditing(false);
+      }
+    });
+  };
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (activeTool === 'eraser') {
@@ -203,12 +215,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
               } else if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!annotation.text) {
-                  onDelete(annotation.id);
-                } else {
-                  setEditText(annotation.text);
-                  setIsEditing(false);
-                }
+                handleCancelEdit(e.currentTarget);
               }
             }}
             className="min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 font-sans leading-relaxed outline-none shadow-sm"
@@ -356,12 +363,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (!annotation.text) {
-                    onDelete(annotation.id);
-                  } else {
-                    setEditText(annotation.text);
-                    setIsEditing(false);
-                  }
+                  handleCancelEdit(e.currentTarget);
                 }
               }}
               style={{
@@ -372,14 +374,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
             />
             <div className="flex justify-end gap-1">
               <button
-                onClick={() => {
-                  if (!annotation.text) {
-                    onDelete(annotation.id);
-                  } else {
-                    setEditText(annotation.text);
-                    setIsEditing(false);
-                  }
-                }}
+                onClick={(e) => handleCancelEdit(e.currentTarget)}
                 className="px-2 py-0.5 rounded text-[10.5px] opacity-75 hover:opacity-100"
               >
                 Cancel
