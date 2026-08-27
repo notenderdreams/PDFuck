@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFPage } from './PDFPage';
 import { ChevronLeft, ChevronRight, UploadCloud } from 'lucide-react';
-import type { Annotation, HighlightStyle, LineHighlightStyle, ReadingTheme, ToolType, ViewMode } from '../utils/types';
+import type { Annotation, HighlightStyle, LineHighlightStyle, ReadingTheme, TextNoteAnnotation, ToolType, ViewMode } from '../utils/types';
 import type { AiExplanationAnnotation } from '../utils/types';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
@@ -818,9 +818,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       target.closest?.('input') ||
       target.closest?.('textarea')
     );
+    const isNoteCreationTool = (activeTool === 'text' || activeTool === 'sticky-note') && !allowAnnotationTools;
     const isBackgroundClick =
       e.button === 0 &&
       !isSpacePressed &&
+      !isNoteCreationTool &&
       (allowAnnotationTools || activeTool !== 'eraser') &&
       !isPageOrControl &&
       (target === container ||
@@ -900,12 +902,75 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
-  // Handle Eraser pointer events on viewer container
+  // Handle Eraser and Margin Note Creation pointer events on viewer container
   const handleViewerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activeTool === 'eraser' && e.button === 0 && !isSpacePressed) {
+    if (e.button !== 0 || isSpacePressed) return;
+
+    if (activeTool === 'eraser') {
       isErasingRef.current = true;
       setEraserPos({ x: e.clientX, y: e.clientY });
       performGlobalEraseAt(e.clientX, e.clientY);
+      return;
+    }
+
+    if (activeTool === 'text' || activeTool === 'sticky-note') {
+      const target = e.target as HTMLElement;
+      const isPageOrControl = Boolean(
+        target.closest?.('[data-pdf-page-number]') ||
+        target.closest?.('[id^="pdf-page-"]') ||
+        target.closest?.('[id^="companion-pdf-page-"]') ||
+        target.closest?.('.textLayer') ||
+        target.closest?.('button') ||
+        target.closest?.('input') ||
+        target.closest?.('textarea')
+      );
+
+      if (!isPageOrControl && pdfDoc && numPages > 0) {
+        const container = viewerContainerRef.current;
+        if (!container) return;
+
+        const pageElements = container.querySelectorAll<HTMLElement>('[data-pdf-page-number]');
+        let bestEl: HTMLElement | null = null;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < pageElements.length; i++) {
+          const el = pageElements[i];
+          const rect = el.getBoundingClientRect();
+          let distY = 0;
+          if (e.clientY < rect.top) {
+            distY = rect.top - e.clientY;
+          } else if (e.clientY > rect.bottom) {
+            distY = e.clientY - rect.bottom;
+          }
+
+          if (distY < minDistance) {
+            minDistance = distY;
+            bestEl = el;
+          }
+        }
+
+        if (bestEl) {
+          const pageNum = Number(bestEl.getAttribute('data-pdf-page-number')) || currentPage;
+          const rect = bestEl.getBoundingClientRect();
+          const normX = (e.clientX - rect.left) / rect.width;
+          const normY = (e.clientY - rect.top) / rect.height;
+
+          const newNote: TextNoteAnnotation = {
+            id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            pageNumber: pageNum,
+            type: 'text-note',
+            kind: activeTool === 'text' ? 'plain' : 'sticky',
+            x: normX,
+            y: normY,
+            text: '',
+            color: activeTool === 'text' ? selectedColor : '#fef08a',
+            fontSize: 12,
+            createdAt: Date.now(),
+          };
+          onAddAnnotation(newNote);
+          onSelectAnnotation(newNote.id);
+        }
+      }
     }
   };
 
@@ -965,13 +1030,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     );
   }
 
-  // Compute cursor style based on space/pan/eraser state
+  // Compute cursor style based on space/pan/eraser/annotation tool state
   const cursorStyle = isPanning
     ? 'cursor-grabbing'
     : isSpacePressed
     ? 'cursor-grab'
     : activeTool === 'eraser'
     ? 'cursor-none'
+    : activeTool === 'text'
+    ? 'cursor-text'
+    : activeTool === 'sticky-note'
+    ? 'cursor-crosshair'
     : '';
 
   return (

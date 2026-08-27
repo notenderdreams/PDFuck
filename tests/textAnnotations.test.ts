@@ -66,7 +66,18 @@ describe('plain text and sticky note tools', () => {
     expect(overlay).toContain('handleResizeStart');
     expect(overlay).toContain('stickyWidthPx');
     expect(overlay).toContain('fontSize: `${annotation.fontSize || 12}px`');
-    // Does not show visible handles
     expect(overlay).not.toContain('resize-handle-dot');
+  });
+
+  test('allows text notes to be created directly in workspace margins outside PDF', async () => {
+    const [viewer, overlay] = await Promise.all([
+      source('src/components/PDFViewer.tsx'),
+      source('src/components/TextNoteOverlay.tsx'),
+    ]);
+
+    expect(viewer).toContain("const isNoteCreationTool = (activeTool === 'text' || activeTool === 'sticky-note')");
+    expect(viewer).toContain('onAddAnnotation(newNote)');
+    expect(viewer).toContain('onSelectAnnotation(newNote.id)');
+    expect(overlay).toContain("const [isEditing, setIsEditing] = useState(annotation.text === '')");
   });
 });

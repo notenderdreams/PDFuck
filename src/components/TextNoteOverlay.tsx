@@ -35,7 +35,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
   onUpdate,
   onDelete,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(annotation.text === '');
   const [editText, setEditText] = useState(annotation.text);
   const [showColorPicker, setShowColorPicker] = useState(false);
 
@@ -203,8 +203,12 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
               } else if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
-                setEditText(annotation.text);
-                setIsEditing(false);
+                if (!annotation.text) {
+                  onDelete(annotation.id);
+                } else {
+                  setEditText(annotation.text);
+                  setIsEditing(false);
+                }
               }
             }}
             className="min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 font-sans leading-relaxed outline-none shadow-sm"
@@ -352,8 +356,12 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   e.stopPropagation();
-                  setEditText(annotation.text);
-                  setIsEditing(false);
+                  if (!annotation.text) {
+                    onDelete(annotation.id);
+                  } else {
+                    setEditText(annotation.text);
+                    setIsEditing(false);
+                  }
                 }
               }}
               style={{
@@ -364,7 +372,14 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
             />
             <div className="flex justify-end gap-1">
               <button
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  if (!annotation.text) {
+                    onDelete(annotation.id);
+                  } else {
+                    setEditText(annotation.text);
+                    setIsEditing(false);
+                  }
+                }}
                 className="px-2 py-0.5 rounded text-[10.5px] opacity-75 hover:opacity-100"
               >
                 Cancel
