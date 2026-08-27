@@ -124,25 +124,29 @@ describe('AI explanation state and persistence', () => {
     expect(parsed[1].isOpen).toBe(true);
   });
 
-  test('determines AI region highlight visibility strictly based on top bar / bubble hover or drag states', () => {
+  test('determines AI region highlight visibility based on open/bubble phase and hover/drag states', () => {
     const isRegionVisible = (
       annotationId: string,
+      isOpen: boolean,
       hoveredId: string | null,
       activeDragId: string | null
     ) => {
-      return hoveredId === annotationId || activeDragId === annotationId;
+      return !isOpen || hoveredId === annotationId || activeDragId === annotationId;
     };
 
     const targetId = 'ai_123';
 
-    // 1. Default resting state (not hovered on top bar or bubble, not dragged) -> NOT visible
-    expect(isRegionVisible(targetId, null, null)).toBe(false);
+    // 1. In bubble phase (window hidden / isOpen === false) -> ALWAYS visible!
+    expect(isRegionVisible(targetId, false, null, null)).toBe(true);
 
-    // 2. Hovered on the AI card top drag bar or collapsed message badge -> visible!
-    expect(isRegionVisible(targetId, 'ai_123', null)).toBe(true);
-    expect(isRegionVisible(targetId, 'other_id', null)).toBe(false);
+    // 2. When window is open (isOpen === true) and resting (not hovered on drag bar, not dragged) -> hidden
+    expect(isRegionVisible(targetId, true, null, null)).toBe(false);
 
-    // 3. Actively dragged -> visible!
-    expect(isRegionVisible(targetId, null, 'ai_123')).toBe(true);
+    // 3. When window is open and user hovers on the top drag handle bar -> visible!
+    expect(isRegionVisible(targetId, true, 'ai_123', null)).toBe(true);
+    expect(isRegionVisible(targetId, true, 'other_id', null)).toBe(false);
+
+    // 4. When window is open and user actively drags the window -> visible!
+    expect(isRegionVisible(targetId, true, null, 'ai_123')).toBe(true);
   });
 });

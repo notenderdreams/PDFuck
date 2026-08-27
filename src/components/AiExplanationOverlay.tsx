@@ -989,11 +989,18 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     <div className="absolute inset-0 z-20 pointer-events-none">
       {/* 1. Interactive Selection Hitboxes & Dynamic AI Region Highlights */}
       {annotations.map((annotation) => {
+        const job = jobs[annotation.id];
+        const isRunning = job?.phase === 'running';
+        const isPromptComposer = !annotation.response && !isRunning;
+        const isOpen =
+          annotation.isOpen !== false || isPromptComposer || isRunning || selectedAnnotationId === annotation.id;
+
         const isHovered = hoveredAnnotationId === annotation.id;
         const isDragging = activeDragId === annotation.id;
 
-        // Show the region ONLY when hovering on the top bar (where drag enables), hovering the collapsed bubble, or dragging
-        const isRegionVisible = isHovered || isDragging;
+        // When the AI response window is hidden/in bubble phase (!isOpen), keep the region visible.
+        // When open, only show the region when hovering on the top drag bar or dragging.
+        const isRegionVisible = !isOpen || isHovered || isDragging;
 
         return (
           <div
