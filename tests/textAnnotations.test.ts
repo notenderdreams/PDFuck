@@ -53,4 +53,20 @@ describe('plain text and sticky note tools', () => {
     expect(overlay).toContain('const newY = initialAnnPosRef.current.y + dy;');
     expect(overlay).not.toContain('Math.min(initialAnnPosRef.current.x + dx, 0.92)');
   });
+
+  test('makes sticky notes resizable via invisible corner and edge zones without changing text size', async () => {
+    const [overlay, types] = await Promise.all([
+      source('src/components/TextNoteOverlay.tsx'),
+      source('src/utils/types.ts'),
+    ]);
+
+    expect(types).toContain('width?: number;');
+    expect(overlay).toContain('cursor-nwse-resize');
+    expect(overlay).toContain('cursor-ew-resize');
+    expect(overlay).toContain('handleResizeStart');
+    expect(overlay).toContain('stickyWidthPx');
+    expect(overlay).toContain('fontSize: `${annotation.fontSize || 12}px`');
+    // Does not show visible handles
+    expect(overlay).not.toContain('resize-handle-dot');
+  });
 });

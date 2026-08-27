@@ -104,6 +104,7 @@ export interface TextNoteAnnotation {
   kind?: 'plain' | 'sticky';
   x: number; // Normalized 0..1
   y: number; // Normalized 0..1
+  width?: number; // Normalized 0..1
   text: string;
   color: string;
   fontSize: number; // in pt

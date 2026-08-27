@@ -105,6 +105,40 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Resizing logic for sticky notes (no visible handles, corner/edge cursor-based resize)
+  const isResizingRef = useRef(false);
+  const resizeStartPosRef = useRef({ startX: 0, initialWidthPx: 0 });
+
+  const handleResizeStart = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (activeTool === 'eraser') return;
+    onSelect(annotation.id);
+    isResizingRef.current = true;
+    const initialWidthPx = annotation.width
+      ? Math.max(140, Math.round(annotation.width * pageWidth))
+      : 220;
+    resizeStartPosRef.current = { startX: e.clientX, initialWidthPx };
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isResizingRef.current) return;
+      const dx = moveEvt.clientX - resizeStartPosRef.current.startX;
+      const nextWidthPx = Math.max(140, Math.min(pageWidth * 1.5, resizeStartPosRef.current.initialWidthPx + dx));
+      onUpdate(annotation.id, { width: nextWidthPx / pageWidth });
+    };
+
+    const handlePointerUp = () => {
+      isResizingRef.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
   const handleSaveEdit = () => {
     if (editText.trim()) {
       onUpdate(annotation.id, { text: editText.trim() });
@@ -196,6 +230,10 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
     );
   }
 
+  const stickyWidthPx = annotation.width
+    ? Math.max(140, Math.round(annotation.width * pageWidth))
+    : 220;
+
   return (
     <div
       onClick={handleClick}
@@ -204,7 +242,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
       style={{
         left: `${leftPx}px`,
         top: `${topPx}px`,
-        maxWidth: '260px',
+        width: `${stickyWidthPx}px`,
         minWidth: '140px',
       }}
       className={`absolute z-30 select-none group transition-shadow rounded-lg shadow-lg ${
@@ -220,7 +258,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
           color: currentColor.text,
           borderColor: currentColor.border,
         }}
-        className="rounded-lg border p-2.5 flex flex-col gap-1.5 shadow-xs font-sans text-xs"
+        className="relative rounded-lg border p-2.5 flex flex-col gap-1.5 shadow-xs font-sans text-xs"
       >
         {/* Header Drag Handle & Controls (Visible on hover or when selected) */}
         <div
@@ -336,6 +374,18 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
             {annotation.text}
           </div>
         )}
+
+        {/* Invisible Corner & Edge Resize Zones - no visible handle, only resize cursor on hover */}
+        <div
+          onPointerDown={handleResizeStart}
+          className="absolute -bottom-1 -right-1 w-4 h-4 cursor-nwse-resize select-none touch-none z-20"
+          aria-label="Resize note width"
+        />
+        <div
+          onPointerDown={handleResizeStart}
+          className="absolute top-2 right-0 bottom-3 w-2.5 cursor-ew-resize select-none touch-none z-20"
+          aria-label="Resize note width"
+        />
       </div>
     </div>
   );
