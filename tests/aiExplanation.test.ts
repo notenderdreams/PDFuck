@@ -212,4 +212,72 @@ describe('AI explanation state and persistence', () => {
     expect(answeredRegionAi.cardX).toBe(0.2);
     expect(answeredRegionAi.cardY).toBe(0.47);
   });
+
+  test('opening and closing AI bubble maintains identical position without drift', () => {
+    const cardWidth = 440;
+    const badgeSize = 34;
+    const pageWidth = 800;
+    const pageHeight = 1000;
+
+    const computeCardPos = (ann: AiExplanationAnnotation) => {
+      if (ann.cardX !== undefined && ann.cardY !== undefined) {
+        return {
+          left: Math.max(8, Math.min(pageWidth - cardWidth - 8, ann.cardX * pageWidth)),
+          top: Math.max(8, Math.min(pageHeight - 80, ann.cardY * pageHeight)),
+        };
+      }
+      return {
+        left: Math.max(8, Math.min(ann.x * pageWidth, pageWidth - cardWidth - 8)),
+        top: Math.max(8, Math.min(pageHeight - 80, (ann.y + ann.height) * pageHeight + 10)),
+      };
+    };
+
+    const computeBadgePos = (ann: AiExplanationAnnotation) => {
+      if (ann.cardX !== undefined && ann.cardY !== undefined) {
+        return {
+          left: Math.max(8, Math.min(pageWidth - badgeSize - 8, ann.cardX * pageWidth)),
+          top: Math.max(8, Math.min(pageHeight - badgeSize - 8, ann.cardY * pageHeight)),
+        };
+      }
+      return {
+        left: Math.max(8, Math.min(ann.x * pageWidth, pageWidth - badgeSize - 8)),
+        top: Math.max(8, Math.min(pageHeight - badgeSize - 8, (ann.y + ann.height) * pageHeight + 10)),
+      };
+    };
+
+    const initial: AiExplanationAnnotation = {
+      id: 'ai_pos_test',
+      pageNumber: 1,
+      type: 'ai-explanation',
+      x: 0.15,
+      y: 0.25,
+      width: 0.3,
+      height: 0.1,
+      prompt: 'Explain',
+      response: 'Detailed answer',
+      provider: 'codex',
+      isOpen: true,
+      cardX: 0.15,
+      cardY: 0.36,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    // 1. Initial open card position
+    const cardPos1 = computeCardPos(initial);
+    expect(cardPos1.left).toBe(120);
+    expect(cardPos1.top).toBe(360);
+
+    // 2. Collapse to bubble
+    const collapsed = { ...initial, isOpen: false };
+    const badgePos = computeBadgePos(collapsed);
+    expect(badgePos.left).toBe(120);
+    expect(badgePos.top).toBe(360);
+
+    // 3. Reopen card from bubble
+    const reopened = { ...collapsed, isOpen: true };
+    const cardPos2 = computeCardPos(reopened);
+    expect(cardPos2.left).toBe(cardPos1.left);
+    expect(cardPos2.top).toBe(cardPos1.top);
+  });
 });

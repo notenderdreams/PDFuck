@@ -765,11 +765,13 @@ const AiCollapsedBadge: React.FC<BadgeItemProps> = React.memo(
       badgeLeft = liveDrag.left;
       badgeTop = liveDrag.top;
     } else if (annotation.cardX !== undefined && annotation.cardY !== undefined) {
-      badgeLeft = annotation.cardX * pageWidth;
-      badgeTop = annotation.cardY * pageHeight;
+      badgeLeft = Math.max(8, Math.min(pageWidth - badgeSize - 8, annotation.cardX * pageWidth));
+      badgeTop = Math.max(8, Math.min(pageHeight - badgeSize - 8, annotation.cardY * pageHeight));
     } else {
-      badgeLeft = Math.max(8, Math.min(pageWidth - badgeSize - 8, (annotation.x + annotation.width) * pageWidth - 14));
-      badgeTop = Math.max(8, Math.min(pageHeight - badgeSize - 8, annotation.y * pageHeight - 14));
+      const selectionLeft = annotation.x * pageWidth;
+      const selectionBottom = (annotation.y + annotation.height) * pageHeight;
+      badgeLeft = Math.max(8, Math.min(selectionLeft, pageWidth - badgeSize - 8));
+      badgeTop = Math.max(8, Math.min(pageHeight - badgeSize - 8, selectionBottom + 10));
     }
 
     const handlePointerDown = (e: React.PointerEvent) => {
@@ -784,7 +786,7 @@ const AiCollapsedBadge: React.FC<BadgeItemProps> = React.memo(
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-      if (Math.hypot(e.clientX - startPosRef.current.x, e.clientY - startPosRef.current.y) > 4) {
+      if (Math.hypot(e.clientX - startPosRef.current.x, e.clientY - startPosRef.current.y) > 3) {
         hasMovedRef.current = true;
       }
       onDragMove(e, annotation);
@@ -877,7 +879,8 @@ export const AiExplanationOverlay: React.FC<Props> = ({
     clientY: number;
     initialLeft: number;
     initialTop: number;
-  }>({ clientX: 0, clientY: 0, initialLeft: 0, initialTop: 0 });
+    hasDragged: boolean;
+  }>({ clientX: 0, clientY: 0, initialLeft: 0, initialTop: 0, hasDragged: false });
 
   // Handle escape key
   useEffect(() => {
@@ -926,6 +929,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
         clientY: e.clientY,
         initialLeft: currentLeft,
         initialTop: currentTop,
+        hasDragged: false,
       };
 
       try {
@@ -940,6 +944,12 @@ export const AiExplanationOverlay: React.FC<Props> = ({
       if (activeDragId !== annotation.id) return;
       const dx = e.clientX - dragStartRef.current.clientX;
       const dy = e.clientY - dragStartRef.current.clientY;
+
+      if (!dragStartRef.current.hasDragged && Math.hypot(dx, dy) > 3) {
+        dragStartRef.current.hasDragged = true;
+      }
+
+      if (!dragStartRef.current.hasDragged) return;
 
       const newLeft = dragStartRef.current.initialLeft + dx;
       const newTop = dragStartRef.current.initialTop + dy;
@@ -960,14 +970,24 @@ export const AiExplanationOverlay: React.FC<Props> = ({
           (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
         } catch {}
 
-        const pos = dragPositions[annotation.id];
-        if (pos) {
-          onUpdate(annotation.id, {
-            cardX: pos.left / pageWidth,
-            cardY: pos.top / pageHeight,
-            updatedAt: Date.now(),
-          });
+        if (dragStartRef.current.hasDragged) {
+          const pos = dragPositions[annotation.id];
+          if (pos) {
+            onUpdate(annotation.id, {
+              cardX: pos.left / pageWidth,
+              cardY: pos.top / pageHeight,
+              updatedAt: Date.now(),
+            });
+          }
         }
+
+        // Clean up drag position so stale coordinates don't leak
+        setDragPositions((prev) => {
+          if (!prev[annotation.id]) return prev;
+          const next = { ...prev };
+          delete next[annotation.id];
+          return next;
+        });
       }
     },
     [activeDragId, dragPositions, onUpdate, pageHeight, pageWidth]
@@ -1037,7 +1057,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
               pageWidth={pageWidth}
               pageHeight={pageHeight}
               isSelected={selectedAnnotationId === annotation.id}
-              liveDrag={dragPositions[annotation.id]}
+              liveDrag={activeDragId === annotation.id ? dragPositions[annotation.id] : undefined}
               onDragStart={handleDragPointerDown}
               onDragMove={handleDragPointerMove}
               onDragEnd={handleDragPointerUp}
@@ -1062,7 +1082,7 @@ export const AiExplanationOverlay: React.FC<Props> = ({
             pageHeight={pageHeight}
             isSelected={selectedAnnotationId === annotation.id}
             activeTool={activeTool}
-            liveDrag={dragPositions[annotation.id]}
+            liveDrag={activeDragId === annotation.id ? dragPositions[annotation.id] : undefined}
             onDragStart={handleDragPointerDown}
             onDragMove={handleDragPointerMove}
             onDragEnd={handleDragPointerUp}
