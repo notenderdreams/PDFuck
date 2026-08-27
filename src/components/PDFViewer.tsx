@@ -5,11 +5,24 @@ import { ChevronLeft, ChevronRight, UploadCloud } from 'lucide-react';
 import type { Annotation, HighlightStyle, LineHighlightStyle, ReadingTheme, TextNoteAnnotation, ToolType, ViewMode } from '../utils/types';
 import type { AiExplanationAnnotation } from '../utils/types';
 import type { AiJobState } from '../hooks/useAiExplanations';
-import { shouldRestoreViewerPosition } from '../utils/viewerPosition';
+import { findFocalPageNumber, shouldRestoreViewerPosition } from '../utils/viewerPosition';
 import { isAnnotationHitByEraser } from '../utils/eraserUtils';
 import { getReadTogetherPageRows } from '../utils/readTogether';
 
 const EMPTY_ANNOTATIONS: Annotation[] = [];
+
+const getFocalPageInContainer = (container: HTMLElement, fallbackPage: number) => {
+  const containerRect = container.getBoundingClientRect();
+  const pages = Array.from(container.querySelectorAll<HTMLElement>('[data-pdf-page-number]'))
+    .map((element) => {
+      const pageNumber = Number(element.getAttribute('data-pdf-page-number'));
+      const rect = element.getBoundingClientRect();
+      return { pageNumber, top: rect.top, bottom: rect.bottom };
+    })
+    .filter((page) => page.pageNumber > 0);
+
+  return findFocalPageNumber(containerRect.top, containerRect.height, pages, fallbackPage);
+};
 
 interface PDFViewerProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -139,11 +152,13 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const prevPropCurrentPageRef = useRef<number>(currentPage);
   const lastFitPageRequestRef = useRef(0);
   const pendingFitScrollPageRef = useRef<number | null>(null);
+  const fitCenteringCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => () => {
     if (companionProgrammaticTimerRef.current) {
       clearTimeout(companionProgrammaticTimerRef.current);
     }
+    fitCenteringCleanupRef.current?.();
   }, []);
 
   const prevAnnotationsByPageRef = useRef<Map<number, Annotation[]>>(new Map());
@@ -310,8 +325,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     [pdfDoc, numPages, viewMode]
   );
 
-  const centerFittedPage = useCallback((pageNumber: number) => {
-    requestAnimationFrame(() => {
+  const centerFittedPage = useCallback((pageNumber: number, followResize = false) => {
+    fitCenteringCleanupRef.current?.();
+    fitCenteringCleanupRef.current = null;
+
+    const center = () => {
       const container = viewerContainerRef.current;
       const page = document.getElementById(`pdf-page-${pageNumber}`);
       if (!container || !page) return;
@@ -340,7 +358,39 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         behavior: 'instant',
       });
       lastReportedPageRef.current = pageNumber;
+    };
+
+    requestAnimationFrame(center);
+
+    // PDFPage learns its real dimensions asynchronously from PDF.js. Keep the
+    // target centered while that one layout update lands, rather than allowing
+    // the newly-sized pages above it to push the reader back through the file.
+    if (!followResize || typeof ResizeObserver === 'undefined') return;
+
+    const page = document.getElementById(`pdf-page-${pageNumber}`);
+    if (!page) return;
+
+    let animationFrame: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (animationFrame !== null) return;
+      animationFrame = requestAnimationFrame(() => {
+        animationFrame = null;
+        center();
+      });
     });
+    observer.observe(page);
+
+    const settleTimer = setTimeout(() => {
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+      fitCenteringCleanupRef.current = null;
+      requestAnimationFrame(center);
+    }, 750);
+    fitCenteringCleanupRef.current = () => {
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+      clearTimeout(settleTimer);
+      observer.disconnect();
+    };
   }, []);
 
   // Initial horizontal centering & initial page restore on document load or viewMode switch
@@ -387,7 +437,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
       const container = viewerContainerRef.current;
       if (container && preResizeOffset === null && viewMode === 'continuous') {
-        anchorPage = lastReportedPageRef.current;
+        anchorPage = getFocalPageInContainer(container, lastReportedPageRef.current);
+        lastReportedPageRef.current = anchorPage;
         const pageEl = document.getElementById(`pdf-page-${anchorPage}`);
         if (pageEl) {
           preResizeOffset = pageEl.getBoundingClientRect().top - container.getBoundingClientRect().top;
@@ -454,7 +505,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       return;
     }
 
-    const targetPage = fitPageRequest.page;
+    // The toolbar's current-page prop can trail the scroll position by a render.
+    // Fit the page visibly being read, then center that same page after scaling.
+    const targetPage = viewMode === 'continuous'
+      ? getFocalPageInContainer(container, lastReportedPageRef.current)
+      : fitPageRequest.page;
     lastFitPageRequestRef.current = fitPageRequest.id;
     isProgrammaticScrollRef.current = true;
     if (programmaticScrollTimerRef.current) {
@@ -476,7 +531,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
       const roundedZoom = Number(fittedZoom.toFixed(2));
       if (roundedZoom === zoom) {
-        centerFittedPage(targetPage);
+        centerFittedPage(targetPage, true);
       } else {
         pendingFitScrollPageRef.current = targetPage;
         onChangeZoom(roundedZoom);
@@ -510,7 +565,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     if (pageNumber === null) return;
 
     pendingFitScrollPageRef.current = null;
-    centerFittedPage(pageNumber);
+    centerFittedPage(pageNumber, true);
   }, [centerFittedPage, zoom]);
 
   // High-performance, jitter-free scroll listener for active page detection

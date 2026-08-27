@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  findFocalPageNumber,
   keepViewerPositionAfter,
   shouldRestoreViewerPosition,
 } from '../src/utils/viewerPosition';
@@ -32,5 +33,20 @@ describe('PDF viewer position restoration', () => {
     scheduled.forEach((restore) => restore());
 
     expect(viewer).toEqual({ scrollLeft: 125, scrollTop: 8450 });
+  });
+
+  test('uses the page at the reading focal line when fitting after a resize', () => {
+    const page = findFocalPageNumber(
+      100,
+      800,
+      [
+        { pageNumber: 17, top: -350, bottom: 50 },
+        { pageNumber: 18, top: 72, bottom: 672 },
+        { pageNumber: 19, top: 694, bottom: 1294 },
+      ],
+      17
+    );
+
+    expect(page).toBe(18);
   });
 });
