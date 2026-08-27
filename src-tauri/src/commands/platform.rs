@@ -1,6 +1,19 @@
+use crate::commands::error::{command_error, CommandResult};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::process::Command;
+
+#[tauri::command]
+#[specta::specta]
+pub fn toggle_fullscreen_window(window: tauri::Window) -> CommandResult<bool> {
+    let is_fullscreen = window
+        .is_fullscreen()
+        .map_err(|e| command_error(anyhow::anyhow!(e)))?;
+    window
+        .set_fullscreen(!is_fullscreen)
+        .map_err(|e| command_error(anyhow::anyhow!(e)))?;
+    Ok(!is_fullscreen)
+}
 
 pub(super) fn home_directory() -> Option<PathBuf> {
     std::env::var_os("HOME")

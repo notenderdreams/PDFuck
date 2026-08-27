@@ -35,23 +35,34 @@ interface KeyboardShortcutOptions {
 export function useKeyboard(options: KeyboardShortcutOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input, textarea or contenteditable
       const target = e.target as HTMLElement | null;
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter';
+
+      // Always allow Cmd/Ctrl + Enter to toggle app fullscreen (unless typing in a multiline textarea)
+      if (isCmdOrCtrl && isEnter) {
+        if (!target || target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          options.onToggleFullscreen?.();
+          return;
+        }
+      }
+
+      // Don't intercept other shortcuts if user is typing in an input, textarea or contenteditable
       if (
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.isContentEditable)
       ) {
-        // Only allow Escape to close or Enter inside inputs
+        // Only allow Escape to close inside inputs
         if (e.key === 'Escape') {
           target.blur();
         }
         return;
       }
 
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      const cmdOrCtrl = isCmdOrCtrl;
 
       if (cmdOrCtrl) {
         if (e.shiftKey && e.key === '1') {
