@@ -176,6 +176,7 @@ export interface DocumentInfo {
   fingerprint?: string;
   title?: string;
   author?: string;
+  libraryId?: string;
 }
 
 export interface SearchMatch {
@@ -196,6 +197,10 @@ export interface DashboardPdfItem {
   annotationCount?: number;
   numPages?: number;
   isFavorite?: boolean;
+  availability?: 'available' | 'missing' | 'changed';
+  sourceType?: 'file' | 'folder';
+  folderId?: string;
+  folderIds?: string[];
 }
 
 export interface SavedDirectory {

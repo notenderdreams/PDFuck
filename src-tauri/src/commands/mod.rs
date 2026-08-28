@@ -2,6 +2,7 @@ mod ai;
 mod clipboard;
 mod documents;
 mod error;
+mod library;
 mod platform;
 
 pub use ai::AiRunnerState;
@@ -17,6 +18,17 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         documents::read_file_from_path,
         documents::select_directory_dialog,
         documents::scan_directory_pdfs,
+        library::list_library,
+        library::import_library_pdf_dialog,
+        library::import_library_folder_dialog,
+        library::refresh_library,
+        library::remove_library_folder,
+        library::remove_library_document,
+        library::set_library_favorite,
+        library::touch_library_document,
+        library::update_library_document_state,
+        library::migrate_legacy_library,
+        library::relink_library_document,
         platform::get_default_directories,
         clipboard::copy_image_to_clipboard,
         clipboard::copy_text_to_clipboard,

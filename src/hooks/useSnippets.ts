@@ -3,13 +3,14 @@ import type { SnippetDividerEntry, SnippetEntry, SnippetImageEntry } from '../ut
 
 const STORAGE_PREFIX = 'pdfuck_snippets_';
 
-export function useSnippets(docKey: string) {
+export function useSnippets(docKey: string, fallbackKeys: string[] = []) {
   const [snippets, setSnippets] = useState<SnippetEntry[]>([]);
   const [history, setHistory] = useState<SnippetEntry[][]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const isLoadedRef = useRef(false);
   const snippetsRef = useRef<SnippetEntry[]>([]);
   snippetsRef.current = snippets;
+  const storageIdentity = [docKey, ...fallbackKeys].join('\u0000');
 
   // Load saved snippets for the current document
   useEffect(() => {
@@ -18,11 +19,14 @@ export function useSnippets(docKey: string) {
 
     let loaded: SnippetEntry[] = [];
     try {
-      const raw = localStorage.getItem(`${STORAGE_PREFIX}${docKey}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          loaded = parsed;
+      for (const key of [docKey, ...fallbackKeys]) {
+        const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            loaded = parsed;
+            break;
+          }
         }
       }
     } catch {
@@ -34,7 +38,12 @@ export function useSnippets(docKey: string) {
     setHistory([loaded]);
     setHistoryIndex(0);
     isLoadedRef.current = true;
-  }, [docKey]);
+    if (loaded.length > 0) {
+      try {
+        localStorage.setItem(`${STORAGE_PREFIX}${docKey}`, JSON.stringify(loaded));
+      } catch {}
+    }
+  }, [docKey, storageIdentity]);
 
   // Persist snippets whenever they change
   useEffect(() => {

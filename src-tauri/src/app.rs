@@ -1,7 +1,9 @@
 use crate::commands::{self, AiRunnerState};
+use crate::library::LibraryState;
 use anyhow::{Context, Result};
 #[cfg(any(debug_assertions, test))]
 use std::path::PathBuf;
+use tauri::Manager;
 
 #[cfg(any(debug_assertions, test))]
 fn bindings_path() -> PathBuf {
@@ -35,6 +37,12 @@ pub fn run() -> Result<()> {
         .plugin(tauri_plugin_opener::init())
         .manage(AiRunnerState::default())
         .setup(|app| {
+            let database_path = app
+                .path()
+                .app_data_dir()
+                .context("failed to resolve application data directory")?
+                .join("library.sqlite3");
+            app.manage(LibraryState::open(&database_path)?);
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

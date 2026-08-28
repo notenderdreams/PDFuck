@@ -72,6 +72,7 @@ export function usePDFDocument() {
           fileSize: bytes.byteLength,
           title: infoObj.Title || fileName,
           author: infoObj.Author || undefined,
+          libraryId: documentKeyOverride,
           fingerprint:
             documentFingerprintOverride ||
             (loadedDoc as unknown as { fingerprint?: string }).fingerprint ||

@@ -20,12 +20,13 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
   const skipAutosaveForRef = useRef<Annotation[] | null>(null);
 
   const fallbackKeys = useMemo(() => {
+    if (docInfo?.libraryId) return [];
     const keys: string[] = [];
     if (docInfo?.filePath) keys.push(docInfo.filePath);
     if (docInfo?.fileName) keys.push(docInfo.fileName);
     if (docInfo?.fingerprint) keys.push(docInfo.fingerprint);
     return keys;
-  }, [docInfo?.filePath, docInfo?.fileName, docInfo?.fingerprint]);
+  }, [docInfo?.filePath, docInfo?.fileName, docInfo?.fingerprint, docInfo?.libraryId]);
   const storageIdentity = useMemo(
     () => [docKey, ...fallbackKeys].join('\u0000'),
     [docKey, fallbackKeys]
@@ -47,24 +48,26 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
     setHistoryIndex(0);
     setSaveStatus('saved');
     setLoadedIdentity(storageIdentity);
-
     // 2. Async load from IndexedDB for high-capacity payloads (images/stickers)
     let isCancelled = false;
     loadAnnotationRecordForDocAsync(docKey, fallbackKeys).then((asyncRecord) => {
-      if (
-        isCancelled ||
-        !asyncRecord ||
-        asyncRecord.updatedAt <= (syncRecord?.updatedAt ?? -1) ||
-        mutationVersionRef.current !== loadMutationVersion
-      ) {
-        return;
-      }
+      if (isCancelled || mutationVersionRef.current !== loadMutationVersion) return;
 
-      annotationsRef.current = asyncRecord.annotations;
-      skipAutosaveForRef.current = asyncRecord.annotations;
-      setAnnotations(asyncRecord.annotations);
-      setHistory([asyncRecord.annotations]);
-      setHistoryIndex(0);
+      const newestRecord =
+        asyncRecord && asyncRecord.updatedAt > (syncRecord?.updatedAt ?? -1)
+          ? asyncRecord
+          : syncRecord;
+      if (newestRecord === asyncRecord && asyncRecord) {
+        annotationsRef.current = asyncRecord.annotations;
+        skipAutosaveForRef.current = asyncRecord.annotations;
+        setAnnotations(asyncRecord.annotations);
+        setHistory([asyncRecord.annotations]);
+        setHistoryIndex(0);
+      }
+      if (newestRecord && newestRecord.annotations.length > 0) {
+        // Materialize only after choosing the newest localStorage/IndexedDB record.
+        void saveAnnotationsForDoc(docKey, newestRecord.annotations, fallbackKeys);
+      }
     });
 
     return () => {

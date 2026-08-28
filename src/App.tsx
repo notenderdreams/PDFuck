@@ -27,7 +27,7 @@ import {
   saveHighlightPalette,
   saveViewMode,
 } from './utils/storage';
-import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf, toggleFullscreenWindow, exitFullscreenWindow } from './utils/tauriBridge';
+import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf, tauriUpdateLibraryDocumentState, toggleFullscreenWindow, exitFullscreenWindow } from './utils/tauriBridge';
 import {
   extractPageText,
   copyTextToClipboard,
@@ -202,6 +202,15 @@ export function App() {
     canRedo: canRedoAnnotations,
   } = useAnnotations(docKey, docInfo);
 
+  useEffect(() => {
+    if (!isTauri() || !docInfo?.libraryId) return;
+    const timer = window.setTimeout(() => {
+      void tauriUpdateLibraryDocumentState(docInfo.libraryId!, currentPage, annotations.length)
+        .catch((error) => console.warn('Failed to update library reading state:', error));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [annotations.length, currentPage, docInfo?.libraryId]);
+
   const aiExplanations = useAiExplanations({
     pdfDoc,
     documentName: docInfo?.fileName || 'document.pdf',
@@ -289,10 +298,11 @@ export function App() {
       data: Uint8Array | ArrayBuffer,
       fileName: string,
       filePath?: string,
-      initialPage?: number
+      initialPage?: number,
+      documentId?: string
     ) => {
       closeCompanionPdf();
-      const loaded = await loadPdf(data, fileName, filePath, initialPage);
+      const loaded = await loadPdf(data, fileName, filePath, initialPage, documentId);
       if (loaded) setCurrentScreen('reader');
       else showToast(`Could not open ${fileName}.`, true);
       return loaded;
@@ -302,14 +312,15 @@ export function App() {
 
   const openPdfPairInReader = useCallback(
     async (
-      primary: { data: Uint8Array; fileName: string; filePath?: string; initialPageNumber?: number },
+      primary: { data: Uint8Array; fileName: string; filePath?: string; initialPageNumber?: number; documentId?: string },
       companion: { data: Uint8Array; fileName: string; filePath?: string }
     ) => {
       const primaryOpened = await openPdfInReader(
         primary.data,
         primary.fileName,
         primary.filePath,
-        primary.initialPageNumber
+        primary.initialPageNumber,
+        primary.documentId
       );
       if (!primaryOpened) return false;
       return loadCompanionPdf(companion.data, companion.fileName);

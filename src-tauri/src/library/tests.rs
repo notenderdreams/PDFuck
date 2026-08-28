@@ -1,0 +1,89 @@
+use super::*;
+
+#[test]
+fn imported_documents_survive_missing_files_and_folder_refresh() {
+    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let database = root.join("library.sqlite3");
+    let folder = root.join("pdfs");
+    fs::create_dir(&folder).unwrap();
+    let pdf = folder.join("book.pdf");
+    let mut document = lopdf::Document::with_version("1.5");
+    let pages_id = document.new_object_id();
+    document.objects.insert(pages_id, lopdf::dictionary! { "Type" => "Pages", "Kids" => Vec::<lopdf::Object>::new(), "Count" => 0 }.into());
+    let catalog_id =
+        document.add_object(lopdf::dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    document.trailer.set("Root", catalog_id);
+    document.save(&pdf).unwrap();
+
+    let state = LibraryState::open(&database).unwrap();
+    let imported = state.import_folder(&root).unwrap();
+    assert_eq!(imported.documents.len(), 1);
+    let stable_id = imported.documents[0].id.clone();
+    let imported = state.import_folder(&folder).unwrap();
+    assert_eq!(imported.documents[0].id, stable_id);
+    assert_eq!(imported.documents[0].folder_ids.len(), 2);
+    fs::remove_file(&pdf).unwrap();
+    let refreshed = state.refresh().unwrap();
+    assert_eq!(refreshed.documents[0].id, stable_id);
+    assert!(matches!(
+        refreshed.documents[0].availability,
+        LibraryAvailability::Missing
+    ));
+
+    state.set_favorite(&stable_id, true).unwrap();
+    state.update_document_state(&stable_id, 7, 3).unwrap();
+    let first_folder_id = refreshed.folders[0].id.clone();
+    let partially_detached = state.remove_folder(&first_folder_id, true).unwrap();
+    assert!(matches!(
+        partially_detached.documents[0].source_type,
+        LibrarySource::Folder
+    ));
+    let second_folder_id = partially_detached.folders[0].id.clone();
+    let detached = state.remove_folder(&second_folder_id, true).unwrap();
+    assert!(detached.folders.is_empty());
+    assert_eq!(detached.documents[0].id, stable_id);
+    assert!(matches!(
+        detached.documents[0].source_type,
+        LibrarySource::File
+    ));
+    assert!(detached.documents[0].favorite);
+    assert_eq!(detached.documents[0].last_read_page, Some(7));
+    assert_eq!(detached.documents[0].annotation_count, Some(3));
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn legacy_migration_keeps_unavailable_paths() {
+    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let state = LibraryState::open(&root.join("library.sqlite3")).unwrap();
+    let missing_folder = root.join("offline-folder");
+    let missing_pdf = missing_folder.join("offline.pdf");
+    let migrated = state
+        .migrate_legacy(
+            vec![missing_folder.to_string_lossy().into_owned()],
+            vec![LegacyLibraryDocument {
+                file_path: missing_pdf.to_string_lossy().into_owned(),
+                file_size: 12_345,
+                modified_at: 67_890,
+                last_opened_at: Some(42),
+                last_read_page: Some(5),
+                annotation_count: Some(2),
+                num_pages: Some(10),
+                favorite: true,
+            }],
+        )
+        .unwrap();
+    assert_eq!(migrated.folders.len(), 1);
+    assert_eq!(migrated.documents.len(), 1);
+    assert!(matches!(
+        migrated.documents[0].availability,
+        LibraryAvailability::Missing
+    ));
+    assert_eq!(migrated.documents[0].file_size, 12_345);
+    assert_eq!(migrated.documents[0].modified_at, 67_890);
+    assert_eq!(migrated.documents[0].last_read_page, Some(5));
+    assert!(migrated.documents[0].favorite);
+    let _ = fs::remove_dir_all(root);
+}
