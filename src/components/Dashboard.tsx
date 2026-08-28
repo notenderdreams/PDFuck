@@ -24,6 +24,7 @@ import {
   isTauri,
   tauriScanDirectoryPdfs,
   tauriReadFile,
+  tauriListLibrary,
   tauriImportLibraryPdf,
   tauriImportLibraryFolder,
   tauriRefreshLibrary,
@@ -129,6 +130,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     saveLibraryFilter(activeFilter);
   }, [activeFilter]);
 
+  // If active filter is a specific folder that no longer exists in directories, fallback to all
+  useEffect(() => {
+    if (
+      activeFilter !== 'all' &&
+      activeFilter !== 'recent' &&
+      activeFilter !== 'favorites' &&
+      directories.length > 0 &&
+      !directories.some((d) => d.id === activeFilter)
+    ) {
+      setActiveFilter('all');
+    }
+  }, [activeFilter, directories]);
+
   // Persist library sorting preference
   useEffect(() => {
     saveLibrarySort(sortBy);
@@ -198,6 +212,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setPdfItems(allFound);
     setIsScanning(false);
   }, []);
+
+  // Refresh library snapshot whenever returning to Dashboard or on window focus
+  const refreshLibrarySnapshot = useCallback(async () => {
+    if (isTauri()) {
+      try {
+        const snapshot = await tauriListLibrary();
+        setDirectories(snapshot.directories);
+        setPdfItems(snapshot.documents);
+      } catch (error) {
+        console.error('Failed to refresh library snapshot:', error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void refreshLibrarySnapshot();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refreshLibrarySnapshot]);
 
   // Load the durable catalog, migrating the previous folder/recent lists once.
   useEffect(() => {
@@ -312,6 +347,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setPdfItems((items) => items.map((document) => document.id === item.id ? { ...document, lastOpenedAt: Date.now() } : document));
         await onOpenPdf(fileData.data, fileData.fileName, fileData.filePath, item.lastReadPage, item.id);
         return;
+      }
+
+      // If file was not readable at its path, offer relinking
+      const relinked = await tauriRelinkLibraryDocument(item.id);
+      if (relinked && relinked.filePath) {
+        setPdfItems((items) => items.map((document) => document.id === item.id ? relinked : document));
+        const relinkedFileData = await tauriReadFile(relinked.filePath);
+        if (relinkedFileData) {
+          await tauriTouchLibraryDocument(relinked.id, relinked.lastReadPage || 1);
+          setPdfItems((items) => items.map((document) => document.id === relinked.id ? { ...document, lastOpenedAt: Date.now() } : document));
+          await onOpenPdf(relinkedFileData.data, relinkedFileData.fileName, relinkedFileData.filePath, relinked.lastReadPage, relinked.id);
+        }
       }
     }
   };
@@ -607,7 +654,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <span>Recent Reads</span>
                 </div>
                 <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${activeFilter === 'recent' ? 'bg-blue-500/20 text-blue-400 font-bold' : 'text-zinc-500'}`}>
-                  {recentDocs.length}
+                  {combinedItems.filter((item) => (item.lastOpenedAt || 0) > 0).length}
                 </span>
               </button>
 

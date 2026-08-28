@@ -87,3 +87,34 @@ fn legacy_migration_keeps_unavailable_paths() {
     assert!(migrated.documents[0].favorite);
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn deleting_folder_can_remove_contained_documents() {
+    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let database = root.join("library.sqlite3");
+    let folder = root.join("pdfs");
+    fs::create_dir(&folder).unwrap();
+    let pdf = folder.join("sample.pdf");
+    let mut document = lopdf::Document::with_version("1.5");
+    let pages_id = document.new_object_id();
+    document.objects.insert(
+        pages_id,
+        lopdf::dictionary! { "Type" => "Pages", "Kids" => Vec::<lopdf::Object>::new(), "Count" => 0 }.into(),
+    );
+    let catalog_id =
+        document.add_object(lopdf::dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    document.trailer.set("Root", catalog_id);
+    document.save(&pdf).unwrap();
+
+    let state = LibraryState::open(&database).unwrap();
+    let imported = state.import_folder(&folder).unwrap();
+    assert_eq!(imported.folders.len(), 1);
+    assert_eq!(imported.documents.len(), 1);
+
+    let folder_id = imported.folders[0].id.clone();
+    let remaining = state.remove_folder(&folder_id, false).unwrap();
+    assert!(remaining.folders.is_empty());
+    assert!(remaining.documents.is_empty());
+    let _ = fs::remove_dir_all(root);
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -27,7 +27,18 @@ import {
   saveHighlightPalette,
   saveViewMode,
 } from './utils/storage';
-import { isTauri, tauriOpenPdf, tauriOpenImage, tauriWritePdf, tauriUpdateLibraryDocumentState, toggleFullscreenWindow, exitFullscreenWindow } from './utils/tauriBridge';
+import {
+  isTauri,
+  tauriOpenPdf,
+  tauriOpenImage,
+  tauriWritePdf,
+  tauriUpdateLibraryDocumentState,
+  tauriImportLibraryPdf,
+  tauriTouchLibraryDocument,
+  tauriReadFile,
+  toggleFullscreenWindow,
+  exitFullscreenWindow,
+} from './utils/tauriBridge';
 import {
   extractPageText,
   copyTextToClipboard,
@@ -218,6 +229,15 @@ export function App() {
     updateAnnotation,
   });
 
+  const snippetFallbackKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (docInfo?.filePath) keys.push(docInfo.filePath);
+    if (docInfo?.fileName) {
+      keys.push(`${docInfo.fileName}_${docInfo.numPages ?? 0}_${docInfo.fileSize ?? 0}`);
+    }
+    return keys;
+  }, [docInfo?.filePath, docInfo?.fileName, docInfo?.numPages, docInfo?.fileSize]);
+
   const {
     snippets,
     addSnippet,
@@ -232,7 +252,7 @@ export function App() {
     canUndo: canUndoSnippets,
     canRedo: canRedoSnippets,
     replaceSnippets,
-  } = useSnippets(docKey);
+  } = useSnippets(docKey, snippetFallbackKeys);
 
   const {
     settings: themeSettings,
@@ -331,15 +351,26 @@ export function App() {
   // Open PDF File (Desktop native dialog or Browser File Input fallback)
   const handleOpenPdf = async () => {
     if (isTauri()) {
-      const fileData = await tauriOpenPdf();
-      if (fileData) {
-        recordRecentDoc({
-          fileName: fileData.fileName,
-          filePath: fileData.filePath,
-          fileSize: fileData.data.byteLength,
-          modifiedTimestamp: Date.now(),
-        });
-        await openPdfInReader(fileData.data, fileData.fileName, fileData.filePath);
+      const imported = await tauriImportLibraryPdf();
+      if (imported && imported.filePath) {
+        const fileData = await tauriReadFile(imported.filePath);
+        if (fileData) {
+          await tauriTouchLibraryDocument(imported.id, imported.lastReadPage || 1);
+          recordRecentDoc({
+            fileName: fileData.fileName,
+            filePath: fileData.filePath,
+            fileSize: fileData.data.byteLength,
+            modifiedTimestamp: Date.now(),
+            lastReadPage: imported.lastReadPage || 1,
+          });
+          await openPdfInReader(
+            fileData.data,
+            fileData.fileName,
+            fileData.filePath,
+            imported.lastReadPage,
+            imported.id
+          );
+        }
       }
     } else {
       pdfInputRef.current?.click();

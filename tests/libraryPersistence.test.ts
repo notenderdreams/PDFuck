@@ -30,6 +30,7 @@ import {
   loadHighlightPalette,
   saveHighlightPalette,
   saveSavedDirectories,
+  migrateLegacySnippetsToStableKey,
 } from '../src/utils/storage';
 import { HIGHLIGHT_COLOR_PRESETS } from '../src/utils/highlightStyle';
 
@@ -102,5 +103,17 @@ describe('Library filter & folder selection persistence', () => {
       colors: [...HIGHLIGHT_COLOR_PRESETS],
       selectedIndex: 0,
     });
+  });
+
+  test('migrates legacy snippets to stable document key and cleans up fallback', () => {
+    const legacyKey = 'sample.pdf_5_12345';
+    const stableKey = 'doc-uuid-123';
+    const sampleSnippets = [{ id: 'snip1', type: 'image', dataUrl: 'data:...', pageNumber: 1 }];
+    localStorage.setItem(`pdfuck_snippets_${legacyKey}`, JSON.stringify(sampleSnippets));
+
+    migrateLegacySnippetsToStableKey(stableKey, legacyKey);
+
+    expect(localStorage.getItem(`pdfuck_snippets_${stableKey}`)).toBe(JSON.stringify(sampleSnippets));
+    expect(localStorage.getItem(`pdfuck_snippets_${legacyKey}`)).toBeNull();
   });
 });

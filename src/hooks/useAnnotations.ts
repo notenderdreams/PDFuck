@@ -20,13 +20,12 @@ export function useAnnotations(docKey: string, docInfo?: DocumentInfo | null) {
   const skipAutosaveForRef = useRef<Annotation[] | null>(null);
 
   const fallbackKeys = useMemo(() => {
-    if (docInfo?.libraryId) return [];
     const keys: string[] = [];
     if (docInfo?.filePath) keys.push(docInfo.filePath);
     if (docInfo?.fileName) keys.push(docInfo.fileName);
     if (docInfo?.fingerprint) keys.push(docInfo.fingerprint);
     return keys;
-  }, [docInfo?.filePath, docInfo?.fileName, docInfo?.fingerprint, docInfo?.libraryId]);
+  }, [docInfo?.filePath, docInfo?.fileName, docInfo?.fingerprint]);
   const storageIdentity = useMemo(
     () => [docKey, ...fallbackKeys].join('\u0000'),
     [docKey, fallbackKeys]
