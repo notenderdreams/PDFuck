@@ -375,7 +375,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
     <div
       ref={containerRef}
       id={`${pageIdPrefix}-${pageNumber}`}
-      data-pdf-page-number={isReadOnly ? undefined : pageNumber}
+      data-pdf-page-number={pageNumber}
       onMouseMove={isReadOnly ? undefined : handleMouseMove}
       onDragOver={isReadOnly ? undefined : handleDragOver}
       onDragLeave={isReadOnly ? undefined : handleDragLeave}

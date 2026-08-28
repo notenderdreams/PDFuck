@@ -1165,7 +1165,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             >
               <div className={`z-20 flex shrink-0 items-center justify-center gap-2 border-b px-3 py-2 text-center text-[11px] font-medium backdrop-blur-xl ${
                 activePane === 'primary'
-                  ? 'border-blue-400/60 bg-blue-500/10 text-blue-300'
+                  ? 'border-blue-400/60 bg-blue-500/20 text-white font-semibold shadow-sm'
                   : 'border-[var(--border)] bg-[var(--popover)]/90 text-[var(--foreground)]'
               }`}>
                 <span className="truncate">{primaryFileName}</span>
@@ -1239,7 +1239,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             >
               <div className={`z-20 flex shrink-0 items-center justify-center gap-2 border-b px-3 py-2 text-center text-[11px] font-medium backdrop-blur-xl ${
                 activePane === 'companion'
-                  ? 'border-blue-400/60 bg-blue-500/10 text-blue-300'
+                  ? 'border-blue-400/60 bg-blue-500/20 text-white font-semibold shadow-sm'
                   : 'border-[var(--border)] bg-[var(--popover)]/90 text-[var(--foreground)]'
               }`}>
                 <span className="truncate">{companionFileName || 'Companion PDF'}</span>

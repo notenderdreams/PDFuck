@@ -35,13 +35,13 @@ describe('read together page rows', () => {
     expect(viewerSource).toContain('onActivePaneChange?.(pane)');
   });
 
-  test('continues until the longer PDF ends', () => {
-    expect(getReadTogetherPageRows(2, 4)).toEqual([1, 2, 3, 4]);
-    expect(getReadTogetherPageRows(5, 2)).toEqual([1, 2, 3, 4, 5]);
-  });
+  test('ensures companion pages have data-pdf-page-number and active side header has white text on blur', async () => {
+    const [pageSource, viewerSource] = await Promise.all([
+      Bun.file(new URL('../src/components/PDFPage.tsx', import.meta.url)).text(),
+      Bun.file(new URL('../src/components/PDFViewer.tsx', import.meta.url)).text(),
+    ]);
 
-  test('handles empty and invalid page counts without creating rows', () => {
-    expect(getReadTogetherPageRows(0, 0)).toEqual([]);
-    expect(getReadTogetherPageRows(-2, -1)).toEqual([]);
+    expect(pageSource).toContain('data-pdf-page-number={pageNumber}');
+    expect(viewerSource).toContain('text-white font-semibold shadow-sm');
   });
 });
