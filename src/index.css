@@ -233,6 +233,13 @@
     transform 100ms ease;
 }
 
+.page-context-menu__item:disabled,
+.page-context-menu__item[aria-disabled="true"] {
+  opacity: 0.42;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 .page-context-menu__icon {
   display: inline-flex;
   width: 16px;

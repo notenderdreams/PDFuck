@@ -21,4 +21,17 @@ describe('PDF text selection', () => {
     expect(selectionRule).toContain('rgba(0, 122, 255');
     expect(selectionRule).not.toContain('rgba(255, 255, 255');
   });
+
+  test('offers "Copy text" in reader context menu to copy selected text', async () => {
+    const [contextMenuSource, pageSource] = await Promise.all([
+      projectFile('src/components/PageContextMenu.tsx'),
+      projectFile('src/components/PDFPage.tsx'),
+    ]);
+
+    expect(contextMenuSource).toContain('Copy text');
+    expect(contextMenuSource).toContain('onCopySelectedText');
+    expect(contextMenuSource).toContain('hasSelectedText');
+    expect(pageSource).toContain('onCopySelectedText');
+    expect(pageSource).toContain('handleCopySelectedText');
+  });
 });

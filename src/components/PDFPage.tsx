@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import { TextLayer } from 'pdfjs-dist';
 import { AnnotationCanvas } from './AnnotationCanvas';
@@ -8,6 +8,7 @@ import { AiExplanationOverlay } from './AiExplanationOverlay';
 import { PageContextMenu } from './PageContextMenu';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { usesInvertedColorSpace } from '../utils/readingTheme';
+import { copyTextToClipboard } from '../utils/pageExtractor';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import type {
   Annotation,
@@ -54,6 +55,7 @@ interface PDFPageProps {
   onCopyPageText: (pageNumber: number) => void;
   onCopyPageImage: (pageNumber: number) => void;
   onAskAiAboutPage: (pageNumber: number) => void;
+  onCopySelectedText?: (text: string) => void;
   isFlush?: boolean;
   isReadOnly?: boolean;
   pageIdPrefix?: string;
@@ -93,6 +95,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   onCopyPageText,
   onCopyPageImage,
   onAskAiAboutPage,
+  onCopySelectedText,
   isFlush = false,
   isReadOnly = false,
   pageIdPrefix = 'pdf-page',
@@ -335,9 +338,15 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
     (a) => a.pageNumber === pageNumber && a.type === 'ai-explanation'
   ) as AiExplanationAnnotation[];
 
+  const [contextMenuSelectedText, setContextMenuSelectedText] = useState<string>('');
+
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    const selection = window.getSelection();
+    const text = selection ? selection.toString().trim() : '';
+    setContextMenuSelectedText(text);
+
     if (containerRef.current && onCursorMove) {
       const rect = containerRef.current.getBoundingClientRect();
       const nx = Math.max(0, Math.min((event.clientX - rect.left) / pageDimensions.width, 1));
@@ -345,12 +354,22 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       onCursorMove(pageNumber, nx, ny);
     }
     const menuWidth = 224;
-    const menuHeight = 150;
+    const menuHeight = 180;
     setContextMenuPosition({
       x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
       y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
     });
   };
+
+  const handleCopySelectedText = useCallback(async () => {
+    const textToCopy = contextMenuSelectedText || window.getSelection()?.toString().trim() || '';
+    if (!textToCopy) return;
+    if (onCopySelectedText) {
+      onCopySelectedText(textToCopy);
+    } else {
+      await copyTextToClipboard(textToCopy);
+    }
+  }, [contextMenuSelectedText, onCopySelectedText]);
 
   return (
     <div
@@ -374,7 +393,9 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       {!isReadOnly && contextMenuPosition && (
         <PageContextMenu
           position={contextMenuPosition}
+          hasSelectedText={Boolean(contextMenuSelectedText || window.getSelection()?.toString().trim())}
           onClose={() => setContextMenuPosition(null)}
+          onCopySelectedText={handleCopySelectedText}
           onDeletePage={() => onDeletePage(pageNumber)}
           onCopyPageText={() => onCopyPageText(pageNumber)}
           onCopyPageImage={() => onCopyPageImage(pageNumber)}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Copy, Image, Sparkles, Trash2 } from 'lucide-react';
+import { Copy, FileText, Image, Sparkles, Trash2 } from 'lucide-react';
 
 interface PageContextMenuProps {
   position: { x: number; y: number };
@@ -8,6 +8,8 @@ interface PageContextMenuProps {
   onCopyPageText: () => void;
   onCopyPageImage: () => void;
   onAskAi: () => void;
+  onCopySelectedText?: () => void;
+  hasSelectedText?: boolean;
 }
 
 export const PageContextMenu: React.FC<PageContextMenuProps> = ({
@@ -17,6 +19,8 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
   onCopyPageText,
   onCopyPageImage,
   onAskAi,
+  onCopySelectedText,
+  hasSelectedText = false,
 }) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -61,9 +65,21 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <button type="button" role="menuitem" className={itemClass} onClick={run(onCopyPageText)}>
+      <button
+        type="button"
+        role="menuitem"
+        className={itemClass}
+        disabled={!hasSelectedText}
+        onClick={hasSelectedText && onCopySelectedText ? run(onCopySelectedText) : undefined}
+      >
         <span className="page-context-menu__icon" aria-hidden="true">
           <Copy />
+        </span>
+        <span>Copy text</span>
+      </button>
+      <button type="button" role="menuitem" className={itemClass} onClick={run(onCopyPageText)}>
+        <span className="page-context-menu__icon" aria-hidden="true">
+          <FileText />
         </span>
         <span>Copy page text</span>
       </button>

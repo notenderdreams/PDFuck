@@ -629,7 +629,27 @@ export function App() {
     [pdfDoc, currentPage, showToast]
   );
 
-  // Copy active page directly to clipboard as image
+  // Copy selected text directly to clipboard
+  const handleCopySelectedText = useCallback(
+    async (text: string) => {
+      if (!text) return;
+      try {
+        const copied = await copyTextToClipboard(text);
+        if (copied) {
+          const wordCount = text.split(/\s+/).filter(Boolean).length;
+          showToast(`Copied ${wordCount} ${wordCount === 1 ? 'word' : 'words'} to clipboard!`);
+        } else {
+          showToast('Could not copy to clipboard.', true);
+        }
+      } catch (err) {
+        console.error('Failed to copy selected text:', err);
+        showToast('Failed to copy text.', true);
+      }
+    },
+    [showToast]
+  );
+
+  // Copy active page text to clipboard as image
   const handleCopyPageJpg = useCallback(
     async (pageParam?: number | unknown) => {
       const pageNumber = typeof pageParam === 'number' && !isNaN(pageParam) ? pageParam : currentPage;
@@ -1230,6 +1250,7 @@ export function App() {
                 onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
                 onCloseAi={aiExplanations.close}
                 onDeletePage={requestDeletePage}
+                onCopySelectedText={(text) => void handleCopySelectedText(text)}
                 onCopyPageText={(pageNumber) => void handleCopyPageText(pageNumber)}
                 onCopyPageImage={(pageNumber) => void handleCopyPageJpg(pageNumber)}
                 onAskAiAboutPage={handleAskAiAboutPage}
