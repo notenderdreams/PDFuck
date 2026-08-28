@@ -9,10 +9,20 @@ const STORAGE_KEYS = {
   FAVORITES: 'pdfuck_favorite_doc_ids',
   ANNOTATIONS_PREFIX: 'pdfuck_annotations_',
   LAST_PAGE_PREFIX: 'pdfuck_last_page_',
+  LAST_ACTIVE_DOC: 'pdfuck_last_active_doc',
   LIBRARY_FILTER: 'pdfuck_library_active_filter',
   LIBRARY_SORT: 'pdfuck_library_sort_by',
   HIGHLIGHT_PALETTE: 'pdfuck_highlight_palette',
 };
+
+export interface LastActiveDocument {
+  documentId?: string;
+  fileName: string;
+  filePath?: string;
+  lastReadPage: number;
+  numPages?: number;
+  timestamp: number;
+}
 
 export interface HighlightPaletteSettings {
   colors: string[];
@@ -21,8 +31,9 @@ export interface HighlightPaletteSettings {
 
 // --- IndexedDB Engine for Large Annotation Payloads (Images, Stickers, Ink) ---
 const IDB_NAME = 'pdfuck_database';
-const IDB_VERSION = 1;
+const IDB_VERSION = 2;
 const IDB_STORE_ANNOTATIONS = 'annotations_store';
+const IDB_STORE_ACTIVE_PDF = 'active_pdf_store';
 
 export interface StoredAnnotationRecord {
   annotations: Annotation[];
@@ -46,6 +57,9 @@ function openIDB(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains(IDB_STORE_ANNOTATIONS)) {
         db.createObjectStore(IDB_STORE_ANNOTATIONS, { keyPath: 'docKey' });
+      }
+      if (!db.objectStoreNames.contains(IDB_STORE_ACTIVE_PDF)) {
+        db.createObjectStore(IDB_STORE_ACTIVE_PDF, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -129,6 +143,74 @@ async function idbDeleteAnnotations(docKey: string): Promise<void> {
     });
     db.close();
   } catch {}
+}
+
+export async function idbSaveActivePdf(data: Uint8Array, fileName: string): Promise<boolean> {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE_ACTIVE_PDF, 'readwrite');
+    const store = tx.objectStore(IDB_STORE_ACTIVE_PDF);
+    store.put({ id: 'active_pdf', data, fileName, updatedAt: Date.now() });
+    return new Promise((resolve) => {
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve(false);
+      };
+    });
+  } catch {
+    return false;
+  }
+}
+
+export async function idbLoadActivePdf(): Promise<{ data: Uint8Array; fileName: string } | null> {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE_ACTIVE_PDF, 'readonly');
+    const store = tx.objectStore(IDB_STORE_ACTIVE_PDF);
+    const request = store.get('active_pdf');
+    return new Promise((resolve) => {
+      request.onsuccess = () => {
+        const res = request.result;
+        db.close();
+        if (res && res.data) {
+          resolve({ data: res.data, fileName: res.fileName || 'document.pdf' });
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => {
+        db.close();
+        resolve(null);
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function idbClearActivePdf(): Promise<boolean> {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE_ACTIVE_PDF, 'readwrite');
+    const store = tx.objectStore(IDB_STORE_ACTIVE_PDF);
+    store.delete('active_pdf');
+    return new Promise((resolve) => {
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve(false);
+      };
+    });
+  } catch {
+    return false;
+  }
 }
 
 // --- Theme Settings Storage ---
@@ -370,6 +452,32 @@ export function loadLastPageForDoc(docKey: string, fallbackKey?: string): number
   } catch {
     return 1;
   }
+}
+
+export function saveLastActiveDoc(info: LastActiveDocument): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE_DOC, JSON.stringify(info));
+  } catch {}
+}
+
+export function loadLastActiveDoc(): LastActiveDocument | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.LAST_ACTIVE_DOC);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof parsed.fileName === 'string') {
+      return parsed as LastActiveDocument;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLastActiveDoc(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVE_DOC);
+  } catch {}
 }
 
 // --- Dashboard & Library Storage ---

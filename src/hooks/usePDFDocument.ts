@@ -2,7 +2,12 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { pdfjsLib } from '../utils/pdfWorker';
 import type { DocumentInfo, PDFOutlineItem, SearchMatch } from '../utils/types';
-import { loadLastPageForDoc, saveLastPageForDoc, updateRecentDocPageCount } from '../utils/storage';
+import {
+  loadLastPageForDoc,
+  saveLastActiveDoc,
+  saveLastPageForDoc,
+  updateRecentDocPageCount,
+} from '../utils/storage';
 
 export function usePDFDocument() {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -115,6 +120,14 @@ export function usePDFDocument() {
         const initialPage = savedPage && savedPage <= loadedDoc.numPages ? savedPage : 1;
         setCurrentPage(initialPage);
         saveLastPageForDoc(key, initialPage, fileName, filePath);
+        saveLastActiveDoc({
+          documentId: documentKeyOverride,
+          fileName,
+          filePath,
+          lastReadPage: initialPage,
+          numPages: loadedDoc.numPages,
+          timestamp: Date.now(),
+        });
         setSearchResults([]);
         setCurrentMatchIndex(-1);
         setIsSearching(false);
@@ -136,6 +149,14 @@ export function usePDFDocument() {
       const clamped = Math.max(1, Math.min(newPage, pdfDoc.numPages));
       setCurrentPage(clamped);
       saveLastPageForDoc(docKey, clamped, docInfo?.fileName, docInfo?.filePath);
+      saveLastActiveDoc({
+        documentId: docInfo?.libraryId,
+        fileName: docInfo?.fileName || 'document.pdf',
+        filePath: docInfo?.filePath,
+        lastReadPage: clamped,
+        numPages: pdfDoc.numPages,
+        timestamp: Date.now(),
+      });
     },
     [pdfDoc, docKey, docInfo]
   );

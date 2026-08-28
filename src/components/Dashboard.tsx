@@ -56,6 +56,7 @@ interface DashboardProps {
     companion: { data: Uint8Array; fileName: string; filePath?: string }
   ) => Promise<boolean>;
   onSwitchToReader: () => void;
+  onResumeReading?: () => void;
   hasActiveDoc: boolean;
   activeDocName?: string;
   isDarkTheme: boolean;
@@ -83,6 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenPdf,
   onOpenPdfPair,
   onSwitchToReader,
+  onResumeReading,
   hasActiveDoc,
   activeDocName,
   isDarkTheme,
@@ -938,7 +940,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Floating Circular Resume Reading Button (Bottom Right) */}
       {hasActiveDoc && (
         <button
-          onClick={onSwitchToReader}
+          onClick={onResumeReading || onSwitchToReader}
           className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full flex items-center justify-center text-white bg-gradient-to-b from-[#3b99ff] to-[#0066eb] shadow-xl hover:scale-108 active:scale-95 transition-all cursor-pointer border border-white/25 group"
           title={`Resume Reading: ${activeDocName}`}
           aria-label={`Resume Reading: ${activeDocName}`}

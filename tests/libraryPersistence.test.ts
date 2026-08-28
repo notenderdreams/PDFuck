@@ -30,6 +30,9 @@ import {
   loadHighlightPalette,
   saveHighlightPalette,
   saveSavedDirectories,
+  saveLastActiveDoc,
+  loadLastActiveDoc,
+  clearLastActiveDoc,
 } from '../src/utils/storage';
 import { HIGHLIGHT_COLOR_PRESETS } from '../src/utils/highlightStyle';
 
@@ -102,5 +105,24 @@ describe('Library filter & folder selection persistence', () => {
       colors: [...HIGHLIGHT_COLOR_PRESETS],
       selectedIndex: 0,
     });
+  });
+
+  test('persists and restores last active reading document across app sessions', () => {
+    expect(loadLastActiveDoc()).toBeNull();
+
+    const activeDoc = {
+      documentId: 'doc-uuid-456',
+      fileName: 'thesis.pdf',
+      filePath: '/path/to/thesis.pdf',
+      lastReadPage: 18,
+      numPages: 120,
+      timestamp: 123456789,
+    };
+
+    saveLastActiveDoc(activeDoc);
+    expect(loadLastActiveDoc()).toEqual(activeDoc);
+
+    clearLastActiveDoc();
+    expect(loadLastActiveDoc()).toBeNull();
   });
 });

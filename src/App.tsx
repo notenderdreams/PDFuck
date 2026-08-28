@@ -21,11 +21,17 @@ import { usesInvertedColorSpace } from './utils/readingTheme';
 import { pdfjsLib } from './utils/pdfWorker';
 import { useKeyboard } from './hooks/useKeyboard';
 import {
+  clearLastActiveDoc,
+  idbLoadActivePdf,
+  idbSaveActivePdf,
   loadHighlightPalette,
+  loadLastActiveDoc,
   loadViewMode,
   recordRecentDoc,
   saveHighlightPalette,
+  saveLastActiveDoc,
   saveViewMode,
+  type LastActiveDocument,
 } from './utils/storage';
 import {
   isTauri,
@@ -313,6 +319,23 @@ export function App() {
     saveViewMode(mode);
   };
 
+  const [lastActiveDoc, setLastActiveDoc] = useState<LastActiveDocument | null>(() => loadLastActiveDoc());
+
+  useEffect(() => {
+    if (docInfo && pdfDoc) {
+      const active: LastActiveDocument = {
+        documentId: docInfo.libraryId,
+        fileName: docInfo.fileName,
+        filePath: docInfo.filePath,
+        lastReadPage: currentPage,
+        numPages: pdfDoc.numPages,
+        timestamp: Date.now(),
+      };
+      setLastActiveDoc(active);
+      saveLastActiveDoc(active);
+    }
+  }, [docInfo, pdfDoc, currentPage]);
+
   const openPdfInReader = useCallback(
     async (
       data: Uint8Array | ArrayBuffer,
@@ -322,6 +345,8 @@ export function App() {
       documentId?: string
     ) => {
       closeCompanionPdf();
+      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+      void idbSaveActivePdf(bytes, fileName);
       const loaded = await loadPdf(data, fileName, filePath, initialPage, documentId);
       if (loaded) setCurrentScreen('reader');
       else showToast(`Could not open ${fileName}.`, true);
@@ -329,6 +354,51 @@ export function App() {
     },
     [closeCompanionPdf, loadPdf, showToast]
   );
+
+  const handleResumeReading = useCallback(async () => {
+    if (pdfDoc) {
+      setCurrentScreen('reader');
+      return;
+    }
+    const targetDoc = lastActiveDoc || loadLastActiveDoc();
+    if (!targetDoc) return;
+
+    try {
+      if (isTauri() && targetDoc.filePath) {
+        const fileData = await tauriReadFile(targetDoc.filePath);
+        if (fileData) {
+          if (targetDoc.documentId) {
+            await tauriTouchLibraryDocument(targetDoc.documentId, targetDoc.lastReadPage);
+          }
+          const loaded = await openPdfInReader(
+            fileData.data,
+            fileData.fileName,
+            fileData.filePath,
+            targetDoc.lastReadPage,
+            targetDoc.documentId
+          );
+          if (loaded) return;
+        }
+        showToast(`Could not locate "${targetDoc.fileName}".`, true);
+      } else {
+        const cached = await idbLoadActivePdf();
+        if (cached && cached.data) {
+          const loaded = await openPdfInReader(
+            cached.data,
+            cached.fileName,
+            undefined,
+            targetDoc.lastReadPage,
+            targetDoc.documentId
+          );
+          if (loaded) return;
+        }
+        showToast('Please open a PDF to start reading.', true);
+      }
+    } catch (err) {
+      console.error('Failed to resume reading last document:', err);
+      showToast('Failed to reopen document.', true);
+    }
+  }, [pdfDoc, lastActiveDoc, openPdfInReader, showToast]);
 
   const openPdfPairInReader = useCallback(
     async (
@@ -1083,10 +1153,11 @@ export function App() {
       {/* VIEW 1: DASHBOARD & SAVED DIRECTORIES LIBRARY */}
       {currentScreen === 'dashboard' ? (
         <Dashboard
-          hasActiveDoc={!!pdfDoc}
-          activeDocName={docInfo?.fileName}
+          hasActiveDoc={Boolean(pdfDoc || lastActiveDoc)}
+          activeDocName={docInfo?.fileName || lastActiveDoc?.fileName}
           isDarkTheme={isDarkTheme}
           onToggleTheme={toggleInvert}
+          onResumeReading={handleResumeReading}
           onSwitchToReader={() => setCurrentScreen('reader')}
           onOpenPdf={openPdfInReader}
           onOpenPdfPair={openPdfPairInReader}
