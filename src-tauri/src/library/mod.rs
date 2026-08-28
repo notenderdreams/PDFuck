@@ -13,8 +13,8 @@ mod scanner;
 #[cfg(test)]
 mod tests;
 use migrations::migrations;
-pub use models::{LegacyLibraryDocument, LibraryDocument, LibrarySnapshot};
 use models::{LibraryAvailability, LibraryFolder, LibrarySource};
+pub use models::{LibraryDocument, LibrarySnapshot};
 use scanner::{
     canonical_path, file_name, modified_ms, now_ms, pdf_metadata, scan_pdfs, PdfMetadata,
 };
@@ -34,7 +34,27 @@ impl LibraryState {
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
-        migrations().to_latest(&mut connection)?;
+        if let Err(err) = migrations().to_latest(&mut connection) {
+            eprintln!(
+                "Failed to apply migrations ({err}), recreating library database at {}",
+                path.display()
+            );
+            drop(connection);
+            let _ = fs::remove_file(path);
+            let _ = fs::remove_file(format!("{}-wal", path.display()));
+            let _ = fs::remove_file(format!("{}-shm", path.display()));
+            let mut fresh_connection = Connection::open(path).with_context(|| {
+                format!(
+                    "failed to open recreated library database {}",
+                    path.display()
+                )
+            })?;
+            fresh_connection.busy_timeout(std::time::Duration::from_secs(5))?;
+            fresh_connection.pragma_update(None, "foreign_keys", "ON")?;
+            fresh_connection.pragma_update(None, "journal_mode", "WAL")?;
+            migrations().to_latest(&mut fresh_connection)?;
+            return Ok(Self(Arc::new(Mutex::new(fresh_connection))));
+        }
         Ok(Self(Arc::new(Mutex::new(connection))))
     }
 
@@ -255,86 +275,6 @@ impl LibraryState {
             params![last_read_page, annotation_count, document_id],
         )?;
         Ok(())
-    }
-
-    pub fn migrate_legacy(
-        &self,
-        folders: Vec<String>,
-        documents: Vec<LegacyLibraryDocument>,
-    ) -> Result<LibrarySnapshot> {
-        {
-            let connection = self.connection()?;
-            let already_migrated = connection
-                .query_row(
-                    "SELECT 1 FROM library_metadata WHERE key = 'legacy_library_migrated'",
-                    [],
-                    |_| Ok(()),
-                )
-                .optional()?
-                .is_some();
-            if already_migrated {
-                return snapshot(&connection);
-            }
-        }
-        for folder in folders {
-            let path = PathBuf::from(folder);
-            if path.is_dir() {
-                self.import_folder(&path)?;
-            } else {
-                let path_string = path.to_string_lossy().into_owned();
-                let name = file_name(&path, "Folder");
-                self.connection()?.execute(
-                    "INSERT OR IGNORE INTO library_folders (id, path, name, imported_at) VALUES (?1, ?2, ?3, ?4)",
-                    params![Uuid::new_v4().to_string(), path_string, name, now_ms()],
-                )?;
-            }
-        }
-        let connection = self.connection()?;
-        for legacy in documents {
-            let path = PathBuf::from(&legacy.file_path);
-            if !path.is_file() {
-                connection.execute(
-                    "INSERT OR IGNORE INTO library_documents
-                     (id, file_path, file_name, file_size, modified_at, imported_at, availability, source_type,
-                      last_opened_at, last_read_page, annotation_count, num_pages, favorite)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'missing', 'file', ?7, ?8, ?9, ?10, ?11)",
-                    params![
-                        Uuid::new_v4().to_string(),
-                        legacy.file_path,
-                        file_name(&path, "document.pdf"),
-                        legacy.file_size,
-                        legacy.modified_at,
-                        now_ms(),
-                        legacy.last_opened_at,
-                        legacy.last_read_page,
-                        legacy.annotation_count,
-                        legacy.num_pages,
-                        legacy.favorite
-                    ],
-                )?;
-                continue;
-            }
-            let metadata = pdf_metadata(&path)?;
-            upsert_document(&connection, &metadata, None, now_ms())?;
-            connection.execute(
-                "UPDATE library_documents SET last_opened_at = ?1, last_read_page = ?2,
-                    annotation_count = ?3, num_pages = COALESCE(?4, num_pages), favorite = ?5
-                 WHERE file_path = ?6",
-                params![
-                    legacy.last_opened_at,
-                    legacy.last_read_page,
-                    legacy.annotation_count,
-                    legacy.num_pages,
-                    legacy.favorite,
-                    metadata.path
-                ],
-            )?;
-        }
-        connection.execute(
-            "INSERT OR REPLACE INTO library_metadata (key, value) VALUES ('legacy_library_migrated', '1')",
-            [],
-        )?;
-        snapshot(&connection)
     }
 }
 

@@ -339,47 +339,6 @@ export function loadAnnotationsForDoc(docKey: string): Annotation[] {
   return loadAnnotationsForDocSync(docKey);
 }
 
-export async function migrateLegacyAnnotationsToStableKey(
-  docKey: string,
-  fallbackKeys: string[]
-): Promise<void> {
-  const keys = [...new Set(fallbackKeys.filter((key) => key && key !== docKey))];
-  if (keys.length === 0) return;
-  const [primarySync, primaryAsync, fallbackAsync] = await Promise.all([
-    Promise.resolve(loadAnnotationRecordForDocSync(docKey)),
-    loadAnnotationRecordForDocAsync(docKey),
-    loadAnnotationRecordForDocAsync(keys[0], keys.slice(1)),
-  ]);
-  const fallbackSync = loadAnnotationRecordForDocSync(keys[0], keys.slice(1));
-  const newest = selectNewestAnnotationRecord([
-    primarySync,
-    primaryAsync,
-    fallbackSync,
-    fallbackAsync,
-  ]);
-  if (newest) await saveAnnotationsForDoc(docKey, newest.annotations);
-  for (const key of keys) {
-    try {
-      localStorage.removeItem(`${STORAGE_KEYS.ANNOTATIONS_PREFIX}${key}`);
-    } catch {}
-  }
-  await Promise.all(keys.map(idbDeleteAnnotations));
-}
-
-export function migrateLegacySnippetsToStableKey(docKey: string, fallbackKey: string): void {
-  if (!fallbackKey || fallbackKey === docKey) return;
-  const prefix = 'pdfuck_snippets_';
-  try {
-    const stableKey = `${prefix}${docKey}`;
-    const fallbackStorageKey = `${prefix}${fallbackKey}`;
-    if (!localStorage.getItem(stableKey)) {
-      const legacy = localStorage.getItem(fallbackStorageKey);
-      if (legacy) localStorage.setItem(stableKey, legacy);
-    }
-    localStorage.removeItem(fallbackStorageKey);
-  } catch {}
-}
-
 // --- Last Read Page Position ---
 
 export function saveLastPageForDoc(

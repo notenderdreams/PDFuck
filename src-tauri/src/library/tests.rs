@@ -54,41 +54,6 @@ fn imported_documents_survive_missing_files_and_folder_refresh() {
 }
 
 #[test]
-fn legacy_migration_keeps_unavailable_paths() {
-    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
-    fs::create_dir_all(&root).unwrap();
-    let state = LibraryState::open(&root.join("library.sqlite3")).unwrap();
-    let missing_folder = root.join("offline-folder");
-    let missing_pdf = missing_folder.join("offline.pdf");
-    let migrated = state
-        .migrate_legacy(
-            vec![missing_folder.to_string_lossy().into_owned()],
-            vec![LegacyLibraryDocument {
-                file_path: missing_pdf.to_string_lossy().into_owned(),
-                file_size: 12_345,
-                modified_at: 67_890,
-                last_opened_at: Some(42),
-                last_read_page: Some(5),
-                annotation_count: Some(2),
-                num_pages: Some(10),
-                favorite: true,
-            }],
-        )
-        .unwrap();
-    assert_eq!(migrated.folders.len(), 1);
-    assert_eq!(migrated.documents.len(), 1);
-    assert!(matches!(
-        migrated.documents[0].availability,
-        LibraryAvailability::Missing
-    ));
-    assert_eq!(migrated.documents[0].file_size, 12_345);
-    assert_eq!(migrated.documents[0].modified_at, 67_890);
-    assert_eq!(migrated.documents[0].last_read_page, Some(5));
-    assert!(migrated.documents[0].favorite);
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
 fn deleting_folder_can_remove_contained_documents() {
     let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
     fs::create_dir_all(&root).unwrap();
@@ -116,5 +81,25 @@ fn deleting_folder_can_remove_contained_documents() {
     let remaining = state.remove_folder(&folder_id, false).unwrap();
     assert!(remaining.folders.is_empty());
     assert!(remaining.documents.is_empty());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn version_mismatch_database_recovers_gracefully() {
+    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let database = root.join("library.sqlite3");
+
+    // Seed a database with a future user_version (e.g. version 99)
+    {
+        let connection = Connection::open(&database).unwrap();
+        connection.pragma_update(None, "user_version", 99).unwrap();
+    }
+
+    // LibraryState::open must recover automatically without returning an error or panicking
+    let state = LibraryState::open(&database).unwrap();
+    let snapshot = state.snapshot().unwrap();
+    assert!(snapshot.documents.is_empty());
+    assert!(snapshot.folders.is_empty());
     let _ = fs::remove_dir_all(root);
 }

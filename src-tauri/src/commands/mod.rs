@@ -27,7 +27,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         library::set_library_favorite,
         library::touch_library_document,
         library::update_library_document_state,
-        library::migrate_legacy_library,
         library::relink_library_document,
         platform::get_default_directories,
         clipboard::copy_image_to_clipboard,

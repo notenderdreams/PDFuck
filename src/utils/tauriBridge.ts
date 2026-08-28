@@ -103,29 +103,6 @@ export async function tauriRelinkLibraryDocument(documentId: string): Promise<Da
   return normalizeLibrarySnapshot({ folders: [], documents: [document] }).documents[0];
 }
 
-export async function tauriMigrateLegacyLibrary(
-  directories: SavedDirectory[],
-  documents: DashboardPdfItem[],
-  favoriteIds: string[],
-): Promise<LibrarySnapshot> {
-  if (!isTauri()) return { directories, documents };
-  const legacyDocuments = documents
-    .filter((document) => Boolean(document.filePath))
-    .map((document) => ({
-      filePath: document.filePath,
-      fileSize: document.fileSize,
-      modifiedAt: document.modifiedTimestamp,
-      lastOpenedAt: document.lastOpenedAt ?? null,
-      lastReadPage: document.lastReadPage ?? null,
-      annotationCount: document.annotationCount ?? null,
-      numPages: document.numPages ?? null,
-      favorite: favoriteIds.includes(document.id) || favoriteIds.includes(document.filePath),
-    }));
-  return normalizeLibrarySnapshot(
-    unwrapNativeResult(await commands.migrateLegacyLibrary(directories.map((directory) => directory.path), legacyDocuments)),
-  );
-}
-
 export type AiProviderStatus =
   | { status: 'ready'; provider: 'codex'; version: string; executable: string }
   | { status: 'native_required' | 'missing_cli' | 'unauthenticated' | 'incompatible_cli'; message: string };

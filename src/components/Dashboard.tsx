@@ -33,7 +33,6 @@ import {
   tauriSetLibraryFavorite,
   tauriTouchLibraryDocument,
   tauriRelinkLibraryDocument,
-  tauriMigrateLegacyLibrary,
   handleTitlebarMouseDown,
 } from '../utils/tauriBridge';
 import {
@@ -47,8 +46,6 @@ import {
   saveLibraryFilter,
   loadLibrarySort,
   saveLibrarySort,
-  migrateLegacyAnnotationsToStableKey,
-  migrateLegacySnippetsToStableKey,
 } from '../utils/storage';
 import { SettingsModal } from './SettingsModal';
 
@@ -234,29 +231,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => window.removeEventListener('focus', handleFocus);
   }, [refreshLibrarySnapshot]);
 
-  // Load the durable catalog, migrating the previous folder/recent lists once.
+  // Load the durable catalog
   useEffect(() => {
     const initDirs = async () => {
-      let saved = loadSavedDirectories();
       if (isTauri()) {
         try {
-          const snapshot = await tauriMigrateLegacyLibrary(saved, loadRecentDocs(), loadFavorites());
-          await Promise.all(snapshot.documents.map((document) =>
-            migrateLegacyAnnotationsToStableKey(document.id, [document.filePath])
-          ));
-          snapshot.documents.forEach((document) => {
-            migrateLegacySnippetsToStableKey(
-              document.id,
-              `${document.fileName}_${document.numPages ?? 0}_${document.fileSize}`
-            );
-          });
+          const snapshot = await tauriListLibrary();
           setDirectories(snapshot.directories);
           setPdfItems(snapshot.documents);
           return;
         } catch (error) {
-          console.error('Failed to initialize durable PDF library:', error);
+          console.error('Failed to initialize PDF library:', error);
         }
       }
+      const saved = loadSavedDirectories();
       if (saved.length > 0) {
         scanAllDirectories(saved);
       }

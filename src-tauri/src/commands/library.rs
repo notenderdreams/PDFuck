@@ -1,5 +1,5 @@
 use super::error::{command_error, CommandResult};
-use crate::library::{LegacyLibraryDocument, LibraryDocument, LibrarySnapshot, LibraryState};
+use crate::library::{LibraryDocument, LibrarySnapshot, LibraryState};
 
 #[tauri::command]
 #[specta::specta]
@@ -109,18 +109,6 @@ pub fn update_library_document_state(
 ) -> CommandResult<()> {
     state
         .update_document_state(&document_id, last_read_page, annotation_count)
-        .map_err(command_error)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn migrate_legacy_library(
-    folders: Vec<String>,
-    documents: Vec<LegacyLibraryDocument>,
-    state: tauri::State<'_, LibraryState>,
-) -> CommandResult<LibrarySnapshot> {
-    state
-        .migrate_legacy(folders, documents)
         .map_err(command_error)
 }
 

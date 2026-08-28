@@ -59,19 +59,3 @@ pub struct LibrarySnapshot {
     pub folders: Vec<LibraryFolder>,
     pub documents: Vec<LibraryDocument>,
 }
-
-#[derive(Debug, Clone, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LegacyLibraryDocument {
-    pub file_path: String,
-    #[specta(type = f64)]
-    pub file_size: u64,
-    #[specta(type = f64)]
-    pub modified_at: u64,
-    #[specta(type = f64)]
-    pub last_opened_at: Option<u64>,
-    pub last_read_page: Option<u32>,
-    pub annotation_count: Option<u32>,
-    pub num_pages: Option<u32>,
-    pub favorite: bool,
-}
