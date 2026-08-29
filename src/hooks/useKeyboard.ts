@@ -23,6 +23,7 @@ export interface KeyboardShortcutOptions {
   onEscape?: () => void;
   onToggleSidebar?: () => void;
   onToggleShortcuts: () => void;
+  onToggleSettings?: () => void;
   onChangeViewMode?: (mode: ViewMode) => void;
   onToggleLibrary?: () => void;
   onCopyPageText?: () => void;
@@ -71,6 +72,13 @@ export function handleKeyboardShortcut(
   const cmdOrCtrl = isCmdOrCtrl;
 
   if (cmdOrCtrl) {
+    const isSettingsKey = e.key === ',' || e.key === '<' || e.code === 'Comma';
+    if (isSettingsKey) {
+      e.preventDefault();
+      options.onToggleSettings?.();
+      return;
+    }
+
     if (e.shiftKey && e.key === '1') {
       e.preventDefault();
       options.onChangeViewMode?.('single');

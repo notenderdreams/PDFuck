@@ -8,6 +8,7 @@ import { Dashboard } from './components/Dashboard';
 import { ColorThemeModal } from './components/ColorThemeModal';
 import { SearchBar } from './components/SearchBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { SettingsModal } from './components/SettingsModal';
 import { ExportModal } from './components/ExportModal';
 import { DeletePageConfirmationDialog } from './components/DeletePageConfirmationDialog';
 import { Check, Info, LoaderCircle, Sidebar as SidebarIcon } from 'lucide-react';
@@ -84,6 +85,7 @@ export function App() {
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [pagePendingDeletion, setPagePendingDeletion] = useState<number | null>(null);
   const [isDeletingPage, setIsDeletingPage] = useState<boolean>(false);
@@ -1041,6 +1043,10 @@ export function App() {
         setPagePendingDeletion(null);
         return;
       }
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+        return;
+      }
       if (isShortcutsModalOpen) {
         setIsShortcutsModalOpen(false);
         return;
@@ -1081,6 +1087,7 @@ export function App() {
       }
     },
     onToggleShortcuts: () => setIsShortcutsModalOpen((prev) => !prev),
+    onToggleSettings: () => setIsSettingsOpen((prev) => !prev),
     onChangeViewMode: handleChangeViewMode,
     onToggleLibrary: () =>
       setCurrentScreen((prev) => (prev === 'dashboard' ? 'reader' : 'dashboard')),
@@ -1436,6 +1443,18 @@ export function App() {
           <KeyboardShortcutsModal
             isOpen={isShortcutsModalOpen}
             onClose={() => setIsShortcutsModalOpen(false)}
+          />
+
+          {/* Preferences & Settings Modal */}
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            themeSettings={themeSettings}
+            onSelectTheme={setTheme}
+            onUpdateThemeSetting={updateThemeSetting}
+            onResetThemeFilters={resetThemeFilters}
+            viewMode={viewMode}
+            onChangeViewMode={handleChangeViewMode}
           />
 
           {/* PDF Export & Save Modal */}

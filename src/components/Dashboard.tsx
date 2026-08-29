@@ -112,10 +112,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const browserPdfInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Keyboard shortcut: Cmd+, / Ctrl+, to toggle settings
+  // Keyboard shortcut: Cmd+, / Ctrl+, / Ctrl+Cmd+, / Shift+, to toggle settings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      const isSettingsKey = e.key === ',' || e.key === '<' || e.code === 'Comma';
+      if (isCmdOrCtrl && isSettingsKey) {
         e.preventDefault();
         setIsSettingsOpen((prev) => !prev);
       }

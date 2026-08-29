@@ -219,4 +219,99 @@ describe('annotation keyboard shortcuts', () => {
 
     expect(toggleCalls).toBe(1);
   });
+
+  test('Cmd+Comma, Ctrl+Cmd+Comma, and Cmd+Shift+Comma trigger preferences and settings toggle', () => {
+    let settingsCalls = 0;
+    const noop = () => {};
+    const options: KeyboardShortcutOptions = {
+      onOpenPdf: noop,
+      onSavePdf: noop,
+      onSaveJson: noop,
+      onToggleInvert: noop,
+      onToggleSearch: noop,
+      onSelectTool: noop,
+      onUndo: noop,
+      onRedo: noop,
+      onZoomIn: noop,
+      onZoomOut: noop,
+      onResetZoom: noop,
+      onNextPage: noop,
+      onPrevPage: noop,
+      onToggleZen: noop,
+      onToggleShortcuts: noop,
+      onToggleSettings: () => {
+        settingsCalls += 1;
+      },
+    };
+
+    // Standard Cmd+,
+    handleKeyboardShortcut(
+      {
+        key: ',',
+        code: 'Comma',
+        defaultPrevented: false,
+        target: { tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement,
+        metaKey: true,
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    // Ctrl+Cmd+,
+    handleKeyboardShortcut(
+      {
+        key: ',',
+        code: 'Comma',
+        defaultPrevented: false,
+        target: { tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement,
+        metaKey: true,
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    // Cmd+Shift+, (which yields key '<' and code 'Comma' on US keyboards)
+    handleKeyboardShortcut(
+      {
+        key: '<',
+        code: 'Comma',
+        defaultPrevented: false,
+        target: { tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement,
+        metaKey: true,
+        ctrlKey: false,
+        shiftKey: true,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    // Ctrl+Shift+, (Windows/Linux)
+    handleKeyboardShortcut(
+      {
+        key: '<',
+        code: 'Comma',
+        defaultPrevented: false,
+        target: { tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement,
+        metaKey: false,
+        ctrlKey: true,
+        shiftKey: true,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    expect(settingsCalls).toBe(4);
+  });
 });

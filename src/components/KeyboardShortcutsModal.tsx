@@ -38,6 +38,7 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Navigation & View',
     items: [
+      { keys: ['Cmd', ','], desc: 'Preferences & Settings' },
       { keys: ['Cmd', 'Shift', 'L'], desc: 'Toggle Light / Dark Mode' },
       { keys: ['Cmd', 'L'], desc: 'Toggle Library Dashboard' },
       { keys: ['Cmd', 'O'], desc: 'Open PDF File' },
