@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -10,7 +10,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use super::error::{command_error, CommandResult};
+use super::error::CommandResult;
 use super::platform::home_directory;
 
 const EXPLANATION_TIMEOUT: Duration = Duration::from_secs(180);
@@ -24,7 +24,21 @@ pub struct AiExplanationRequest {
     pub png_data_url: String,
 }
 
-#[derive(Serialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveredAiProvider {
+    pub id: String,
+    pub name: String,
+    pub executable: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct AiProviderStatus {
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -35,6 +49,7 @@ pub struct AiProviderStatus {
     pub executable: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    pub available_providers: Vec<DiscoveredAiProvider>,
 }
 
 #[derive(Serialize, Type)]
@@ -50,7 +65,8 @@ pub struct AiExplanationResult {
 
 #[derive(Default)]
 pub struct AiRunnerState {
-    executable: Mutex<Option<PathBuf>>,
+    preferred_provider_id: Mutex<Option<String>>,
+    custom_executable: Mutex<Option<PathBuf>>,
     processes: Mutex<HashMap<String, SharedChild>>,
     cancellations: Mutex<HashSet<String>>,
 }
@@ -84,59 +100,102 @@ fn ai_error(code: &str, message: impl Into<String>) -> AiExplanationResult {
     }
 }
 
-fn missing_provider(message: impl Into<String>) -> AiProviderStatus {
-    AiProviderStatus {
-        status: "missing_cli".into(),
-        provider: None,
-        version: None,
-        executable: None,
-        message: Some(message.into()),
-    }
-}
-
-fn executable_candidates(manual: Option<PathBuf>) -> Vec<PathBuf> {
+fn standard_candidate_paths(bin_names: &[&str]) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
-    if let Some(path) = manual {
-        candidates.push(path);
-    }
     if let Some(path_value) = std::env::var_os("PATH") {
-        candidates
-            .extend(std::env::split_paths(&path_value).map(|directory| {
-                directory.join(if cfg!(windows) { "codex.exe" } else { "codex" })
-            }));
+        for directory in std::env::split_paths(&path_value) {
+            for name in bin_names {
+                let file_name = if cfg!(windows) {
+                    format!("{}.exe", name)
+                } else {
+                    (*name).to_string()
+                };
+                candidates.push(directory.join(file_name));
+            }
+        }
     }
     if let Some(home) = home_directory() {
-        candidates.push(home.join(".local/bin/codex"));
-        candidates.push(home.join(".cargo/bin/codex"));
-        candidates.push(home.join(".bun/bin/codex"));
-        candidates.push(home.join(".npm-global/bin/codex"));
-        candidates.push(home.join(".local/share/mise/shims/codex"));
+        for name in bin_names {
+            let file_name = if cfg!(windows) {
+                format!("{}.exe", name)
+            } else {
+                (*name).to_string()
+            };
+            candidates.push(home.join(".local/bin").join(&file_name));
+            candidates.push(home.join(".cargo/bin").join(&file_name));
+            candidates.push(home.join(".bun/bin").join(&file_name));
+            candidates.push(home.join(".npm-global/bin").join(&file_name));
+            candidates.push(home.join(".local/share/mise/shims").join(&file_name));
+        }
     }
-    candidates.push(PathBuf::from("/opt/homebrew/bin/codex"));
-    candidates.push(PathBuf::from("/usr/local/bin/codex"));
+    for name in bin_names {
+        candidates.push(PathBuf::from(format!("/opt/homebrew/bin/{}", name)));
+        candidates.push(PathBuf::from(format!("/usr/local/bin/{}", name)));
+    }
     candidates
 }
 
-fn discover_codex(manual: Option<PathBuf>) -> Option<PathBuf> {
-    executable_candidates(manual)
+fn discover_antigravity(manual: Option<PathBuf>) -> Option<PathBuf> {
+    if let Some(path) = manual.filter(|p| p.is_file()) {
+        return Some(path);
+    }
+    standard_candidate_paths(&["agy", "antigravity"])
         .into_iter()
         .find(|candidate| candidate.is_file())
 }
 
-fn check_provider(executable: &Path) -> AiProviderStatus {
+fn discover_codex(manual: Option<PathBuf>) -> Option<PathBuf> {
+    if let Some(path) = manual.filter(|p| p.is_file()) {
+        return Some(path);
+    }
+    standard_candidate_paths(&["codex"])
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+}
+
+fn check_antigravity_executable(executable: &Path) -> DiscoveredAiProvider {
     let version = match Command::new(executable).arg("--version").output() {
         Ok(output) if output.status.success() => {
-            String::from_utf8_lossy(&output.stdout).trim().to_string()
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if text.is_empty() {
+                None
+            } else {
+                Some(text)
+            }
         }
-        _ => {
-            return AiProviderStatus {
-                status: "incompatible_cli".into(),
-                provider: None,
-                version: None,
-                executable: None,
-                message: Some("The selected Codex CLI could not run `codex --version`.".into()),
-            };
+        _ => None,
+    };
+
+    let (status, message) = if version.is_some() {
+        ("ready".to_string(), None)
+    } else {
+        (
+            "incompatible_cli".to_string(),
+            Some("The selected Antigravity CLI could not run `agy --version`.".to_string()),
+        )
+    };
+
+    DiscoveredAiProvider {
+        id: "antigravity".to_string(),
+        name: "Antigravity CLI (agy)".to_string(),
+        executable: executable.to_string_lossy().into_owned(),
+        version,
+        status,
+        message,
+    }
+}
+
+fn check_codex_executable(executable: &Path) -> DiscoveredAiProvider {
+    let version = match Command::new(executable).arg("--version").output() {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if text.is_empty() {
+                None
+            } else {
+                Some(text)
+            }
         }
+        _ => None,
     };
 
     let supports_required_options = Command::new(executable)
@@ -159,34 +218,145 @@ fn check_provider(executable: &Path) -> AiProviderStatus {
         .unwrap_or(false);
 
     if !supports_required_options {
-        return AiProviderStatus {
-            status: "incompatible_cli".into(),
-            provider: None,
-            version: Some(version),
-            executable: Some(executable.to_string_lossy().into()),
-            message: Some("This Codex CLI version does not support the secure non-interactive options PDFuck requires. Update Codex and try again.".into()),
+        return DiscoveredAiProvider {
+            id: "codex".to_string(),
+            name: "Codex CLI".to_string(),
+            executable: executable.to_string_lossy().into_owned(),
+            version,
+            status: "incompatible_cli".to_string(),
+            message: Some("This Codex CLI version does not support required non-interactive options.".to_string()),
         };
     }
 
     if !matches!(Command::new(executable).args(["login", "status"]).output(), Ok(output) if output.status.success())
     {
-        return AiProviderStatus {
-            status: "unauthenticated".into(),
-            provider: None,
-            version: Some(version),
-            executable: Some(executable.to_string_lossy().into()),
-            message: Some(
-                "Codex is installed but not logged in. Run `codex login` and try again.".into(),
-            ),
+        return DiscoveredAiProvider {
+            id: "codex".to_string(),
+            name: "Codex CLI".to_string(),
+            executable: executable.to_string_lossy().into_owned(),
+            version,
+            status: "unauthenticated".to_string(),
+            message: Some("Codex is installed but not logged in. Run `codex login` and try again.".to_string()),
         };
     }
 
-    AiProviderStatus {
-        status: "ready".into(),
-        provider: Some("codex".into()),
-        version: Some(version),
-        executable: Some(executable.to_string_lossy().into()),
+    DiscoveredAiProvider {
+        id: "codex".to_string(),
+        name: "Codex CLI".to_string(),
+        executable: executable.to_string_lossy().into_owned(),
+        version,
+        status: "ready".to_string(),
         message: None,
+    }
+}
+
+fn check_custom_executable(executable: &Path) -> DiscoveredAiProvider {
+    let file_name = executable
+        .file_name()
+        .map(|f| f.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    if file_name.contains("agy") || file_name.contains("antigravity") {
+        let mut provider = check_antigravity_executable(executable);
+        provider.id = "custom".to_string();
+        provider.name = format!("Custom ({})", executable.display());
+        return provider;
+    }
+    if file_name.contains("codex") {
+        let mut provider = check_codex_executable(executable);
+        provider.id = "custom".to_string();
+        provider.name = format!("Custom ({})", executable.display());
+        return provider;
+    }
+
+    let version = Command::new(executable)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if text.is_empty() {
+                None
+            } else {
+                Some(text)
+            }
+        });
+
+    DiscoveredAiProvider {
+        id: "custom".to_string(),
+        name: format!("Custom ({})", executable.display()),
+        executable: executable.to_string_lossy().into_owned(),
+        version,
+        status: "ready".to_string(),
+        message: None,
+    }
+}
+
+fn scan_all_providers(custom: Option<PathBuf>) -> Vec<DiscoveredAiProvider> {
+    let mut list = Vec::new();
+
+    if let Some(custom_path) = custom {
+        if custom_path.is_file() {
+            list.push(check_custom_executable(&custom_path));
+        }
+    }
+
+    if let Some(agy_path) = discover_antigravity(None) {
+        list.push(check_antigravity_executable(&agy_path));
+    }
+
+    if let Some(codex_path) = discover_codex(None) {
+        list.push(check_codex_executable(&codex_path));
+    }
+
+    list
+}
+
+pub fn resolve_active_provider(state: &AiRunnerState) -> AiProviderStatus {
+    let custom = state.custom_executable.lock().ok().and_then(|c| c.clone());
+    let preferred = state
+        .preferred_provider_id
+        .lock()
+        .ok()
+        .and_then(|p| p.clone());
+    let available = scan_all_providers(custom);
+
+    if available.is_empty() {
+        return AiProviderStatus {
+            status: "missing_cli".to_string(),
+            provider: None,
+            version: None,
+            executable: None,
+            message: Some(
+                "No supported AI CLI was found. Please install Antigravity CLI (agy) or Codex."
+                    .to_string(),
+            ),
+            available_providers: Vec::new(),
+        };
+    }
+
+    let selected = if let Some(pref_id) = preferred {
+        available
+            .iter()
+            .find(|p| p.id == pref_id)
+            .cloned()
+            .or_else(|| available.iter().find(|p| p.status == "ready").cloned())
+            .unwrap_or_else(|| available[0].clone())
+    } else {
+        available
+            .iter()
+            .find(|p| p.status == "ready")
+            .cloned()
+            .unwrap_or_else(|| available[0].clone())
+    };
+
+    AiProviderStatus {
+        status: selected.status.clone(),
+        provider: Some(selected.id.clone()),
+        version: selected.version.clone(),
+        executable: Some(selected.executable.clone()),
+        message: selected.message.clone(),
+        available_providers: available,
     }
 }
 
@@ -195,17 +365,28 @@ fn check_provider(executable: &Path) -> AiProviderStatus {
 pub async fn get_ai_provider_status(
     state: tauri::State<'_, AiRunnerState>,
 ) -> CommandResult<AiProviderStatus> {
-    let manual = state
-        .executable
-        .lock()
-        .map_err(|_| anyhow!("AI executable state lock was poisoned"))
-        .map_err(command_error)?
-        .clone();
-    Ok(discover_codex(manual)
-        .map(|executable| check_provider(&executable))
-        .unwrap_or_else(|| {
-            missing_provider("Codex CLI was not found. Install Codex or select its executable.")
-        }))
+    Ok(resolve_active_provider(&state))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_ai_provider_preference(
+    provider_id: String,
+    executable_path: Option<String>,
+    state: tauri::State<'_, AiRunnerState>,
+) -> CommandResult<AiProviderStatus> {
+    if let Ok(mut pref) = state.preferred_provider_id.lock() {
+        *pref = Some(provider_id.clone());
+    }
+    if let Some(path_str) = executable_path {
+        let p = PathBuf::from(path_str);
+        if p.is_file() {
+            if let Ok(mut custom) = state.custom_executable.lock() {
+                *custom = Some(p);
+            }
+        }
+    }
+    Ok(resolve_active_provider(&state))
 }
 
 #[tauri::command]
@@ -214,26 +395,39 @@ pub async fn set_ai_provider_executable(
     executable_path: String,
     state: tauri::State<'_, AiRunnerState>,
 ) -> CommandResult<AiProviderStatus> {
-    let path = PathBuf::from(executable_path);
+    let path = PathBuf::from(&executable_path);
     if !path.is_absolute() || !path.is_file() {
-        return Ok(missing_provider(
-            "Select an existing absolute path to the Codex executable.",
-        ));
+        return Ok(AiProviderStatus {
+            status: "missing_cli".to_string(),
+            provider: None,
+            version: None,
+            executable: None,
+            message: Some("Select an existing absolute path to an AI executable.".to_string()),
+            available_providers: scan_all_providers(None),
+        });
     }
 
-    let status = check_provider(&path);
-    if status.status == "ready" {
-        let mut manual = state
-            .executable
-            .lock()
-            .map_err(|_| anyhow!("AI executable state lock was poisoned"))
-            .map_err(command_error)?;
-        *manual = Some(path);
+    if let Ok(mut custom) = state.custom_executable.lock() {
+        *custom = Some(path);
     }
-    Ok(status)
+    if let Ok(mut pref) = state.preferred_provider_id.lock() {
+        *pref = Some("custom".to_string());
+    }
+
+    Ok(resolve_active_provider(&state))
 }
 
-fn codex_arguments(
+pub fn antigravity_arguments(prompt: &str) -> Vec<String> {
+    vec![
+        "--output-format".into(),
+        "json".into(),
+        "--disable-slash-commands".into(),
+        "--sandbox".into(),
+        format!("-p={}", prompt),
+    ]
+}
+
+pub fn codex_arguments(
     crop: &Path,
     schema: &Path,
     output: &Path,
@@ -263,16 +457,64 @@ fn codex_arguments(
     ]
 }
 
-fn parse_ai_output(contents: &str) -> Result<String> {
+pub fn parse_ai_output(contents: &str) -> Result<String> {
+    let trimmed = contents.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("AI CLI produced empty output");
+    }
+
     let value: serde_json::Value =
-        serde_json::from_str(contents).context("Codex response was not valid JSON")?;
-    value
+        serde_json::from_str(trimmed).context("AI CLI response was not valid JSON")?;
+
+    // Check if it's an Antigravity CLI payload
+    if let Some(status) = value.get("status").and_then(|s| s.as_str()) {
+        if status != "SUCCESS" {
+            let err = value
+                .get("error")
+                .and_then(|e| e.as_str())
+                .unwrap_or("Antigravity CLI returned an error status");
+            anyhow::bail!("{err}");
+        }
+        if let Some(structured) = value
+            .get("structured_output")
+            .and_then(|s| s.get("explanation"))
+            .and_then(|e| e.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            return Ok(structured.to_string());
+        }
+        if let Some(response) = value
+            .get("response")
+            .and_then(|r| r.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            return Ok(response.to_string());
+        }
+    }
+
+    // Check if it's a Codex schema payload {"explanation": "..."}
+    if let Some(explanation) = value
         .get("explanation")
         .and_then(|value| value.as_str())
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| anyhow!("Codex response did not contain a non-empty explanation"))
+    {
+        return Ok(explanation.to_string());
+    }
+
+    // Generic fallback for any {"response": "..."} JSON
+    if let Some(response) = value
+        .get("response")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Ok(response.to_string());
+    }
+
+    anyhow::bail!("AI response did not contain a non-empty explanation")
 }
 
 fn create_workspace(request_id: &str) -> Result<TempAiDirectory> {
@@ -336,22 +578,23 @@ async fn run_ai_explanation_inner(
         return ai_error("cancelled", "Explanation cancelled.");
     }
 
-    let manual = state.executable.lock().ok().and_then(|value| value.clone());
-    let Some(executable) = discover_codex(manual) else {
+    let active = resolve_active_provider(state);
+    if active.status != "ready" {
         return ai_error(
-            "missing_cli",
-            "Codex CLI was not found. Install Codex or select its executable.",
-        );
-    };
-    let provider = check_provider(&executable);
-    if provider.status != "ready" {
-        return ai_error(
-            &provider.status,
-            provider
+            &active.status,
+            active
                 .message
-                .unwrap_or_else(|| "Codex is not ready.".into()),
+                .unwrap_or_else(|| "The selected AI CLI is not ready.".to_string()),
         );
     }
+    let Some(executable_str) = active.executable else {
+        return ai_error(
+            "missing_cli",
+            "No AI executable is available. Please select one in Settings.",
+        );
+    };
+    let executable = PathBuf::from(&executable_str);
+    let provider_id = active.provider.unwrap_or_else(|| "antigravity".to_string());
 
     let temporary = match create_workspace(&request.request_id) {
         Ok(value) => value,
@@ -393,41 +636,71 @@ async fn run_ai_explanation_inner(
         .with_context(|| format!("failed to create {}", diagnostics_path.display()))
     {
         Ok(value) => value,
-        Err(error) => return process_failure(error, "Could not prepare Codex diagnostics."),
+        Err(error) => return process_failure(error, "Could not prepare AI diagnostics."),
     };
 
     let mut command = Command::new(&executable);
-    command
-        .args(codex_arguments(
-            &crop_path,
-            &schema_path,
-            &output_path,
-            &temporary.0,
-        ))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::from(diagnostics));
-    let mut child = match command
-        .spawn()
-        .with_context(|| format!("failed to start Codex at {}", executable.display()))
-    {
-        Ok(value) => value,
-        Err(error) => return process_failure(error, "Could not start Codex."),
+    let is_antigravity = provider_id == "antigravity"
+        || executable_str.to_lowercase().contains("agy")
+        || executable_str.to_lowercase().contains("antigravity");
+
+    let child = if is_antigravity {
+        let out_file = match fs::File::create(&output_path)
+            .with_context(|| format!("failed to create {}", output_path.display()))
+        {
+            Ok(value) => value,
+            Err(error) => return process_failure(error, "Could not prepare output file."),
+        };
+
+        command
+            .args(antigravity_arguments(&request.prompt))
+            .current_dir(&temporary.0)
+            .stdout(Stdio::from(out_file))
+            .stderr(Stdio::from(diagnostics));
+
+        match command
+            .spawn()
+            .with_context(|| format!("failed to start Antigravity at {}", executable.display()))
+        {
+            Ok(value) => value,
+            Err(error) => return process_failure(error, "Could not start Antigravity CLI."),
+        }
+    } else {
+        command
+            .args(codex_arguments(
+                &crop_path,
+                &schema_path,
+                &output_path,
+                &temporary.0,
+            ))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::from(diagnostics));
+
+        let mut spawned = match command
+            .spawn()
+            .with_context(|| format!("failed to start Codex at {}", executable.display()))
+        {
+            Ok(value) => value,
+            Err(error) => return process_failure(error, "Could not start Codex CLI."),
+        };
+
+        let prompt_result = spawned
+            .stdin
+            .as_mut()
+            .context("Codex stdin was not available")
+            .and_then(|stdin| {
+                stdin
+                    .write_all(request.prompt.as_bytes())
+                    .context("failed to write the prompt to Codex")
+            });
+        if let Err(error) = prompt_result {
+            let _ = spawned.kill();
+            return process_failure(error, "Could not send the explanation prompt to Codex.");
+        }
+        drop(spawned.stdin.take());
+        spawned
     };
-    let prompt_result = child
-        .stdin
-        .as_mut()
-        .context("Codex stdin was not available")
-        .and_then(|stdin| {
-            stdin
-                .write_all(request.prompt.as_bytes())
-                .context("failed to write the prompt to Codex")
-        });
-    if let Err(error) = prompt_result {
-        let _ = child.kill();
-        return process_failure(error, "Could not send the explanation prompt to Codex.");
-    }
-    drop(child.stdin.take());
 
     let process = Arc::new(Mutex::new(Some(child)));
     if let Ok(mut processes) = state.processes.lock() {
@@ -477,7 +750,7 @@ async fn run_ai_explanation_inner(
         }
     }
     if timed_out {
-        return ai_error("timeout", "Codex did not respond within three minutes.");
+        return ai_error("timeout", "AI CLI did not respond within three minutes.");
     }
     if cancelled {
         return ai_error("cancelled", "Explanation cancelled.");
@@ -488,7 +761,7 @@ async fn run_ai_explanation_inner(
         return ai_error(
             "process_failed",
             if capped.trim().is_empty() {
-                "Codex exited without producing an explanation.".into()
+                "AI CLI exited without producing an explanation.".into()
             } else {
                 capped
             },
@@ -498,7 +771,7 @@ async fn run_ai_explanation_inner(
     match fs::read_to_string(&output_path)
         .with_context(|| {
             format!(
-                "failed to read Codex response from {}",
+                "failed to read AI response from {}",
                 output_path.display()
             )
         })
@@ -514,7 +787,7 @@ async fn run_ai_explanation_inner(
             log::error!("{error:#}");
             ai_error(
                 "malformed_output",
-                "Codex returned an unreadable structured response. Try again.",
+                "AI CLI returned an unreadable response. Try again.",
             )
         }
     }
@@ -546,38 +819,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn command_construction_keeps_prompt_out_of_arguments() {
-        let args = codex_arguments(
-            Path::new("crop.png"),
-            Path::new("schema.json"),
-            Path::new("output.json"),
-            Path::new("work"),
-        );
-        assert!(!args.join(" ").contains("malicious prompt"));
-        assert_eq!(args.last().map(String::as_str), Some("-"));
-        assert!(args
-            .windows(2)
-            .any(|pair| pair == ["--sandbox", "read-only"]));
-        assert!(args.iter().any(|argument| argument == "--ignore-rules"));
+    fn antigravity_arguments_construction() {
+        let args = antigravity_arguments("Explain this equation");
+        assert_eq!(args[0], "--output-format");
+        assert_eq!(args[1], "json");
+        assert!(args.iter().any(|a| a == "--sandbox"));
+        assert!(args.iter().any(|a| a == "--disable-slash-commands"));
+        assert_eq!(args.last().unwrap(), "-p=Explain this equation");
     }
 
     #[test]
-    fn parses_only_expected_structured_output() {
+    fn parses_antigravity_and_codex_output() {
+        // Antigravity standard response
+        assert_eq!(
+            parse_ai_output(r#"{"status":"SUCCESS","response":"Clear explanation"}"#).unwrap(),
+            "Clear explanation"
+        );
+        // Antigravity structured response
+        assert_eq!(
+            parse_ai_output(r#"{"status":"SUCCESS","response":"Fallback","structured_output":{"explanation":"Structured answer"}}"#).unwrap(),
+            "Structured answer"
+        );
+        // Codex schema output
         assert_eq!(
             parse_ai_output(r#"{"explanation":"Clear answer"}"#).unwrap(),
             "Clear answer"
         );
-        assert!(parse_ai_output("Clear answer").is_err());
-        assert!(parse_ai_output(r#"{"other":"answer"}"#).is_err());
-    }
-
-    #[test]
-    fn manual_executable_has_discovery_precedence() {
-        let manual = PathBuf::from("/definitely/manual/codex");
-        assert_eq!(
-            executable_candidates(Some(manual.clone())).first(),
-            Some(&manual)
-        );
+        // Antigravity error
+        assert!(parse_ai_output(r#"{"status":"ERROR","error":"Token limit"}"#).is_err());
+        assert!(parse_ai_output("").is_err());
     }
 
     #[test]

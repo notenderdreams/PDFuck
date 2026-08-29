@@ -33,6 +33,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         clipboard::copy_text_to_clipboard,
         ai::get_ai_provider_status,
         ai::set_ai_provider_executable,
+        ai::set_ai_provider_preference,
         ai::run_ai_explanation,
         ai::cancel_ai_explanation,
         platform::open_url,

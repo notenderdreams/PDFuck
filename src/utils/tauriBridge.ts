@@ -103,9 +103,32 @@ export async function tauriRelinkLibraryDocument(documentId: string): Promise<Da
   return normalizeLibrarySnapshot({ folders: [], documents: [document] }).documents[0];
 }
 
+export interface DiscoveredAiProvider {
+  id: string;
+  name: string;
+  executable: string;
+  version?: string | null;
+  status: string;
+  message?: string | null;
+}
+
 export type AiProviderStatus =
-  | { status: 'ready'; provider: 'codex'; version: string; executable: string }
-  | { status: 'native_required' | 'missing_cli' | 'unauthenticated' | 'incompatible_cli'; message: string };
+  | {
+      status: 'ready';
+      provider: string;
+      version: string;
+      executable: string;
+      message?: string | null;
+      availableProviders: DiscoveredAiProvider[];
+    }
+  | {
+      status: 'native_required' | 'missing_cli' | 'unauthenticated' | 'incompatible_cli';
+      provider?: string | null;
+      version?: string | null;
+      executable?: string | null;
+      message: string;
+      availableProviders: DiscoveredAiProvider[];
+    };
 
 export type AiExplanationErrorCode =
   | 'native_required'
@@ -147,25 +170,41 @@ function unwrapNativeResult<T, E>(result: { status: 'ok'; data: T } | { status: 
 
 function normalizeProviderStatus(status: Awaited<ReturnType<typeof commands.getAiProviderStatus>>): AiProviderStatus {
   const value = unwrapNativeResult(status);
+  const availableProviders: DiscoveredAiProvider[] = (value.availableProviders || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    executable: p.executable,
+    version: p.version ?? null,
+    status: p.status,
+    message: p.message ?? null,
+  }));
+
   if (
     value.status === 'ready' &&
-    value.provider === 'codex' &&
+    typeof value.provider === 'string' &&
     typeof value.version === 'string' &&
     typeof value.executable === 'string'
   ) {
     return {
       status: 'ready',
-      provider: 'codex',
+      provider: value.provider,
       version: value.version,
       executable: value.executable,
+      message: value.message ?? null,
+      availableProviders,
     };
   }
-  const errorStatus = value.status === 'unauthenticated' || value.status === 'incompatible_cli'
-    ? value.status
-    : 'missing_cli';
+  const errorStatus =
+    value.status === 'unauthenticated' || value.status === 'incompatible_cli'
+      ? value.status
+      : 'missing_cli';
   return {
     status: errorStatus,
-    message: value.message || 'The Codex CLI is not ready.',
+    provider: value.provider ?? null,
+    version: value.version ?? null,
+    executable: value.executable ?? null,
+    message: value.message || 'No AI CLI is currently ready.',
+    availableProviders,
   };
 }
 
@@ -360,16 +399,38 @@ export function handleTitlebarMouseDown(e: React.MouseEvent): void {
 
 export async function getAiProviderStatus(): Promise<AiProviderStatus> {
   if (!isTauri()) {
-    return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+    return {
+      status: 'native_required',
+      message: 'Local CLI explanations require the PDFuck desktop app.',
+      availableProviders: [],
+    };
   }
   return normalizeProviderStatus(await commands.getAiProviderStatus());
 }
 
 export async function setAiProviderExecutable(executablePath: string): Promise<AiProviderStatus> {
   if (!isTauri()) {
-    return { status: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+    return {
+      status: 'native_required',
+      message: 'Local CLI explanations require the PDFuck desktop app.',
+      availableProviders: [],
+    };
   }
   return normalizeProviderStatus(await commands.setAiProviderExecutable(executablePath));
+}
+
+export async function setAiProviderPreference(
+  providerId: string,
+  executablePath?: string | null,
+): Promise<AiProviderStatus> {
+  if (!isTauri()) {
+    return {
+      status: 'native_required',
+      message: 'Local CLI explanations require the PDFuck desktop app.',
+      availableProviders: [],
+    };
+  }
+  return normalizeProviderStatus(await commands.setAiProviderPreference(providerId, executablePath ?? null));
 }
 
 export async function runAiExplanation(request: AiExplanationRequest): Promise<AiExplanationResult> {
