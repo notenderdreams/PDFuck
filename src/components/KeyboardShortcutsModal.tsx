@@ -28,7 +28,7 @@ const SHORTCUT_GROUPS = [
       { keys: ['R'], desc: 'Area Highlight Box' },
       { keys: ['P'], desc: 'Freehand Pen' },
       { keys: ['C'], desc: 'Snip & Compact for AI' },
-      { keys: ['A'], desc: 'Explain PDF Region with Codex' },
+      { keys: ['A'], desc: 'Explain PDF Region with AI' },
       { keys: ['T'], desc: 'Plain Text Tool' },
       { keys: ['N'], desc: 'Sticky Note Tool' },
       { keys: ['E'], desc: 'Eraser (Sweep / Click)' },
@@ -38,6 +38,7 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Navigation & View',
     items: [
+      { keys: ['Cmd', 'Shift', 'L'], desc: 'Toggle Light / Dark Mode' },
       { keys: ['Cmd', 'L'], desc: 'Toggle Library Dashboard' },
       { keys: ['Cmd', 'O'], desc: 'Open PDF File' },
       { keys: ['Cmd', 'S'], desc: 'Save Modified PDF' },

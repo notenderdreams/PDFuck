@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Copy, FileText, Image, Sparkles, Trash2 } from 'lucide-react';
+import { Copy, FileText, Image, Trash2 } from 'lucide-react';
+import { SparkleIcon } from './icons/SparkleIcon';
 
 interface PageContextMenuProps {
   position: { x: number; y: number };
@@ -91,7 +92,7 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
       </button>
       <button type="button" role="menuitem" className={itemClass} onClick={run(onAskAi)}>
         <span className="page-context-menu__icon" aria-hidden="true">
-          <Sparkles />
+          <SparkleIcon />
         </span>
         <span>Ask AI about this page</span>
       </button>

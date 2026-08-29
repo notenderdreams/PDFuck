@@ -98,6 +98,9 @@ export function handleKeyboardShortcut(
     } else if (e.shiftKey && (e.key === 'Backspace' || e.key === 'Delete')) {
       e.preventDefault();
       options.onClearSnippets?.();
+    } else if (e.shiftKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      options.onToggleInvert();
     } else if (e.key.toLowerCase() === 'l') {
       e.preventDefault();
       options.onToggleLibrary?.();

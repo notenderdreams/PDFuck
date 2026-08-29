@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import type { ReadingTheme, ThemeSettings } from '../utils/types';
 import { loadThemeSettings, saveThemeSettings } from '../utils/storage';
+import { usesInvertedColorSpace } from '../utils/readingTheme';
 
 const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   theme: 'default',
@@ -28,7 +29,7 @@ export function useColorTheme() {
   const toggleInvert = useCallback(() => {
     setSettings((prev) => ({
       ...prev,
-      theme: prev.theme === 'invert' ? 'default' : 'invert',
+      theme: usesInvertedColorSpace(prev.theme) ? 'default' : 'invert',
     }));
   }, []);
 

@@ -174,4 +174,49 @@ describe('annotation keyboard shortcuts', () => {
     // AiExplanationOverlay no longer registers individual window keydown listeners
     expect(overlaySource).not.toContain("window.addEventListener('keydown', handleKeyDown)");
   });
+
+  test('Cmd+Shift+L triggers light and dark theme toggle', () => {
+    let toggleCalls = 0;
+    const noop = () => {};
+    const options: KeyboardShortcutOptions = {
+      onOpenPdf: noop,
+      onSavePdf: noop,
+      onSaveJson: noop,
+      onToggleInvert: () => {
+        toggleCalls += 1;
+      },
+      onToggleSearch: noop,
+      onSelectTool: noop,
+      onUndo: noop,
+      onRedo: noop,
+      onZoomIn: noop,
+      onZoomOut: noop,
+      onResetZoom: noop,
+      onNextPage: noop,
+      onPrevPage: noop,
+      onToggleZen: noop,
+      onToggleShortcuts: noop,
+    };
+
+    handleKeyboardShortcut(
+      {
+        key: 'l',
+        code: 'KeyL',
+        defaultPrevented: false,
+        target: {
+          tagName: 'DIV',
+          isContentEditable: false,
+        } as unknown as HTMLElement,
+        metaKey: true,
+        ctrlKey: false,
+        shiftKey: true,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    expect(toggleCalls).toBe(1);
+  });
 });

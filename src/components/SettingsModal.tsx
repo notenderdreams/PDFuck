@@ -3,7 +3,6 @@ import {
   X,
   Sliders,
   Palette,
-  Sparkles,
   Keyboard,
   Info,
   Check,
@@ -30,6 +29,8 @@ import {
   type AiProviderStatus,
   type DiscoveredAiProvider,
 } from '../utils/tauriBridge';
+
+import { SparkleIcon } from './icons/SparkleIcon';
 
 type SettingsTab = 'general' | 'appearance' | 'ai' | 'shortcuts' | 'about';
 
@@ -150,6 +151,7 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Navigation & View',
     items: [
+      { keys: ['Cmd', 'Shift', 'L'], desc: 'Toggle Light / Dark Mode' },
       { keys: ['Cmd', 'L'], desc: 'Toggle Library Dashboard' },
       { keys: ['Cmd', 'O'], desc: 'Open PDF File' },
       { keys: ['Cmd', 'S'], desc: 'Save Modified PDF' },
@@ -240,7 +242,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'general', label: 'General', icon: Sliders },
     { id: 'appearance', label: 'Reading & Theme', icon: Palette },
-    { id: 'ai', label: 'AI Assistant', icon: Sparkles },
+    { id: 'ai', label: 'AI Assistant', icon: SparkleIcon },
     { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
     { id: 'about', label: 'About', icon: Info },
   ];

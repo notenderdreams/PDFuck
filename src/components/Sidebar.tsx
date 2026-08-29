@@ -9,8 +9,8 @@ import {
   Trash2,
   Image as ImageIcon,
   Crop,
-  Sparkles,
 } from 'lucide-react';
+import { SparkleIcon } from './icons/SparkleIcon';
 import type { Annotation, DocumentInfo, PDFOutlineItem, SnippetDividerEntry, SnippetEntry, StitchOptions } from '../utils/types';
 import { ThumbnailRenderQueue } from '../utils/thumbnailRenderQueue';
 import { SnippetPanel } from './SnippetPanel';
@@ -307,7 +307,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex items-start gap-2 min-w-0">
                       {presentation.isAi ? (
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-500">
-                          <Sparkles className="h-3 w-3" />
+                          <SparkleIcon className="h-3 w-3" />
                         </span>
                       ) : ann.type === 'image' ? (
                         <ImageIcon className="mt-0.5 w-3.5 h-3.5 text-zinc-400 shrink-0" />

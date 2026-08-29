@@ -8,11 +8,11 @@ import {
   Crop,
   Type,
   Eraser,
-  ScanSearch,
   Underline,
   Palette,
   StickyNote,
 } from 'lucide-react';
+import { ScanSparkleIcon } from './icons/ScanSparkleIcon';
 import type { HighlightStyle, LineHighlightStyle, ToolType } from '../utils/types';
 import { toggleHighlightStyle } from '../utils/highlightStyle';
 
@@ -130,7 +130,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { id: 'highlight-rect', icon: Square, label: 'Area Box', shortcut: 'R' },
     { id: 'pen', icon: PenTool, label: 'Pen', shortcut: 'P' },
     { id: 'snip', icon: Crop, label: 'Snip to AI', shortcut: 'C' },
-    { id: 'ai-box', icon: ScanSearch, label: 'Explain Region', shortcut: 'A' },
+    { id: 'ai-box', icon: ScanSparkleIcon, label: 'Explain Region', shortcut: 'A' },
     { id: 'text', icon: Type, label: 'Plain Text', shortcut: 'T' },
     { id: 'sticky-note', icon: StickyNote, label: 'Sticky Note', shortcut: 'N' },
     { id: 'eraser', icon: Eraser, label: 'Eraser', shortcut: 'E' },

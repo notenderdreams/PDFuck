@@ -221,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onToggleInvert}
             className="macos-topbar-icon"
-            title={isInverted ? 'Use light appearance (Cmd+I)' : 'Use dark appearance (Cmd+I)'}
+            title={isInverted ? 'Use light appearance (Cmd+Shift+L)' : 'Use dark appearance (Cmd+Shift+L)'}
           >
             {isInverted ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-zinc-400" />}
           </button>

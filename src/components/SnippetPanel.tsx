@@ -11,7 +11,6 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Layers,
-  Sparkles,
   Undo2,
   Redo2,
 } from 'lucide-react';
@@ -165,7 +164,7 @@ export const SnippetPanel: React.FC<SnippetPanelProps> = ({
         {snippets.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center p-6 my-auto text-zinc-400 gap-3">
             <div className="w-12 h-12 rounded-2xl bg-[var(--secondary)] border border-[var(--border)] flex items-center justify-center text-zinc-300 shadow-xs">
-              <Sparkles className="w-5 h-5 text-blue-500" />
+              <Crop className="w-5 h-5 text-blue-500" />
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-zinc-200">No Snippets Yet</p>
