@@ -49,11 +49,11 @@ export function usePDFDocument() {
         }
 
         // PDF.js may transfer its input buffer to the worker. Keep an owned copy
-        // for export and page editing, and give the viewer a separate copy.
+        // for export and page editing, and give the worker a separate copy.
         const bytes = data instanceof Uint8Array ? data.slice() : new Uint8Array(data.slice(0));
 
         const loadingTask = pdfjsLib.getDocument({
-          data: bytes,
+          data: bytes.slice(),
           cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
           cMapPacked: true,
         });

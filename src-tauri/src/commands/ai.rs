@@ -224,7 +224,10 @@ fn check_codex_executable(executable: &Path) -> DiscoveredAiProvider {
             executable: executable.to_string_lossy().into_owned(),
             version,
             status: "incompatible_cli".to_string(),
-            message: Some("This Codex CLI version does not support required non-interactive options.".to_string()),
+            message: Some(
+                "This Codex CLI version does not support required non-interactive options."
+                    .to_string(),
+            ),
         };
     }
 
@@ -236,7 +239,10 @@ fn check_codex_executable(executable: &Path) -> DiscoveredAiProvider {
             executable: executable.to_string_lossy().into_owned(),
             version,
             status: "unauthenticated".to_string(),
-            message: Some("Codex is installed but not logged in. Run `codex login` and try again.".to_string()),
+            message: Some(
+                "Codex is installed but not logged in. Run `codex login` and try again."
+                    .to_string(),
+            ),
         };
     }
 
@@ -769,12 +775,7 @@ async fn run_ai_explanation_inner(
     }
 
     match fs::read_to_string(&output_path)
-        .with_context(|| {
-            format!(
-                "failed to read AI response from {}",
-                output_path.display()
-            )
-        })
+        .with_context(|| format!("failed to read AI response from {}", output_path.display()))
         .and_then(|contents| parse_ai_output(&contents))
     {
         Ok(response) => AiExplanationResult {

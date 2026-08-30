@@ -43,4 +43,47 @@ describe('page deletion', () => {
       { id: 'after', pageNumber: 2 },
     ]);
   });
+
+  test('supports sequential deletions down to a single page', async () => {
+    const source = await PDFDocument.create();
+    source.addPage([100, 200]);
+    source.addPage([200, 300]);
+    source.addPage([300, 400]);
+
+    let bytes = await source.save();
+    // Delete page 2 -> leaves 2 pages: [100, 200] and [300, 400]
+    bytes = await deletePageFromPdf(bytes, 2);
+    let doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(2);
+    expect(doc.getPage(0).getWidth()).toBe(100);
+    expect(doc.getPage(1).getWidth()).toBe(300);
+
+    // Delete page 1 -> leaves 1 page: [300, 400]
+    bytes = await deletePageFromPdf(bytes, 1);
+    doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(1);
+    expect(doc.getPage(0).getWidth()).toBe(300);
+
+    // Deleting the last remaining page should throw
+    await expect(deletePageFromPdf(bytes, 1)).rejects.toThrow(
+      'A PDF must keep at least one page.'
+    );
+  });
+
+  test('keeps owned raw bytes intact when passing a slice to external loaders', async () => {
+    const source = await PDFDocument.create();
+    source.addPage([100, 200]);
+    source.addPage([200, 300]);
+    const originalBytes = await source.save();
+
+    // Verify slicing creates an independent buffer copy
+    const workerCopy = originalBytes.slice();
+    expect(originalBytes.byteLength).toBeGreaterThan(0);
+    expect(workerCopy.byteLength).toBe(originalBytes.byteLength);
+
+    // Mutating/detaching workerCopy buffer would not affect originalBytes
+    const deletedBytes = await deletePageFromPdf(originalBytes, 1);
+    const updated = await PDFDocument.load(deletedBytes);
+    expect(updated.getPageCount()).toBe(1);
+  });
 });

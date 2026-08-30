@@ -32,6 +32,7 @@ interface SidebarProps {
   customFilterStyle: React.CSSProperties;
   onClose: () => void;
   onPageSelect: (pageNumber: number) => void;
+  onDeletePage?: (pageNumber: number) => void;
   onSelectAnnotation?: (id: string | null) => void;
   onDeleteAnnotation: (id: string) => void;
   // Snippets props
@@ -67,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   customFilterStyle,
   onClose,
   onPageSelect,
+  onDeletePage,
   onSelectAnnotation,
   onDeleteAnnotation,
   snippets = [],
@@ -256,6 +258,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 customFilterStyle={customFilterStyle}
                 renderQueue={thumbnailQueue}
                 onClick={() => onPageSelect(pageNum)}
+                onDeletePage={onDeletePage}
+                canDelete={numPages > 1}
               />
             ))}
           </div>
@@ -428,7 +432,19 @@ const ThumbnailItem: React.FC<{
   customFilterStyle: React.CSSProperties;
   renderQueue: ThumbnailRenderQueue;
   onClick: () => void;
-}> = ({ pdfDoc, pageNumber, isActive, filterClass, customFilterStyle, renderQueue, onClick }) => {
+  onDeletePage?: (pageNumber: number) => void;
+  canDelete?: boolean;
+}> = ({
+  pdfDoc,
+  pageNumber,
+  isActive,
+  filterClass,
+  customFilterStyle,
+  renderQueue,
+  onClick,
+  onDeletePage,
+  canDelete = false,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const thumbnailRef = useRef<HTMLDivElement | null>(null);
   const [isNearViewport, setIsNearViewport] = useState(false);
@@ -534,11 +550,17 @@ const ThumbnailItem: React.FC<{
     <div
       ref={thumbnailRef}
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 p-1 cursor-pointer transition-transform hover:scale-[1.02]"
+      onContextMenu={(e) => {
+        if (canDelete && onDeletePage) {
+          e.preventDefault();
+          onDeletePage(pageNumber);
+        }
+      }}
+      className="group relative flex flex-col items-center gap-1.5 p-1 cursor-pointer transition-transform hover:scale-[1.02]"
     >
       {/* Thumbnail Paper Container with matching Theme Background & Filter */}
       <div
-        className={`w-full aspect-[1/1.4] rounded-md overflow-hidden flex items-center justify-center transition-all duration-150 shadow-xs border border-[var(--border)] ${
+        className={`relative w-full aspect-[1/1.4] rounded-md overflow-hidden flex items-center justify-center transition-all duration-150 shadow-xs border border-[var(--border)] ${
           isActive ? 'ring-2 ring-[var(--primary)] ring-offset-1 ring-offset-[var(--background)]' : ''
         } ${filterClass}`}
         style={{

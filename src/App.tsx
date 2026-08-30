@@ -858,6 +858,8 @@ export function App() {
             showToast('Could not save the page deletion to the PDF.', true);
             return;
           }
+        } else {
+          void idbSaveActivePdf(updatedBytes, docInfo.fileName);
         }
 
         const reloaded = await loadPdf(
@@ -1242,6 +1244,7 @@ export function App() {
               onPageSelect={handleNavigatePage}
               onSelectAnnotation={handleSelectAnnotation}
               onDeleteAnnotation={(id) => deleteAnnotation(id)}
+              onDeletePage={requestDeletePage}
               snippets={snippets}
               isSnipActive={activeTool === 'snip'}
               canUndoSnippets={canUndoSnippets}
