@@ -51,6 +51,7 @@ interface PDFPageProps {
   onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
   onCancelAi: (annotationId: string) => void;
   onCloseAi: (annotationId: string) => void;
+  onAddPageBelow?: (pageNumber: number) => void;
   onDeletePage: (pageNumber: number) => void;
   onCopyPageText: (pageNumber: number) => void;
   onCopyPageImage: (pageNumber: number) => void;
@@ -91,6 +92,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   onSubmitAi,
   onCancelAi,
   onCloseAi,
+  onAddPageBelow,
   onDeletePage,
   onCopyPageText,
   onCopyPageImage,
@@ -354,7 +356,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       onCursorMove(pageNumber, nx, ny);
     }
     const menuWidth = 224;
-    const menuHeight = 180;
+    const menuHeight = 220;
     setContextMenuPosition({
       x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
       y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
@@ -396,6 +398,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
           hasSelectedText={Boolean(contextMenuSelectedText || window.getSelection()?.toString().trim())}
           onClose={() => setContextMenuPosition(null)}
           onCopySelectedText={handleCopySelectedText}
+          onAddPageBelow={() => onAddPageBelow?.(pageNumber)}
           onDeletePage={() => onDeletePage(pageNumber)}
           onCopyPageText={() => onCopyPageText(pageNumber)}
           onCopyPageImage={() => onCopyPageImage(pageNumber)}

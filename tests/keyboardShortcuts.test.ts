@@ -314,4 +314,74 @@ describe('annotation keyboard shortcuts', () => {
 
     expect(settingsCalls).toBe(4);
   });
+
+  test('Cmd+Shift+N triggers add blank page below', async () => {
+    let addPageCalls = 0;
+    const noop = () => {};
+    const options: KeyboardShortcutOptions = {
+      onOpenPdf: noop,
+      onSavePdf: noop,
+      onSaveJson: noop,
+      onToggleInvert: noop,
+      onToggleSearch: noop,
+      onSelectTool: noop,
+      onUndo: noop,
+      onRedo: noop,
+      onZoomIn: noop,
+      onZoomOut: noop,
+      onResetZoom: noop,
+      onNextPage: noop,
+      onPrevPage: noop,
+      onToggleZen: noop,
+      onToggleShortcuts: noop,
+      onAddPageBelow: () => {
+        addPageCalls += 1;
+      },
+    };
+
+    handleKeyboardShortcut(
+      {
+        key: 'N',
+        code: 'KeyN',
+        defaultPrevented: false,
+        target: { tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement,
+        metaKey: true,
+        ctrlKey: false,
+        shiftKey: true,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    handleKeyboardShortcut(
+      {
+        key: 'n',
+        code: 'KeyN',
+        defaultPrevented: false,
+        target: { tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement,
+        metaKey: false,
+        ctrlKey: true,
+        shiftKey: true,
+        altKey: false,
+        preventDefault: noop,
+        stopPropagation: noop,
+      } as unknown as KeyboardEvent,
+      options
+    );
+
+    expect(addPageCalls).toBe(2);
+
+    const [keyboardSource, modalSource, appSource] = await Promise.all([
+      projectFile('src/hooks/useKeyboard.ts'),
+      projectFile('src/components/KeyboardShortcutsModal.tsx'),
+      projectFile('src/App.tsx'),
+    ]);
+
+    expect(keyboardSource).toContain("e.shiftKey && e.key.toLowerCase() === 'n'");
+    expect(keyboardSource).toContain('options.onAddPageBelow?.()');
+    expect(modalSource).toContain("desc: 'Add Blank Page Below'");
+    expect(appSource).toContain('onAddPageBelow: () =>');
+  });
 });

@@ -50,7 +50,9 @@ import {
   extractPageText,
   copyTextToClipboard,
   copyPageImageToClipboard,
+  addBlankPageBelow,
   deletePageFromPdf,
+  reindexAfterPageInsertion,
   reindexAfterPageDeletion,
   downloadPageAsJpg,
 } from './utils/pageExtractor';
@@ -908,6 +910,70 @@ export function App() {
     ]
   );
 
+  const handleAddPageBelow = useCallback(
+    async (pageNumber: number) => {
+      if (!pdfDoc || !rawPdfBytes || !docInfo) return;
+
+      try {
+        const targetPage = pageNumber;
+        const newPageNumber = targetPage + 1;
+        const updatedBytes = await addBlankPageBelow(rawPdfBytes, targetPage);
+        const updatedAnnotations = reindexAfterPageInsertion(annotations, targetPage);
+        const updatedSnippets = reindexAfterPageInsertion(snippets, targetPage);
+
+        if (isTauri() && docInfo.filePath) {
+          const persisted = await tauriWritePdf(updatedBytes, docInfo.filePath);
+          if (!persisted) {
+            showToast('Could not save the new page to the PDF.', true);
+            return;
+          }
+        } else {
+          void idbSaveActivePdf(updatedBytes, docInfo.fileName);
+        }
+
+        const reloaded = await loadPdf(
+          updatedBytes,
+          docInfo.fileName,
+          docInfo.filePath,
+          newPageNumber,
+          docKey,
+          docInfo.fingerprint,
+          true
+        );
+        if (!reloaded) {
+          showToast('Could not reload the PDF after adding page.', true);
+          return;
+        }
+
+        replaceAnnotations(updatedAnnotations);
+        replaceSnippets(updatedSnippets);
+        setSelectedAnnotationId(null);
+        cursorPosRef.current = null;
+        setPageNavRequest({ page: newPageNumber, timestamp: Date.now() });
+        showToast(
+          isTauri() && docInfo.filePath
+            ? `Page ${newPageNumber} added and changes saved`
+            : `Page ${newPageNumber} added`
+        );
+      } catch (error) {
+        console.error('Failed to add PDF page:', error);
+        showToast('Could not add new page.', true);
+      }
+    },
+    [
+      annotations,
+      docInfo,
+      docKey,
+      loadPdf,
+      pdfDoc,
+      rawPdfBytes,
+      replaceAnnotations,
+      replaceSnippets,
+      showToast,
+      snippets,
+    ]
+  );
+
   // Cursor-aware Clipboard Paste: Pastes image at mouse cursor position on hovered page
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -1100,6 +1166,11 @@ export function App() {
     onCopyPageJpg: () => {
       if (companionPdfDoc && activeReaderPane === 'companion') void handleCopyCompanionPageImage();
       else void handleCopyPageJpg(currentPage);
+    },
+    onAddPageBelow: () => {
+      if (currentScreen === 'reader' && pdfDoc) {
+        void handleAddPageBelow(currentPage);
+      }
     },
     onCopyStitchedSnippets: handleQuickCopyStitched,
     onClearSnippets: handleQuickDumpSnippets,
@@ -1330,6 +1401,7 @@ export function App() {
                 onSubmitAi={(annotation, prompt) => void aiExplanations.submit(annotation, prompt)}
                 onCancelAi={(annotationId) => void aiExplanations.cancel(annotationId)}
                 onCloseAi={aiExplanations.close}
+                onAddPageBelow={handleAddPageBelow}
                 onDeletePage={requestDeletePage}
                 onCopySelectedText={(text) => void handleCopySelectedText(text)}
                 onCopyPageText={(pageNumber) => void handleCopyPageText(pageNumber)}

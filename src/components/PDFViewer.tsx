@@ -72,6 +72,7 @@ interface PDFViewerProps {
   onSubmitAi: (annotation: AiExplanationAnnotation, prompt: string) => void;
   onCancelAi: (annotationId: string) => void;
   onCloseAi: (annotationId: string) => void;
+  onAddPageBelow?: (pageNumber: number) => void;
   onDeletePage: (pageNumber: number) => void;
   onCopyPageText: (pageNumber: number) => void;
   onCopyPageImage: (pageNumber: number) => void;
@@ -126,6 +127,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onSubmitAi,
   onCancelAi,
   onCloseAi,
+  onAddPageBelow,
   onDeletePage,
   onCopyPageText,
   onCopyPageImage,
@@ -1211,6 +1213,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     onSubmitAi={onSubmitAi}
                     onCancelAi={onCancelAi}
                     onCloseAi={onCloseAi}
+                    onAddPageBelow={onAddPageBelow}
                     onDeletePage={onDeletePage}
                     onCopyPageText={onCopyPageText}
                     onCopyPageImage={onCopyPageImage}
@@ -1280,6 +1283,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     onSubmitAi={() => {}}
                     onCancelAi={() => {}}
                     onCloseAi={() => {}}
+                    onAddPageBelow={() => {}}
                     onDeletePage={() => {}}
                     onCopyPageText={() => {}}
                     onCopyPageImage={() => {}}
@@ -1330,6 +1334,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onSubmitAi={onSubmitAi}
                 onCancelAi={onCancelAi}
                 onCloseAi={onCloseAi}
+                onAddPageBelow={onAddPageBelow}
                 onDeletePage={onDeletePage}
                 onCopyPageText={onCopyPageText}
                 onCopyPageImage={onCopyPageImage}
@@ -1374,6 +1379,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               onSubmitAi={onSubmitAi}
               onCancelAi={onCancelAi}
               onCloseAi={onCloseAi}
+              onAddPageBelow={onAddPageBelow}
               onDeletePage={onDeletePage}
               onCopyPageText={onCopyPageText}
               onCopyPageImage={onCopyPageImage}
@@ -1421,6 +1427,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onSubmitAi={onSubmitAi}
                 onCancelAi={onCancelAi}
                 onCloseAi={onCloseAi}
+                onAddPageBelow={onAddPageBelow}
                 onDeletePage={onDeletePage}
                 onCopyPageText={onCopyPageText}
                 onCopyPageImage={onCopyPageImage}
@@ -1463,6 +1470,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onSubmitAi={onSubmitAi}
                   onCancelAi={onCancelAi}
                   onCloseAi={onCloseAi}
+                  onAddPageBelow={onAddPageBelow}
                   onDeletePage={onDeletePage}
                   onCopyPageText={onCopyPageText}
                   onCopyPageImage={onCopyPageImage}

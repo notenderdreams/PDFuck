@@ -32,6 +32,7 @@ export interface KeyboardShortcutOptions {
   onClearSnippets?: () => void;
   onHighlightSelectedText?: () => void;
   onDeleteSelectedAnnotation?: () => void;
+  onAddPageBelow?: () => void;
 }
 
 export function handleKeyboardShortcut(
@@ -109,6 +110,9 @@ export function handleKeyboardShortcut(
     } else if (e.shiftKey && e.key.toLowerCase() === 'l') {
       e.preventDefault();
       options.onToggleInvert();
+    } else if (e.shiftKey && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      options.onAddPageBelow?.();
     } else if (e.key.toLowerCase() === 'l') {
       e.preventDefault();
       options.onToggleLibrary?.();

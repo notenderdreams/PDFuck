@@ -51,6 +51,7 @@ const SHORTCUT_GROUPS = [
       { keys: ['Cmd', 'F'], desc: 'Find Text in Document' },
       { keys: ['Cmd', 'Shift', 'C'], desc: 'Copy Page Text' },
       { keys: ['Cmd', 'Shift', 'J'], desc: 'Copy Page as Image' },
+      { keys: ['Cmd', 'Shift', 'N'], desc: 'Add Blank Page Below' },
       { keys: ['Cmd', 'Shift', 'S'], desc: 'Copy Stitched Image' },
       { keys: ['Cmd', 'Shift', 'X'], desc: 'Dump All Snippets' },
       { keys: ['→', 'J'], desc: 'Next Page' },

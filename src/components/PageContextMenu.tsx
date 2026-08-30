@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { Copy, FileText, Image, Trash2 } from 'lucide-react';
+import { Copy, FilePlus, FileText, Image, Trash2 } from 'lucide-react';
 import { SparkleIcon } from './icons/SparkleIcon';
 
 interface PageContextMenuProps {
   position: { x: number; y: number };
   onClose: () => void;
+  onAddPageBelow: () => void;
   onDeletePage: () => void;
   onCopyPageText: () => void;
   onCopyPageImage: () => void;
@@ -16,6 +17,7 @@ interface PageContextMenuProps {
 export const PageContextMenu: React.FC<PageContextMenuProps> = ({
   position,
   onClose,
+  onAddPageBelow,
   onDeletePage,
   onCopyPageText,
   onCopyPageImage,
@@ -97,6 +99,12 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
         <span>Ask AI about this page</span>
       </button>
       <div className="page-context-menu__separator" role="separator" />
+      <button type="button" role="menuitem" className={itemClass} onClick={run(onAddPageBelow)}>
+        <span className="page-context-menu__icon" aria-hidden="true">
+          <FilePlus />
+        </span>
+        <span>Add page below</span>
+      </button>
       <button
         type="button"
         role="menuitem"
