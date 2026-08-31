@@ -336,8 +336,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             P.{ann.pageNumber}
                           </span>
                         </div>
+                        {presentation.prompt && (
+                          <div
+                            className="text-[10px] font-medium text-blue-400 truncate flex items-center gap-1"
+                            title={presentation.prompt}
+                          >
+                            <span className="shrink-0 text-[8.5px] uppercase tracking-wider font-semibold text-blue-400/90 bg-blue-500/15 px-1 py-0.2 rounded">
+                              Q
+                            </span>
+                            <span className="truncate">{presentation.prompt}</span>
+                          </div>
+                        )}
                         {presentation.preview && (
-                          <span className="truncate text-[10.5px] leading-4 text-zinc-400" title={presentation.preview}>
+                          <span
+                            className="text-[10.5px] leading-relaxed text-zinc-400 line-clamp-2"
+                            title={presentation.preview}
+                          >
                             {presentation.preview}
                           </span>
                         )}

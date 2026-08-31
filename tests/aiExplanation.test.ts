@@ -81,14 +81,85 @@ describe('AI explanation state and persistence', () => {
   test('builds an AI response preview for the Highlights sidebar', async () => {
     const { getAnnotationListPresentation } = await import('../src/utils/annotationPresentation');
     const ai: AiExplanationAnnotation = {
-      id: 'ai_sidebar', pageNumber: 4, type: 'ai-explanation', x: 0, y: 0, width: 1, height: 1,
-      prompt: 'Explain this theorem', response: 'The theorem follows from compactness.', provider: 'codex', createdAt: 1, updatedAt: 2,
+      id: 'ai_sidebar',
+      pageNumber: 4,
+      type: 'ai-explanation',
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      prompt: 'Explain this theorem',
+      response: 'The theorem follows from compactness.',
+      provider: 'codex',
+      createdAt: 1,
+      updatedAt: 2,
     };
 
     expect(getAnnotationListPresentation(ai)).toEqual({
       title: 'AI response',
+      prompt: 'Explain this theorem',
       preview: 'The theorem follows from compactness.',
       isAi: true,
+    });
+  });
+
+  test('builds text highlight and note snippet previews for the Highlights sidebar', async () => {
+    const { getAnnotationListPresentation } = await import('../src/utils/annotationPresentation');
+
+    const textHighlight: Annotation = {
+      id: 'hl_1',
+      pageNumber: 2,
+      type: 'highlight-text',
+      rects: [{ x: 0.1, y: 0.2, width: 0.8, height: 0.05 }],
+      text: 'A binary search tree provides logarithmic time lookup.',
+      color: '#facc15',
+      opacity: 0.4,
+      createdAt: 1,
+    };
+
+    expect(getAnnotationListPresentation(textHighlight)).toEqual({
+      title: 'Highlight',
+      preview: 'A binary search tree provides logarithmic time lookup.',
+      isAi: false,
+    });
+
+    const rectHighlight: Annotation = {
+      id: 'rect_1',
+      pageNumber: 3,
+      type: 'highlight-rect',
+      x: 0.1,
+      y: 0.2,
+      width: 0.5,
+      height: 0.1,
+      text: 'Theorem 4.2 states that all continuous functions are integrable.',
+      color: '#60a5fa',
+      opacity: 0.35,
+      createdAt: 1,
+    };
+
+    expect(getAnnotationListPresentation(rectHighlight)).toEqual({
+      title: 'Highlight',
+      preview: 'Theorem 4.2 states that all continuous functions are integrable.',
+      isAi: false,
+    });
+
+    const textNote: Annotation = {
+      id: 'note_1',
+      pageNumber: 1,
+      type: 'text-note',
+      kind: 'sticky',
+      x: 0.2,
+      y: 0.3,
+      text: 'Need to review this equation before exam.',
+      color: '#fef08a',
+      fontSize: 12,
+      createdAt: 1,
+    };
+
+    expect(getAnnotationListPresentation(textNote)).toEqual({
+      title: 'Sticky note',
+      preview: 'Need to review this equation before exam.',
+      isAi: false,
     });
   });
 

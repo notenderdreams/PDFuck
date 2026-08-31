@@ -14,6 +14,7 @@ import type {
   ToolType,
 } from '../utils/types';
 import { resolveHighlightOpacity, toggleHighlightStyle } from '../utils/highlightStyle';
+import { extractTextFromDomPageRegion } from '../utils/textHighlight';
 import { focusWithoutMovingViewer, keepViewerPositionAfter } from '../utils/viewerPosition';
 
 interface AnnotationCanvasProps {
@@ -508,6 +509,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       }
       const distPx = Math.hypot((endX - lineStart.x) * pageWidth, (endY - lineStart.y) * pageHeight);
       if (distPx > 6) {
+        const minX = Math.min(lineStart.x, endX);
+        const minY = Math.min(lineStart.y, endY);
+        const w = Math.max(0.01, Math.abs(endX - lineStart.x));
+        const h = Math.max(0.02, Math.abs(endY - lineStart.y));
+        const text = extractTextFromDomPageRegion(pageNumber, { x: minX, y: minY, width: w, height: h });
+
         const newLine: LineHighlightAnnotation = {
           id: `line_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           pageNumber,
@@ -520,6 +527,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           strokeWidth: strokeWidth * 2.8,
           opacity: lineHighlightStyle === 'underline' ? 1 : opacity,
           style: lineHighlightStyle,
+          text: text || undefined,
           createdAt: Date.now(),
         };
         onAddAnnotation(newLine);
@@ -531,6 +539,23 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       currentStroke &&
       currentStroke.length > 1
     ) {
+      let minX = 1;
+      let maxX = 0;
+      let minY = 1;
+      let maxY = 0;
+      for (const p of currentStroke) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const text = extractTextFromDomPageRegion(pageNumber, {
+        x: minX,
+        y: minY,
+        width: Math.max(0.01, maxX - minX),
+        height: Math.max(0.01, maxY - minY),
+      });
+
       const newDrawing: DrawingAnnotation = {
         id: `draw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         pageNumber,
@@ -539,6 +564,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         color: selectedColor,
         strokeWidth: activeTool === 'highlight-pen' ? strokeWidth * 2.5 : strokeWidth,
         opacity: activeTool === 'highlight-pen' ? opacity : 1,
+        text: text || undefined,
         createdAt: Date.now(),
       };
       onAddAnnotation(newDrawing);
@@ -550,6 +576,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       const height = Math.abs(rectCurrent.y - rectStart.y);
 
       if (width * pageWidth > 6 && height * pageHeight > 6) {
+        const text = extractTextFromDomPageRegion(pageNumber, { x, y, width, height });
+
         const newRect: RectHighlightAnnotation = {
           id: `rect_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           pageNumber,
@@ -561,6 +589,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           color: selectedColor,
           opacity: resolveHighlightOpacity(rectHighlightStyle, opacity),
           style: rectHighlightStyle,
+          text: text || undefined,
           createdAt: Date.now(),
         };
         onAddAnnotation(newRect);

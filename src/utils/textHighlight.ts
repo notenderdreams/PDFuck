@@ -179,8 +179,90 @@ export function createTextHighlightsFromSelection(
         color,
         opacity: resolveHighlightOpacity(style, opacity || 0.4),
         style,
+        text,
         createdAt,
       }));
     }
   );
+}
+
+/**
+ * Extracts underlying text within a normalized bounding box on a rendered PDF page.
+ */
+export function extractTextFromDomPageRegion(
+  pageNumber: number,
+  normalizedBounds: { x: number; y: number; width: number; height: number }
+): string {
+  if (typeof document === 'undefined') return '';
+
+  const pageContainer =
+    document.querySelector<HTMLElement>(`[data-pdf-page-number="${pageNumber}"]`) ||
+    document.getElementById(`pdf-page-${pageNumber}`);
+  if (!pageContainer) return '';
+
+  const textLayer = pageContainer.querySelector<HTMLElement>('[data-pdf-text-layer]');
+  if (!textLayer) return '';
+
+  const pageRect = pageContainer.getBoundingClientRect();
+  if (pageRect.width <= 0 || pageRect.height <= 0) return '';
+
+  // Slight padding to catch edges
+  const padX = 4 / pageRect.width;
+  const padY = 4 / pageRect.height;
+  const minX = Math.max(0, normalizedBounds.x - padX);
+  const minY = Math.max(0, normalizedBounds.y - padY);
+  const maxX = Math.min(1, normalizedBounds.x + normalizedBounds.width + padX);
+  const maxY = Math.min(1, normalizedBounds.y + normalizedBounds.height + padY);
+
+  const targetLeft = pageRect.left + minX * pageRect.width;
+  const targetTop = pageRect.top + minY * pageRect.height;
+  const targetRight = pageRect.left + maxX * pageRect.width;
+  const targetBottom = pageRect.top + maxY * pageRect.height;
+
+  const spans = Array.from(textLayer.querySelectorAll<HTMLElement>('span'));
+  const matchingSpans: { top: number; left: number; text: string }[] = [];
+
+  for (const span of spans) {
+    const text = span.textContent?.trim();
+    if (!text) continue;
+
+    const spanRect = span.getBoundingClientRect();
+    if (spanRect.width <= 0 || spanRect.height <= 0) continue;
+
+    const overlapLeft = Math.max(targetLeft, spanRect.left);
+    const overlapTop = Math.max(targetTop, spanRect.top);
+    const overlapRight = Math.min(targetRight, spanRect.right);
+    const overlapBottom = Math.min(targetBottom, spanRect.bottom);
+
+    const overlapW = overlapRight - overlapLeft;
+    const overlapH = overlapBottom - overlapTop;
+
+    if (
+      overlapW > 0 &&
+      overlapH > 0 &&
+      (overlapW * overlapH >= spanRect.width * spanRect.height * 0.12 ||
+        (overlapW >= Math.min(spanRect.width, 3) && overlapH >= Math.min(spanRect.height, 3)))
+    ) {
+      matchingSpans.push({
+        top: spanRect.top,
+        left: spanRect.left,
+        text: span.textContent || '',
+      });
+    }
+  }
+
+  if (matchingSpans.length === 0) return '';
+
+  matchingSpans.sort((a, b) => {
+    if (Math.abs(a.top - b.top) <= 6) {
+      return a.left - b.left;
+    }
+    return a.top - b.top;
+  });
+
+  return matchingSpans
+    .map((s) => s.text)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

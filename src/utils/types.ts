@@ -35,6 +35,7 @@ export interface DrawingAnnotation {
   strokeWidth: number; // in relative units or pt
   opacity: number;
   createdAt: number;
+  text?: string;
 }
 
 export interface LineHighlightAnnotation {
@@ -50,6 +51,7 @@ export interface LineHighlightAnnotation {
   opacity: number;
   style?: LineHighlightStyle;
   createdAt: number;
+  text?: string;
 }
 
 export interface RectHighlightAnnotation {
@@ -64,6 +66,7 @@ export interface RectHighlightAnnotation {
   opacity: number;
   createdAt: number;
   style?: HighlightStyle;
+  text?: string;
 }
 
 export interface TextHighlightAnnotation {
