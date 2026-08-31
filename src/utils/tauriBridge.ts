@@ -543,6 +543,24 @@ export async function tauriSaveJson(jsonString: string, defaultName: string): Pr
   }
 }
 
+export async function tauriOpenJson(): Promise<{ fileName: string; filePath: string; content: string } | null> {
+  if (!isTauri()) return null;
+  try {
+    const res = await commands.openJsonDialog();
+    if (res && res.data) {
+      const content = new TextDecoder('utf-8').decode(new Uint8Array(res.data));
+      return {
+        fileName: res.file_name,
+        filePath: res.file_path,
+        content,
+      };
+    }
+  } catch (err) {
+    console.warn('Tauri open JSON dialog error:', err);
+  }
+  return null;
+}
+
 export async function tauriSelectDirectory(): Promise<string | null> {
   if (!isTauri()) return null;
   try {
@@ -615,4 +633,45 @@ export async function openExternalUrl(url: string): Promise<void> {
   if (typeof window !== 'undefined') {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
+}
+
+type NativeMenuHandler = (action: string) => void;
+const nativeMenuHandlers = new Set<NativeMenuHandler>();
+let globalNativeMenuUnlisten: (() => void) | null = null;
+let isSettingUpNativeMenu = false;
+
+export function listenToNativeMenuEvents(
+  handler: NativeMenuHandler
+): () => void {
+  if (!isTauri()) return () => {};
+
+  nativeMenuHandlers.add(handler);
+
+  if (!globalNativeMenuUnlisten && !isSettingUpNativeMenu) {
+    isSettingUpNativeMenu = true;
+    import('@tauri-apps/api/event')
+      .then(({ listen }) => {
+        return listen<string>('native-menu-action', (event) => {
+          nativeMenuHandlers.forEach((h) => {
+            try {
+              h(event.payload);
+            } catch (err) {
+              console.error('Menu handler dispatch error:', err);
+            }
+          });
+        });
+      })
+      .then((unlisten) => {
+        globalNativeMenuUnlisten = unlisten;
+        isSettingUpNativeMenu = false;
+      })
+      .catch((err) => {
+        isSettingUpNativeMenu = false;
+        console.warn('Failed to listen to native menu events:', err);
+      });
+  }
+
+  return () => {
+    nativeMenuHandlers.delete(handler);
+  };
 }

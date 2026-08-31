@@ -45,7 +45,7 @@ const SHORTCUT_GROUPS = [
       { keys: ['Cmd', 'Shift', 'L'], desc: 'Toggle Light / Dark Mode' },
       { keys: ['Cmd', 'L'], desc: 'Toggle Library Dashboard' },
       { keys: ['Cmd', 'O'], desc: 'Open PDF File' },
-      { keys: ['Cmd', 'S'], desc: 'Save Modified PDF' },
+      { keys: ['Cmd', 'S'], desc: 'Import & Export Annotations' },
       { keys: ['Cmd', 'I'], desc: 'Invert Colors' },
       { keys: ['Cmd', 'B'], desc: 'Toggle Reader Sidebar' },
       { keys: ['Cmd', 'F'], desc: 'Find Text in Document' },

@@ -19,6 +19,12 @@ import { useSnippets } from './hooks/useSnippets';
 import { useColorTheme } from './hooks/useColorTheme';
 import { useAiExplanations } from './hooks/useAiExplanations';
 import { usesInvertedColorSpace } from './utils/readingTheme';
+import {
+  mergeAnnotations,
+  openAnnotationsJsonFile,
+  parseAnnotationsJson,
+  exportAnnotationsJson,
+} from './utils/annotationTransfer';
 import { pdfjsLib } from './utils/pdfWorker';
 import { useKeyboard } from './hooks/useKeyboard';
 import {
@@ -45,6 +51,7 @@ import {
   tauriReadFile,
   toggleFullscreenWindow,
   exitFullscreenWindow,
+  listenToNativeMenuEvents,
 } from './utils/tauriBridge';
 import {
   extractPageText,
@@ -238,6 +245,20 @@ export function App() {
     docKey,
     updateAnnotation,
   });
+
+  const handleImportAnnotations = useCallback(
+    (imported: Annotation[], mode: 'replace' | 'merge' = 'replace') => {
+      if (mode === 'merge') {
+        const merged = mergeAnnotations(annotations, imported);
+        replaceAnnotations(merged);
+        showToast(`Merged ${imported.length} annotations`);
+      } else {
+        replaceAnnotations(imported);
+        showToast(`Imported ${imported.length} annotations`);
+      }
+    },
+    [annotations, replaceAnnotations, showToast]
+  );
 
   const snippetFallbackKeys = useMemo(() => {
     const keys: string[] = [];
@@ -1183,6 +1204,128 @@ export function App() {
     },
   });
 
+  // Native macOS Application Menu Events
+  const menuHandlerRef = useRef({
+    handleOpenPdf,
+    handleImportAnnotations,
+    annotations,
+    docInfo,
+    showToast,
+    setIsExportModalOpen,
+    setIsSettingsOpen,
+    toggleInvert,
+    handleChangeViewMode,
+    setZoom,
+    setIsSidebarOpen,
+    setIsZenMode,
+    setIsShortcutsModalOpen,
+    pdfDoc,
+  });
+
+  menuHandlerRef.current = {
+    handleOpenPdf,
+    handleImportAnnotations,
+    annotations,
+    docInfo,
+    showToast,
+    setIsExportModalOpen,
+    setIsSettingsOpen,
+    toggleInvert,
+    handleChangeViewMode,
+    setZoom,
+    setIsSidebarOpen,
+    setIsZenMode,
+    setIsShortcutsModalOpen,
+    pdfDoc,
+  };
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    const unsubscribe = listenToNativeMenuEvents((action) => {
+      const h = menuHandlerRef.current;
+      switch (action) {
+        case 'open_pdf':
+          h.handleOpenPdf();
+          break;
+        case 'import_annotations':
+          void (async () => {
+            try {
+              const fileData = await openAnnotationsJsonFile();
+              if (!fileData) return;
+              const imported = parseAnnotationsJson(fileData.content);
+              h.handleImportAnnotations(imported, 'replace');
+            } catch (err) {
+              h.showToast(err instanceof Error ? err.message : 'Failed to import annotations', true);
+            }
+          })();
+          break;
+        case 'export_annotations':
+          if (!h.pdfDoc) {
+            h.showToast('Open a PDF first to export annotations', true);
+            return;
+          }
+          void (async () => {
+            try {
+              const baseName = (h.docInfo?.fileName || 'document').replace(/\.pdf$/i, '');
+              const exportName = `${baseName}_annotations.json`;
+              const res = await exportAnnotationsJson(h.annotations, exportName);
+              if (res.success) {
+                h.showToast(`Saved annotations to ${exportName}`);
+              }
+            } catch (err) {
+              h.showToast(err instanceof Error ? err.message : 'Failed to export annotations', true);
+            }
+          })();
+          break;
+        case 'open_transfer_modal':
+          if (!h.pdfDoc) {
+            h.showToast('Open a PDF first to transfer annotations', true);
+            return;
+          }
+          h.setIsExportModalOpen(true);
+          break;
+        case 'settings':
+          h.setIsSettingsOpen(true);
+          break;
+        case 'toggle_theme':
+        case 'toggle_invert':
+          h.toggleInvert();
+          break;
+        case 'view_continuous':
+          h.handleChangeViewMode('continuous');
+          break;
+        case 'view_single':
+          h.handleChangeViewMode('single');
+          break;
+        case 'view_spread':
+          h.handleChangeViewMode('spread');
+          break;
+        case 'zoom_in':
+          h.setZoom((z) => Math.min(3.0, z + 0.15));
+          break;
+        case 'zoom_out':
+          h.setZoom((z) => Math.max(0.4, z - 0.15));
+          break;
+        case 'zoom_reset':
+          h.setZoom(1.0);
+          break;
+        case 'toggle_sidebar':
+          h.setIsSidebarOpen((prev) => !prev);
+          break;
+        case 'toggle_zen':
+          h.setIsZenMode((prev) => !prev);
+          break;
+        case 'keyboard_shortcuts':
+          h.setIsShortcutsModalOpen(true);
+          break;
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   return (
     <div
       data-ui-theme={isDarkTheme ? 'dark' : 'light'}
@@ -1265,7 +1408,6 @@ export function App() {
             annotationCount={annotations.length}
             saveStatus={saveStatus}
             onOpenDashboard={() => setCurrentScreen('dashboard')}
-            onExportClick={() => setIsExportModalOpen(true)}
             onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
             onToggleInvert={toggleInvert}
             onOpenThemeModal={() => setIsThemeModalOpen(true)}
@@ -1532,7 +1674,7 @@ export function App() {
             onChangeViewMode={handleChangeViewMode}
           />
 
-          {/* PDF Export & Save Modal */}
+          {/* PDF & Annotations Export/Import Modal */}
           <ExportModal
             isOpen={isExportModalOpen}
             rawPdfBytes={rawPdfBytes}
@@ -1540,6 +1682,7 @@ export function App() {
             fileName={docInfo?.fileName || 'document.pdf'}
             currentPage={currentPage}
             onClose={() => setIsExportModalOpen(false)}
+            onImportAnnotations={handleImportAnnotations}
           />
         </>
       )}

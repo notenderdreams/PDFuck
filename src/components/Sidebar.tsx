@@ -291,7 +291,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* TAB 3: ANNOTATIONS LIST */}
         {activeTab === 'annotations' && (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1 pb-1 border-b border-[var(--border)]">
+              <span className="text-[10.5px] font-semibold text-zinc-400">
+                {annotations.length} {annotations.length === 1 ? 'Annotation' : 'Annotations'}
+              </span>
+            </div>
+
             {annotations.length === 0 ? (
               <div className="text-[11px] text-zinc-500 text-center py-6">
                 No annotations added yet.

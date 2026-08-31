@@ -12,6 +12,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         documents::open_pdf_dialog,
         documents::open_image_dialog,
+        documents::open_json_dialog,
         documents::save_pdf_dialog,
         documents::write_pdf_file,
         documents::save_json_dialog,

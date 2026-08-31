@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   ArrowLeft,
-  Download,
   Moon,
   Sun,
   Search,
@@ -31,7 +30,6 @@ interface HeaderProps {
   annotationCount?: number;
   saveStatus?: 'saved' | 'saving' | 'error';
   onOpenDashboard?: () => void;
-  onExportClick: () => void;
   onToggleSearch: () => void;
   onToggleInvert: () => void;
   onOpenThemeModal: () => void;
@@ -57,7 +55,6 @@ export const Header: React.FC<HeaderProps> = ({
   isZenMode,
   isSearchOpen,
   onOpenDashboard,
-  onExportClick,
   onToggleSearch,
   onToggleInvert,
   onOpenThemeModal,
@@ -343,16 +340,6 @@ export const Header: React.FC<HeaderProps> = ({
           title="Fullscreen Focus (F)"
         >
           <Maximize2 className="w-3.5 h-3.5" />
-        </button>
-
-        {/* Primary Save PDF Button */}
-        <button
-          onClick={onExportClick}
-          className="btn-primary ml-0.5"
-          title="Save Modified PDF (Cmd+S)"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Save PDF</span>
         </button>
       </div>
     </header>

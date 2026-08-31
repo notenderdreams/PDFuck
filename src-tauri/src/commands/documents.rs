@@ -4,7 +4,33 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::UNIX_EPOCH;
+
+static IS_PDF_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+static IS_IMAGE_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+static IS_SAVE_PDF_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+static IS_SAVE_JSON_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+static IS_JSON_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+static IS_DIRECTORY_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+
+struct DialogGuard<'a>(&'a AtomicBool);
+
+impl<'a> DialogGuard<'a> {
+    fn try_acquire(flag: &'a AtomicBool) -> Option<Self> {
+        if flag.swap(true, Ordering::SeqCst) {
+            None
+        } else {
+            Some(Self(flag))
+        }
+    }
+}
+
+impl<'a> Drop for DialogGuard<'a> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
 
 const MAX_SCAN_DEPTH: usize = 4;
 
@@ -59,6 +85,7 @@ pub struct ScannedPdfResult {
 #[tauri::command]
 #[specta::specta]
 pub fn open_pdf_dialog() -> Option<OpenFileResult> {
+    let _guard = DialogGuard::try_acquire(&IS_PDF_DIALOG_OPEN)?;
     let file = rfd::FileDialog::new()
         .add_filter("PDF Document", &["pdf"])
         .set_title("Open PDF Document")
@@ -69,6 +96,7 @@ pub fn open_pdf_dialog() -> Option<OpenFileResult> {
 #[tauri::command]
 #[specta::specta]
 pub fn open_image_dialog() -> Option<OpenImageResult> {
+    let _guard = DialogGuard::try_acquire(&IS_IMAGE_DIALOG_OPEN)?;
     let file = rfd::FileDialog::new()
         .add_filter(
             "Images",
@@ -93,6 +121,10 @@ pub fn open_image_dialog() -> Option<OpenImageResult> {
 #[tauri::command]
 #[specta::specta]
 pub fn save_pdf_dialog(data: Vec<u8>, default_name: Option<String>) -> SaveResult {
+    let _guard = match DialogGuard::try_acquire(&IS_SAVE_PDF_DIALOG_OPEN) {
+        Some(guard) => guard,
+        None => return SaveResult::failed(),
+    };
     let path = rfd::FileDialog::new()
         .add_filter("PDF Document", &["pdf"])
         .set_title("Save PDF Document")
@@ -119,12 +151,27 @@ pub fn write_pdf_file(file_path: String, data: Vec<u8>) -> SaveResult {
 #[tauri::command]
 #[specta::specta]
 pub fn save_json_dialog(json_string: String, default_name: Option<String>) -> SaveResult {
+    let _guard = match DialogGuard::try_acquire(&IS_SAVE_JSON_DIALOG_OPEN) {
+        Some(guard) => guard,
+        None => return SaveResult::failed(),
+    };
     let path = rfd::FileDialog::new()
-        .add_filter("JSON File", &["json"])
-        .set_title("Save Annotations Session")
+        .add_filter("Annotations", &["json"])
+        .set_title("Save Annotations")
         .set_file_name(default_name.as_deref().unwrap_or("annotations.json"))
         .save_file();
     save_to_selected_path(path, json_string.as_bytes())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn open_json_dialog() -> Option<OpenFileResult> {
+    let _guard = DialogGuard::try_acquire(&IS_JSON_DIALOG_OPEN)?;
+    let file = rfd::FileDialog::new()
+        .add_filter("Annotations", &["json"])
+        .set_title("Import Annotations")
+        .pick_file()?;
+    read_file(&file).map_err(log_error).ok()
 }
 
 #[tauri::command]
@@ -136,6 +183,7 @@ pub fn read_file_from_path(file_path: String) -> Option<OpenFileResult> {
 #[tauri::command]
 #[specta::specta]
 pub fn select_directory_dialog() -> Option<String> {
+    let _guard = DialogGuard::try_acquire(&IS_DIRECTORY_DIALOG_OPEN)?;
     rfd::FileDialog::new()
         .set_title("Select Directory to Add to PDF Library")
         .pick_folder()
