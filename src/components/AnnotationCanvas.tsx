@@ -16,6 +16,7 @@ import type {
 import { resolveHighlightOpacity, toggleHighlightStyle } from '../utils/highlightStyle';
 import { extractTextFromDomPageRegion } from '../utils/textHighlight';
 import { focusWithoutMovingViewer, keepViewerPositionAfter } from '../utils/viewerPosition';
+import { TextFormattingToolbar } from './TextFormattingToolbar';
 
 interface AnnotationCanvasProps {
   pageNumber: number;
@@ -87,6 +88,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
   const [textInputValue, setTextInputValue] = useState<string>('');
   const [textInputKind, setTextInputKind] = useState<'plain' | 'sticky'>('plain');
+  const [textInputColor, setTextInputColor] = useState<string>('#000000');
+  const [textInputFontSize, setTextInputFontSize] = useState<number>(14);
+  const [textInputFontFamily, setTextInputFontFamily] = useState<'sans' | 'serif' | 'mono'>('sans');
+  const [textInputAlign, setTextInputAlign] = useState<'left' | 'center' | 'right'>('left');
 
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
@@ -689,11 +694,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         x: textInputPos.x,
         y: textInputPos.y,
         text: textInputValue.trim(),
-        color: textInputKind === 'plain' ? selectedColor : '#fef08a',
-        fontSize: 12,
+        color: textInputKind === 'plain' ? textInputColor : '#fef08a',
+        fontSize: textInputFontSize,
+        fontFamily: textInputFontFamily,
+        align: textInputAlign,
         createdAt: Date.now(),
       };
       onAddAnnotation(newNote);
+      onSelectAnnotation?.(newNote.id);
     }
     setTextInputPos(null);
     setTextInputValue('');
@@ -1178,41 +1186,76 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
       {/* Inline Plain Text Editor */}
       {textInputPos && textInputKind === 'plain' && (
-        <textarea
-          ref={textNoteTextareaRef}
-          rows={Math.max(1, textInputValue.split('\n').length)}
-          value={textInputValue}
-          onChange={(e) => {
-            setTextInputValue(e.target.value);
-            e.target.style.height = 'auto';
-            e.target.style.height = `${e.target.scrollHeight}px`;
-          }}
-          onBlur={handleSaveTextNote}
-          placeholder="Type text..."
-          aria-label="Add plain text"
-          className="absolute z-50 min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 font-sans text-xs leading-relaxed outline-none placeholder:opacity-50 pointer-events-auto shadow-sm"
+        <div
           style={{
             left: `${textInputPos.x * pageWidth}px`,
             top: `${textInputPos.y * pageHeight}px`,
-            color: selectedColor,
           }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSaveTextNote();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              e.stopPropagation();
-              keepViewerPositionAfter(e.currentTarget, () => {
-                setTextInputPos(null);
-                setTextInputValue('');
-              });
-            }
-          }}
-        />
+          className="absolute z-50 pointer-events-auto"
+        >
+          <TextFormattingToolbar
+            align={textInputAlign}
+            onChangeAlign={setTextInputAlign}
+            fontFamily={textInputFontFamily}
+            onChangeFontFamily={setTextInputFontFamily}
+            fontSize={textInputFontSize}
+            onChangeFontSize={setTextInputFontSize}
+            colors={highlightColors}
+            color={textInputColor}
+            onChangeColor={setTextInputColor}
+            onDelete={() => {
+              setTextInputPos(null);
+              setTextInputValue('');
+            }}
+            onDone={handleSaveTextNote}
+          />
+          <textarea
+            ref={textNoteTextareaRef}
+            rows={Math.max(1, textInputValue.split('\n').length)}
+            value={textInputValue}
+            onChange={(e) => {
+              setTextInputValue(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            onBlur={handleSaveTextNote}
+            placeholder="Type text..."
+            aria-label="Add plain text"
+            className={`min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 leading-relaxed outline-none placeholder:opacity-50 shadow-sm ${
+              textInputFontFamily === 'serif'
+                ? 'font-serif'
+                : textInputFontFamily === 'mono'
+                  ? 'font-mono'
+                  : 'font-sans'
+            } ${
+              textInputAlign === 'center'
+                ? 'text-center'
+                : textInputAlign === 'right'
+                  ? 'text-right'
+                  : 'text-left'
+            }`}
+            style={{
+              color: textInputColor,
+              fontSize: `${textInputFontSize}px`,
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSaveTextNote();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                keepViewerPositionAfter(e.currentTarget, () => {
+                  setTextInputPos(null);
+                  setTextInputValue('');
+                });
+              }
+            }}
+          />
+        </div>
       )}
 
       {/* Active Sticky Note Creation Popup */}

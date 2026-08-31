@@ -27,7 +27,8 @@ describe('plain text and sticky note tools', () => {
     ]);
 
     expect(canvas).toContain("kind: textInputKind");
-    expect(canvas).toContain("textInputKind === 'plain' ? selectedColor : '#fef08a'");
+    expect(canvas).toContain("textInputKind === 'plain' ? textInputColor : '#fef08a'");
+    expect(canvas).toContain("const [textInputColor, setTextInputColor] = useState<string>('#000000');");
     expect(canvas).toContain('aria-label="Add plain text"');
     expect(canvas).toContain('onBlur={handleSaveTextNote}');
     expect(canvas).toContain("textInputPos && textInputKind === 'sticky'");
@@ -79,5 +80,32 @@ describe('plain text and sticky note tools', () => {
     expect(viewer).toContain('onAddAnnotation(newNote)');
     expect(viewer).toContain('onSelectAnnotation(newNote.id)');
     expect(overlay).toContain("const [isEditing, setIsEditing] = useState(annotation.text === '')");
+  });
+
+  test('provides icon-only text formatting toolbar for alignment, font, size, and color', async () => {
+    const [toolbar, overlay, canvas] = await Promise.all([
+      source('src/components/TextFormattingToolbar.tsx'),
+      source('src/components/TextNoteOverlay.tsx'),
+      source('src/components/AnnotationCanvas.tsx'),
+    ]);
+
+    // Alignment icons
+    expect(toolbar).toContain('AlignLeft');
+    expect(toolbar).toContain('AlignCenter');
+    expect(toolbar).toContain('AlignRight');
+
+    // Font size controls
+    expect(toolbar).toContain('AArrowDown');
+    expect(toolbar).toContain('AArrowUp');
+
+    // App highlight palette integration
+    expect(toolbar).toContain('HIGHLIGHT_COLOR_PRESETS');
+    expect(toolbar).toContain('colors.map');
+
+    // Integrated into overlays and canvas
+    expect(overlay).toContain('<TextFormattingToolbar');
+    expect(canvas).toContain('<TextFormattingToolbar');
+    expect(canvas).toContain('colors={highlightColors}');
+    expect(overlay).toContain('colors={highlightColors}');
   });
 });

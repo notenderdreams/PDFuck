@@ -556,6 +556,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
           pageHeight={pageDimensions.height}
           currentTheme={currentTheme}
           activeTool={activeTool}
+          highlightColors={highlightColors}
           onSelect={onSelectAnnotation}
           onUpdate={onUpdateAnnotation}
           onDelete={onDeleteAnnotation}

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, GripHorizontal, Edit3, Check, Palette } from 'lucide-react';
 import type { TextNoteAnnotation, ReadingTheme, ToolType } from '../utils/types';
 import { focusWithoutMovingViewer, keepViewerPositionAfter } from '../utils/viewerPosition';
+import { TextFormattingToolbar } from './TextFormattingToolbar';
 
 interface TextNoteOverlayProps {
   annotation: TextNoteAnnotation;
@@ -10,6 +11,7 @@ interface TextNoteOverlayProps {
   pageHeight: number;
   currentTheme: ReadingTheme;
   activeTool: ToolType;
+  highlightColors?: readonly string[];
   onSelect: (id: string) => void;
   onUpdate: (id: string, updates: Partial<TextNoteAnnotation>) => void;
   onDelete: (id: string) => void;
@@ -32,6 +34,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
   pageHeight,
   currentTheme,
   activeTool,
+  highlightColors,
   onSelect,
   onUpdate,
   onDelete,
@@ -182,6 +185,19 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
   };
 
   if (annotation.kind === 'plain') {
+    const fontClass =
+      annotation.fontFamily === 'serif'
+        ? 'font-serif'
+        : annotation.fontFamily === 'mono'
+          ? 'font-mono'
+          : 'font-sans';
+    const alignClass =
+      annotation.align === 'center'
+        ? 'text-center'
+        : annotation.align === 'right'
+          ? 'text-right'
+          : 'text-left';
+
     return (
       <div
         onClick={handleClick}
@@ -196,6 +212,22 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
           isSelected ? 'ring-2 ring-blue-500/80 ring-offset-2 ring-offset-transparent' : ''
         }`}
       >
+        {(isSelected || isEditing) && (
+          <TextFormattingToolbar
+            align={annotation.align || 'left'}
+            onChangeAlign={(align) => onUpdate(annotation.id, { align })}
+            fontFamily={annotation.fontFamily || 'sans'}
+            onChangeFontFamily={(fontFamily) => onUpdate(annotation.id, { fontFamily })}
+            fontSize={annotation.fontSize || 14}
+            onChangeFontSize={(fontSize) => onUpdate(annotation.id, { fontSize })}
+            colors={highlightColors}
+            color={annotation.color || '#000000'}
+            onChangeColor={(color) => onUpdate(annotation.id, { color })}
+            onDelete={() => onDelete(annotation.id)}
+            onDone={isEditing ? handleSaveEdit : undefined}
+          />
+        )}
+
         {isEditing ? (
           <textarea
             ref={textareaRef}
@@ -218,31 +250,16 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 handleCancelEdit(e.currentTarget);
               }
             }}
-            className="min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 font-sans leading-relaxed outline-none shadow-sm"
-            style={{ color: annotation.color, fontSize: `${annotation.fontSize || 12}px` }}
+            className={`min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 leading-relaxed outline-none shadow-sm ${fontClass} ${alignClass}`}
+            style={{ color: annotation.color || '#000000', fontSize: `${annotation.fontSize || 14}px` }}
           />
         ) : (
           <div
             onMouseDown={handleMouseDownDrag}
-            className="cursor-grab whitespace-pre-wrap break-words font-sans leading-relaxed active:cursor-grabbing"
-            style={{ color: annotation.color, fontSize: `${annotation.fontSize || 12}px` }}
+            className={`cursor-grab whitespace-pre-wrap break-words leading-relaxed active:cursor-grabbing ${fontClass} ${alignClass}`}
+            style={{ color: annotation.color || '#000000', fontSize: `${annotation.fontSize || 14}px` }}
           >
             {annotation.text}
-          </div>
-        )}
-
-        {isSelected && !isEditing && (
-          <div className="absolute -top-8 left-0 flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--muted-foreground)] shadow-lg">
-            <GripHorizontal
-              className="h-3.5 w-3.5 cursor-grab"
-              onMouseDown={handleMouseDownDrag}
-            />
-            <button onClick={() => setIsEditing(true)} className="rounded p-0.5 hover:bg-[var(--secondary)]" title="Edit text">
-              <Edit3 className="h-3 w-3" />
-            </button>
-            <button onClick={() => onDelete(annotation.id)} className="rounded p-0.5 hover:bg-red-500/10 hover:text-red-500" title="Delete text">
-              <Trash2 className="h-3 w-3" />
-            </button>
           </div>
         )}
       </div>

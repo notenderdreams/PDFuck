@@ -1024,8 +1024,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             x: normX,
             y: normY,
             text: '',
-            color: activeTool === 'text' ? selectedColor : '#fef08a',
-            fontSize: 12,
+            color: activeTool === 'text' ? '#000000' : '#fef08a',
+            fontSize: 14,
+            fontFamily: 'sans',
+            align: 'left',
             createdAt: Date.now(),
           };
           onAddAnnotation(newNote);

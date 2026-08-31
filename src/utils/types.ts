@@ -111,6 +111,8 @@ export interface TextNoteAnnotation {
   text: string;
   color: string;
   fontSize: number; // in pt
+  fontFamily?: 'sans' | 'serif' | 'mono' | string;
+  align?: 'left' | 'center' | 'right';
   createdAt: number;
 }
 
