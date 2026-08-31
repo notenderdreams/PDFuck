@@ -9,12 +9,14 @@ import {
   Trash2,
   Image as ImageIcon,
   Crop,
+  Copy,
 } from 'lucide-react';
 import { SparkleIcon } from './icons/SparkleIcon';
 import type { Annotation, DocumentInfo, PDFOutlineItem, SnippetDividerEntry, SnippetEntry, StitchOptions } from '../utils/types';
 import { ThumbnailRenderQueue } from '../utils/thumbnailRenderQueue';
 import { SnippetPanel } from './SnippetPanel';
-import { getAnnotationListPresentation } from '../utils/annotationPresentation';
+import { getAnnotationListPresentation, getAnnotationCoveredText } from '../utils/annotationPresentation';
+import { copyTextToClipboard } from '../utils/pageExtractor';
 
 export type SidebarTabType = 'thumbnails' | 'outline' | 'annotations' | 'snippets' | 'info';
 
@@ -358,16 +360,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteAnnotation(ann.id);
-                      }}
-                      className="shrink-0 p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-                      title="Delete Annotation"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const text = getAnnotationCoveredText(ann);
+                          if (!text) {
+                            showToast?.('No text in annotation', true);
+                            return;
+                          }
+                          const ok = await copyTextToClipboard(text);
+                          if (ok) {
+                            showToast?.('Copied annotation text to clipboard');
+                          } else {
+                            showToast?.('Failed to copy text', true);
+                          }
+                        }}
+                        className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        title="Copy text"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteAnnotation(ann.id);
+                        }}
+                        className="p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Delete Annotation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })

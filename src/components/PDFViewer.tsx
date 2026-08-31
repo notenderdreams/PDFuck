@@ -78,6 +78,7 @@ interface PDFViewerProps {
   onCopyPageImage: (pageNumber: number) => void;
   onAskAiAboutPage: (pageNumber: number) => void;
   onCopySelectedText?: (text: string) => void;
+  showToast?: (text: string, isError?: boolean) => void;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -133,6 +134,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onCopyPageImage,
   onAskAiAboutPage,
   onCopySelectedText,
+  showToast,
 }) => {
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const companionContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1219,6 +1221,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     onCopyPageImage={onCopyPageImage}
                     onAskAiAboutPage={onAskAiAboutPage}
                     onCopySelectedText={onCopySelectedText}
+                    showToast={showToast}
                     isFlush
                     />
                   ))}
@@ -1288,6 +1291,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     onCopyPageText={() => {}}
                     onCopyPageImage={() => {}}
                     onAskAiAboutPage={() => {}}
+                    showToast={showToast}
                     isFlush
                     isReadOnly
                     pageIdPrefix="companion-pdf-page"
@@ -1340,6 +1344,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onCopyPageImage={onCopyPageImage}
                 onAskAiAboutPage={onAskAiAboutPage}
                 onCopySelectedText={onCopySelectedText}
+                showToast={showToast}
                 isFlush
               />
             ))}
@@ -1385,6 +1390,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               onCopyPageImage={onCopyPageImage}
               onAskAiAboutPage={onAskAiAboutPage}
               onCopySelectedText={onCopySelectedText}
+              showToast={showToast}
             />
           </div>
         )}
@@ -1433,6 +1439,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onCopyPageImage={onCopyPageImage}
                 onAskAiAboutPage={onAskAiAboutPage}
                 onCopySelectedText={onCopySelectedText}
+                showToast={showToast}
               />
 
               {/* Right Page (if exists) */}
@@ -1476,6 +1483,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   onCopyPageImage={onCopyPageImage}
                   onAskAiAboutPage={onAskAiAboutPage}
                   onCopySelectedText={onCopySelectedText}
+                  showToast={showToast}
                 />
               )}
             </div>

@@ -132,3 +132,105 @@ export function getAnnotationListPresentation(
     isAi: false,
   };
 }
+
+/**
+ * Calculates normalized (0..1) bounding box for any annotation.
+ */
+export function getAnnotationBoundingBox(ann: Annotation): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  if (ann.type === 'highlight-rect' || ann.type === 'ai-explanation' || ann.type === 'image') {
+    return {
+      x: ann.x,
+      y: ann.y,
+      width: Math.max(0.01, ann.width),
+      height: Math.max(0.01, ann.height),
+    };
+  }
+
+  if (ann.type === 'highlight-text') {
+    if (ann.rects && ann.rects.length > 0) {
+      const minX = Math.min(...ann.rects.map((r) => r.x));
+      const minY = Math.min(...ann.rects.map((r) => r.y));
+      const maxX = Math.max(...ann.rects.map((r) => r.x + r.width));
+      const maxY = Math.max(...ann.rects.map((r) => r.y + r.height));
+      return {
+        x: minX,
+        y: minY,
+        width: Math.max(0.01, maxX - minX),
+        height: Math.max(0.01, maxY - minY),
+      };
+    }
+  }
+
+  if (ann.type === 'highlight-line') {
+    const minX = Math.min(ann.startX, ann.endX);
+    const minY = Math.min(ann.startY, ann.endY);
+    const maxX = Math.max(ann.startX, ann.endX);
+    const maxY = Math.max(ann.startY, ann.endY);
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(0.01, maxX - minX),
+      height: Math.max(0.02, maxY - minY),
+    };
+  }
+
+  if (ann.type === 'pen' || ann.type === 'highlight-pen') {
+    if (ann.points && ann.points.length > 0) {
+      const minX = Math.min(...ann.points.map((p) => p.x));
+      const minY = Math.min(...ann.points.map((p) => p.y));
+      const maxX = Math.max(...ann.points.map((p) => p.x));
+      const maxY = Math.max(...ann.points.map((p) => p.y));
+      return {
+        x: minX,
+        y: minY,
+        width: Math.max(0.01, maxX - minX),
+        height: Math.max(0.01, maxY - minY),
+      };
+    }
+  }
+
+  if (ann.type === 'text-note') {
+    return {
+      x: ann.x,
+      y: ann.y,
+      width: 0.2,
+      height: 0.1,
+    };
+  }
+
+  return { x: 0, y: 0, width: 1, height: 1 };
+}
+
+/**
+ * Extracts or returns the text covered by an annotation.
+ */
+export function getAnnotationCoveredText(ann: Annotation): string {
+  if (ann.type === 'highlight-text') {
+    if (ann.text) return ann.text.trim();
+  }
+  if (
+    ann.type === 'highlight-rect' ||
+    ann.type === 'highlight-line' ||
+    ann.type === 'highlight-pen' ||
+    ann.type === 'pen'
+  ) {
+    if (ann.text) return ann.text.trim();
+    const bounds = getAnnotationBoundingBox(ann);
+    return extractTextFromDomPageRegion(ann.pageNumber, bounds);
+  }
+  if (ann.type === 'text-note') {
+    return ann.text.trim();
+  }
+  if (ann.type === 'ai-explanation') {
+    return [ann.prompt ? `Q: ${ann.prompt}` : '', ann.response].filter(Boolean).join('\n\n').trim();
+  }
+  if (ann.type === 'image') {
+    return ann.name || ann.extractedText || '';
+  }
+  return '';
+}

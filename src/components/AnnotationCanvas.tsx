@@ -98,8 +98,17 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const selectedHighlight = pageAnnotations.find(
     (a) =>
       a.id === selectedAnnotationId &&
-      (a.type === 'highlight-rect' || a.type === 'highlight-text' || a.type === 'highlight-line')
-  ) as RectHighlightAnnotation | TextHighlightAnnotation | LineHighlightAnnotation | undefined;
+      (a.type === 'highlight-rect' ||
+        a.type === 'highlight-text' ||
+        a.type === 'highlight-line' ||
+        a.type === 'highlight-pen' ||
+        a.type === 'pen')
+  ) as
+    | RectHighlightAnnotation
+    | TextHighlightAnnotation
+    | LineHighlightAnnotation
+    | DrawingAnnotation
+    | undefined;
 
   let selectedHighlightPos = { x: 0, y: 0 };
   if (selectedHighlight) {
@@ -118,6 +127,17 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     } else if (selectedHighlight.type === 'highlight-line') {
       const minX = Math.min(selectedHighlight.startX, selectedHighlight.endX);
       const minY = Math.min(selectedHighlight.startY, selectedHighlight.endY);
+      selectedHighlightPos = {
+        x: minX * pageWidth,
+        y: minY * pageHeight,
+      };
+    } else if (
+      (selectedHighlight.type === 'pen' || selectedHighlight.type === 'highlight-pen') &&
+      selectedHighlight.points &&
+      selectedHighlight.points.length > 0
+    ) {
+      const minX = Math.min(...selectedHighlight.points.map((p) => p.x));
+      const minY = Math.min(...selectedHighlight.points.map((p) => p.y));
       selectedHighlightPos = {
         x: minX * pageWidth,
         y: minY * pageHeight,
@@ -1324,7 +1344,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {selectedHighlight && (
         <div
           style={{
-            left: `${Math.max(8, Math.min(selectedHighlightPos.x, pageWidth - 240))}px`,
+            left: `${Math.max(8, Math.min(selectedHighlightPos.x, pageWidth - 290))}px`,
             top: `${Math.max(8, selectedHighlightPos.y - 38)}px`,
           }}
           className="absolute z-50 flex items-center gap-1.5 p-1 px-1.5 rounded-lg bg-[var(--popover)]/95 border border-[var(--border)] shadow-xl backdrop-blur-md pointer-events-auto select-none"

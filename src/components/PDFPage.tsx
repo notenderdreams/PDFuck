@@ -8,7 +8,9 @@ import { AiExplanationOverlay } from './AiExplanationOverlay';
 import { PageContextMenu } from './PageContextMenu';
 import type { AiJobState } from '../hooks/useAiExplanations';
 import { usesInvertedColorSpace } from '../utils/readingTheme';
-import { copyTextToClipboard } from '../utils/pageExtractor';
+import { copyTextToClipboard, copyRegionImageToClipboard } from '../utils/pageExtractor';
+import { isAnnotationHitByEraser } from '../utils/eraserUtils';
+import { getAnnotationBoundingBox, getAnnotationCoveredText } from '../utils/annotationPresentation';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import type {
   Annotation,
@@ -57,6 +59,7 @@ interface PDFPageProps {
   onCopyPageImage: (pageNumber: number) => void;
   onAskAiAboutPage: (pageNumber: number) => void;
   onCopySelectedText?: (text: string) => void;
+  showToast?: (text: string, isError?: boolean) => void;
   isFlush?: boolean;
   isReadOnly?: boolean;
   pageIdPrefix?: string;
@@ -98,6 +101,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   onCopyPageImage,
   onAskAiAboutPage,
   onCopySelectedText,
+  showToast,
   isFlush = false,
   isReadOnly = false,
   pageIdPrefix = 'pdf-page',
@@ -341,6 +345,7 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
   ) as AiExplanationAnnotation[];
 
   const [contextMenuSelectedText, setContextMenuSelectedText] = useState<string>('');
+  const [contextMenuHitAnnotation, setContextMenuHitAnnotation] = useState<Annotation | null>(null);
 
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -349,19 +354,61 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
     const text = selection ? selection.toString().trim() : '';
     setContextMenuSelectedText(text);
 
-    if (containerRef.current && onCursorMove) {
+    let hitAnn: Annotation | null = null;
+    if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const nx = Math.max(0, Math.min((event.clientX - rect.left) / pageDimensions.width, 1));
-      const ny = Math.max(0, Math.min((event.clientY - rect.top) / pageDimensions.height, 1));
-      onCursorMove(pageNumber, nx, ny);
+      const px = event.clientX - rect.left;
+      const py = event.clientY - rect.top;
+      const nx = Math.max(0, Math.min(px / pageDimensions.width, 1));
+      const ny = Math.max(0, Math.min(py / pageDimensions.height, 1));
+      if (onCursorMove) {
+        onCursorMove(pageNumber, nx, ny);
+      }
+
+      // Check annotations on this page (topmost first)
+      const thisPageAnns = annotations.filter((a) => a.pageNumber === pageNumber);
+      hitAnn =
+        [...thisPageAnns].reverse().find((a) =>
+          isAnnotationHitByEraser(a, px, py, pageDimensions.width, pageDimensions.height, 8)
+        ) || null;
     }
+
+    setContextMenuHitAnnotation(hitAnn);
+    if (hitAnn) {
+      onSelectAnnotation(hitAnn.id);
+    }
+
     const menuWidth = 224;
-    const menuHeight = 220;
+    const menuHeight = hitAnn ? 320 : 220;
     setContextMenuPosition({
       x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
       y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
     });
   };
+
+  const handleCopyAnnotationText = useCallback(async (ann: Annotation) => {
+    const text = getAnnotationCoveredText(ann);
+    if (!text) {
+      showToast?.('No text detected under highlight', true);
+      return;
+    }
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      showToast?.('Copied highlight text to clipboard');
+    } else {
+      showToast?.('Failed to copy text', true);
+    }
+  }, [showToast]);
+
+  const handleCopyAnnotationImage = useCallback(async (ann: Annotation) => {
+    const bounds = getAnnotationBoundingBox(ann);
+    const ok = await copyRegionImageToClipboard(pageNumber, bounds, pdfDoc, pageIdPrefix);
+    if (ok) {
+      showToast?.('Copied highlight region as image');
+    } else {
+      showToast?.('Failed to copy region image', true);
+    }
+  }, [pageNumber, pdfDoc, pageIdPrefix, showToast]);
 
   const handleCopySelectedText = useCallback(async () => {
     const textToCopy = contextMenuSelectedText || window.getSelection()?.toString().trim() || '';
@@ -396,6 +443,10 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
         <PageContextMenu
           position={contextMenuPosition}
           hasSelectedText={Boolean(contextMenuSelectedText || window.getSelection()?.toString().trim())}
+          hitAnnotation={contextMenuHitAnnotation}
+          onCopyAnnotationText={handleCopyAnnotationText}
+          onCopyAnnotationImage={handleCopyAnnotationImage}
+          onDeleteAnnotation={onDeleteAnnotation}
           onClose={() => setContextMenuPosition(null)}
           onCopySelectedText={handleCopySelectedText}
           onAddPageBelow={() => onAddPageBelow?.(pageNumber)}

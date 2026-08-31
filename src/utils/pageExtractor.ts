@@ -239,6 +239,169 @@ export async function copyPageImageToClipboard(
   return false;
 }
 
+/**
+ * Copy a cropped region of a PDF page directly to the clipboard as an image
+ */
+export async function copyRegionImageToClipboard(
+  pageNumber: number | unknown,
+  rect: { x: number; y: number; width: number; height: number },
+  pdfDoc?: PDFDocumentProxy | null,
+  pageIdPrefix: string = 'pdf-page'
+): Promise<boolean> {
+  const safePageNum =
+    typeof pageNumber === 'number' && !isNaN(pageNumber)
+      ? Math.max(1, Math.floor(pageNumber))
+      : 1;
+
+  const pageContainer =
+    document.getElementById(`${pageIdPrefix}-${safePageNum}`) ||
+    document.querySelector<HTMLElement>(`[data-pdf-page-number="${safePageNum}"]`);
+  const pdfCanvas = pageContainer?.querySelector('canvas') as HTMLCanvasElement | null;
+
+  try {
+    if (pdfCanvas && pdfCanvas.width > 0 && pdfCanvas.height > 0) {
+      const W = pdfCanvas.width;
+      const H = pdfCanvas.height;
+
+      const sx = Math.max(0, Math.floor(rect.x * W));
+      const sy = Math.max(0, Math.floor(rect.y * H));
+      const sw = Math.min(W - sx, Math.max(4, Math.ceil(rect.width * W)));
+      const sh = Math.min(H - sy, Math.max(4, Math.ceil(rect.height * H)));
+
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = sw;
+      outputCanvas.height = sh;
+      const ctx = outputCanvas.getContext('2d');
+      if (!ctx) return false;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, sw, sh);
+
+      try {
+        ctx.drawImage(pdfCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+      } catch (err) {
+        console.warn('Canvas region drawImage failed:', err);
+      }
+
+      if (pageContainer) {
+        const otherCanvases = pageContainer.querySelectorAll('canvas');
+        otherCanvases.forEach((c) => {
+          if (c !== pdfCanvas && c.width > 0 && c.height > 0) {
+            try {
+              const csx = Math.max(0, Math.floor(rect.x * c.width));
+              const csy = Math.max(0, Math.floor(rect.y * c.height));
+              const csw = Math.min(c.width - csx, Math.max(4, Math.ceil(rect.width * c.width)));
+              const csh = Math.min(c.height - csy, Math.max(4, Math.ceil(rect.height * c.height)));
+              ctx.drawImage(c, csx, csy, csw, csh, 0, 0, sw, sh);
+            } catch (e) {
+              console.warn('Could not draw secondary canvas overlay:', e);
+            }
+          }
+        });
+      }
+
+      const dataUrl = outputCanvas.toDataURL('image/png');
+
+      if (isTauri()) {
+        try {
+          const nativeOk = await tauriCopyImageToClipboard(dataUrl);
+          if (nativeOk) return true;
+        } catch (e) {
+          console.warn('Tauri native copy region image failed:', e);
+        }
+      }
+
+      if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        try {
+          const blobPromise = new Promise<Blob>((resolve, reject) => {
+            outputCanvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('Canvas toBlob returned null'));
+            }, 'image/png');
+          });
+
+          const item = new ClipboardItem({ 'image/png': blobPromise });
+          await navigator.clipboard.write([item]);
+          return true;
+        } catch (clipErr) {
+          console.error('Browser ClipboardItem write failed:', clipErr);
+        }
+      }
+
+      return false;
+    }
+  } catch (err) {
+    console.warn('DOM canvas crop failed, falling back to direct PDF render:', err);
+  }
+
+  if (pdfDoc) {
+    let page: Awaited<ReturnType<typeof pdfDoc.getPage>> | null = null;
+    try {
+      page = await pdfDoc.getPage(safePageNum);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const fullCanvas = document.createElement('canvas');
+      fullCanvas.width = Math.floor(viewport.width);
+      fullCanvas.height = Math.floor(viewport.height);
+      const fullCtx = fullCanvas.getContext('2d');
+      if (!fullCtx) return false;
+
+      fullCtx.fillStyle = '#ffffff';
+      fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
+
+      await page.render({
+        canvasContext: fullCtx,
+        viewport,
+      }).promise;
+
+      const W = fullCanvas.width;
+      const H = fullCanvas.height;
+      const sx = Math.max(0, Math.floor(rect.x * W));
+      const sy = Math.max(0, Math.floor(rect.y * H));
+      const sw = Math.min(W - sx, Math.max(4, Math.ceil(rect.width * W)));
+      const sh = Math.min(H - sy, Math.max(4, Math.ceil(rect.height * H)));
+
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = sw;
+      cropCanvas.height = sh;
+      const cropCtx = cropCanvas.getContext('2d');
+      if (!cropCtx) return false;
+
+      cropCtx.fillStyle = '#ffffff';
+      cropCtx.fillRect(0, 0, sw, sh);
+      cropCtx.drawImage(fullCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+      const dataUrl = cropCanvas.toDataURL('image/png');
+
+      if (isTauri()) {
+        const nativeOk = await tauriCopyImageToClipboard(dataUrl);
+        if (nativeOk) return true;
+      }
+
+      if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        const blobPromise = new Promise<Blob>((resolve, reject) => {
+          cropCanvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas toBlob returned null'));
+          }, 'image/png');
+        });
+        const item = new ClipboardItem({ 'image/png': blobPromise });
+        await navigator.clipboard.write([item]);
+        return true;
+      }
+    } catch (err) {
+      console.error('Direct offscreen region render failed:', err);
+    } finally {
+      if (page) {
+        try {
+          page.cleanup();
+        } catch {}
+      }
+    }
+  }
+
+  return false;
+}
+
 /** Remove one page from a PDF and return the updated document bytes. */
 export async function deletePageFromPdf(
   pdfBytes: Uint8Array,

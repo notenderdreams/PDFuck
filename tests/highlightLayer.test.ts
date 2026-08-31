@@ -38,4 +38,20 @@ describe('Highlight layer and line highlight selection', () => {
     expect(canvasSource).toContain('Drag to adjust start point');
     expect(canvasSource).toContain('Drag to adjust end point');
   });
+
+  test('offers Copy highlight text and Copy region as image in right-click context menu', async () => {
+    const [contextMenuSource, pageSource] = await Promise.all([
+      projectFile('src/components/PageContextMenu.tsx'),
+      projectFile('src/components/PDFPage.tsx'),
+    ]);
+
+    expect(contextMenuSource).toContain('hitAnnotation');
+    expect(contextMenuSource).toContain('onCopyAnnotationText');
+    expect(contextMenuSource).toContain('onCopyAnnotationImage');
+    expect(contextMenuSource).toContain('Copy region as image');
+    expect(pageSource).toContain('handleCopyAnnotationText');
+    expect(pageSource).toContain('handleCopyAnnotationImage');
+    expect(pageSource).toContain('getAnnotationCoveredText');
+    expect(pageSource).toContain('copyRegionImageToClipboard');
+  });
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Copy, FilePlus, FileText, Image, Trash2 } from 'lucide-react';
 import { SparkleIcon } from './icons/SparkleIcon';
+import type { Annotation } from '../utils/types';
 
 interface PageContextMenuProps {
   position: { x: number; y: number };
@@ -12,6 +13,10 @@ interface PageContextMenuProps {
   onAskAi: () => void;
   onCopySelectedText?: () => void;
   hasSelectedText?: boolean;
+  hitAnnotation?: Annotation | null;
+  onCopyAnnotationText?: (ann: Annotation) => void;
+  onCopyAnnotationImage?: (ann: Annotation) => void;
+  onDeleteAnnotation?: (id: string) => void;
 }
 
 export const PageContextMenu: React.FC<PageContextMenuProps> = ({
@@ -24,6 +29,10 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
   onAskAi,
   onCopySelectedText,
   hasSelectedText = false,
+  hitAnnotation = null,
+  onCopyAnnotationText,
+  onCopyAnnotationImage,
+  onDeleteAnnotation,
 }) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -55,19 +64,77 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
     action();
   };
 
-  const itemClass =
-    'page-context-menu__item';
+  const itemClass = 'page-context-menu__item';
+
+  const getCopyAnnotationTextLabel = () => {
+    if (!hitAnnotation) return 'Copy highlight text';
+    if (hitAnnotation.type === 'ai-explanation') return 'Copy AI response';
+    if (hitAnnotation.type === 'text-note') return 'Copy note text';
+    if (hitAnnotation.type === 'image') return 'Copy image name/text';
+    return 'Copy highlight text';
+  };
+
+  const getDeleteAnnotationLabel = () => {
+    if (!hitAnnotation) return 'Delete highlight';
+    if (hitAnnotation.type === 'ai-explanation') return 'Delete AI box';
+    if (hitAnnotation.type === 'text-note') return 'Delete note';
+    if (hitAnnotation.type === 'image') return 'Delete image';
+    return 'Delete highlight';
+  };
 
   return (
     <div
       ref={menuRef}
       role="menu"
-      aria-label="Page actions"
+      aria-label="Context actions"
       className="page-context-menu"
       style={{ left: position.x, top: position.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
+      {/* 1. Highlight / Annotation specific actions */}
+      {hitAnnotation && (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            className={itemClass}
+            onClick={run(() => onCopyAnnotationText?.(hitAnnotation))}
+          >
+            <span className="page-context-menu__icon" aria-hidden="true">
+              <Copy />
+            </span>
+            <span>{getCopyAnnotationTextLabel()}</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={itemClass}
+            onClick={run(() => onCopyAnnotationImage?.(hitAnnotation))}
+          >
+            <span className="page-context-menu__icon" aria-hidden="true">
+              <Image />
+            </span>
+            <span>Copy region as image</span>
+          </button>
+          {onDeleteAnnotation && (
+            <button
+              type="button"
+              role="menuitem"
+              className={`${itemClass} page-context-menu__item--destructive`}
+              onClick={run(() => onDeleteAnnotation(hitAnnotation.id))}
+            >
+              <span className="page-context-menu__icon" aria-hidden="true">
+                <Trash2 />
+              </span>
+              <span>{getDeleteAnnotationLabel()}</span>
+            </button>
+          )}
+          <div className="page-context-menu__separator" role="separator" />
+        </>
+      )}
+
+      {/* 2. Text selection action */}
       <button
         type="button"
         role="menuitem"
@@ -80,6 +147,8 @@ export const PageContextMenu: React.FC<PageContextMenuProps> = ({
         </span>
         <span>Copy text</span>
       </button>
+
+      {/* 3. Page level actions */}
       <button type="button" role="menuitem" className={itemClass} onClick={run(onCopyPageText)}>
         <span className="page-context-menu__icon" aria-hidden="true">
           <FileText />
