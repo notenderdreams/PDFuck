@@ -16,7 +16,6 @@ import type {
 import { resolveHighlightOpacity, toggleHighlightStyle } from '../utils/highlightStyle';
 import { extractTextFromDomPageRegion } from '../utils/textHighlight';
 import { focusWithoutMovingViewer, keepViewerPositionAfter } from '../utils/viewerPosition';
-import { TextFormattingToolbar } from './TextFormattingToolbar';
 
 interface AnnotationCanvasProps {
   pageNumber: number;
@@ -84,15 +83,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const [aiStart, setAiStart] = useState<StrokePoint | null>(null);
   const [aiCurrent, setAiCurrent] = useState<StrokePoint | null>(null);
 
-  // Text Note Input Popup State
-  const [textInputPos, setTextInputPos] = useState<StrokePoint | null>(null);
-  const [textInputValue, setTextInputValue] = useState<string>('');
-  const [textInputKind, setTextInputKind] = useState<'plain' | 'sticky'>('plain');
-  const [textInputColor, setTextInputColor] = useState<string>('#000000');
-  const [textInputFontSize, setTextInputFontSize] = useState<number>(14);
-  const [textInputFontFamily, setTextInputFontFamily] = useState<'sans' | 'serif' | 'mono'>('sans');
-  const [textInputAlign, setTextInputAlign] = useState<'left' | 'center' | 'right'>('left');
-
   const isMouseDownRef = useRef(false);
   const isInteractingRef = useRef(false);
   const colorFilterClass = isInvertedColorMode ? 'annotation-color-preview-invert' : undefined;
@@ -152,24 +142,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   // Flash feedback state after capturing a snippet
   const [capturedFlashRect, setCapturedFlashRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const textNoteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // Guarantee instant focus on text note creation
-  useEffect(() => {
-    if (textInputPos) {
-      const focusTextarea = () => {
-        if (textNoteTextareaRef.current) {
-          focusWithoutMovingViewer(textNoteTextareaRef.current);
-        }
-      };
-      const t1 = setTimeout(focusTextarea, 0);
-      const t2 = setTimeout(focusTextarea, 40);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }
-  }, [textInputPos]);
 
   // Convert pointer event coordinates to normalized 0..1 coordinates relative to page dimensions
   const getNormalizedCoords = (e: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>): { x: number; y: number; px: number; py: number } => {
@@ -481,10 +453,22 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       setAiStart({ x, y });
       setAiCurrent({ x, y });
     } else if (activeTool === 'text' || activeTool === 'sticky-note') {
-      if (textInputPos) handleSaveTextNote();
-      setTextInputPos({ x, y });
-      setTextInputValue('');
-      setTextInputKind(activeTool === 'text' ? 'plain' : 'sticky');
+      const newNote: TextNoteAnnotation = {
+        id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        pageNumber,
+        type: 'text-note',
+        kind: activeTool === 'text' ? 'plain' : 'sticky',
+        x,
+        y,
+        text: '',
+        color: activeTool === 'text' ? '#000000' : '#fef08a',
+        fontSize: 14,
+        fontFamily: 'sans',
+        align: 'left',
+        createdAt: Date.now(),
+      };
+      onAddAnnotation(newNote);
+      onSelectAnnotation?.(newNote.id);
     }
   };
 
@@ -682,29 +666,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     setLineCurrent(null);
     setAiStart(null);
     setAiCurrent(null);
-  };
-
-  const handleSaveTextNote = () => {
-    if (textInputPos && textInputValue.trim()) {
-      const newNote: TextNoteAnnotation = {
-        id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        pageNumber,
-        type: 'text-note',
-        kind: textInputKind,
-        x: textInputPos.x,
-        y: textInputPos.y,
-        text: textInputValue.trim(),
-        color: textInputKind === 'plain' ? textInputColor : '#fef08a',
-        fontSize: textInputFontSize,
-        fontFamily: textInputFontFamily,
-        align: textInputAlign,
-        createdAt: Date.now(),
-      };
-      onAddAnnotation(newNote);
-      onSelectAnnotation?.(newNote.id);
-    }
-    setTextInputPos(null);
-    setTextInputValue('');
   };
 
   const pointsToSvgPath = (points: StrokePoint[]) => {
@@ -1181,159 +1142,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           className="absolute z-50 px-2.5 py-1 rounded-md bg-emerald-600 text-white font-medium text-[11px] shadow-xl pointer-events-none flex items-center gap-1.5 backdrop-blur-xs animate-fade-in whitespace-nowrap ring-1 ring-emerald-400"
         >
           <span>✓ Added to Snippets</span>
-        </div>
-      )}
-
-      {/* Inline Plain Text Editor */}
-      {textInputPos && textInputKind === 'plain' && (
-        <div
-          style={{
-            left: `${textInputPos.x * pageWidth}px`,
-            top: `${textInputPos.y * pageHeight}px`,
-          }}
-          className="absolute z-50 pointer-events-auto"
-        >
-          <TextFormattingToolbar
-            align={textInputAlign}
-            onChangeAlign={setTextInputAlign}
-            fontFamily={textInputFontFamily}
-            onChangeFontFamily={setTextInputFontFamily}
-            fontSize={textInputFontSize}
-            onChangeFontSize={setTextInputFontSize}
-            colors={highlightColors}
-            color={textInputColor}
-            onChangeColor={setTextInputColor}
-            onDelete={() => {
-              setTextInputPos(null);
-              setTextInputValue('');
-            }}
-            onDone={handleSaveTextNote}
-          />
-          <textarea
-            ref={textNoteTextareaRef}
-            rows={Math.max(1, textInputValue.split('\n').length)}
-            value={textInputValue}
-            onChange={(e) => {
-              setTextInputValue(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            onBlur={handleSaveTextNote}
-            placeholder="Type text..."
-            aria-label="Add plain text"
-            className={`min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 leading-relaxed outline-none placeholder:opacity-50 shadow-sm ${
-              textInputFontFamily === 'serif'
-                ? 'font-serif'
-                : textInputFontFamily === 'mono'
-                  ? 'font-mono'
-                  : 'font-sans'
-            } ${
-              textInputAlign === 'center'
-                ? 'text-center'
-                : textInputAlign === 'right'
-                  ? 'text-right'
-                  : 'text-left'
-            }`}
-            style={{
-              color: textInputColor,
-              fontSize: `${textInputFontSize}px`,
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSaveTextNote();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                keepViewerPositionAfter(e.currentTarget, () => {
-                  setTextInputPos(null);
-                  setTextInputValue('');
-                });
-              }
-            }}
-          />
-        </div>
-      )}
-
-      {/* Active Sticky Note Creation Popup */}
-      {textInputPos && textInputKind === 'sticky' && (
-        <div
-          style={{
-            left: `${Math.min(textInputPos.x * pageWidth, Math.max(0, pageWidth - 240))}px`,
-            top: `${Math.min(textInputPos.y * pageHeight, Math.max(0, pageHeight - 160))}px`,
-            width: '220px',
-            minWidth: '140px',
-            backgroundColor: '#fef08a',
-            color: '#713f12',
-            borderColor: '#fde047',
-          }}
-          className="absolute z-50 p-2.5 rounded-lg border shadow-xl flex flex-col gap-1.5 font-sans text-xs pointer-events-auto animate-fade-in"
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between pb-1 border-b border-black/10 text-black/60">
-            <div className="flex items-center gap-1">
-              <GripHorizontal className="w-3.5 h-3.5 opacity-60" />
-              <span className="text-[10px] font-medium uppercase tracking-wider opacity-75">New Note</span>
-            </div>
-            <span className="text-[9.5px] opacity-60">⌘↵ Save</span>
-          </div>
-
-          <textarea
-            ref={textNoteTextareaRef}
-            autoFocus
-            rows={3}
-            value={textInputValue}
-            onChange={(e) => {
-              setTextInputValue(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${Math.max(54, e.target.scrollHeight)}px`;
-            }}
-            placeholder="Type your note..."
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.45)',
-              color: '#713f12',
-            }}
-            className="w-full rounded p-1.5 text-xs font-sans placeholder:text-black/40 focus:outline-none focus:ring-1 focus:ring-black/30 resize-none leading-relaxed min-h-[54px]"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSaveTextNote();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                keepViewerPositionAfter(e.currentTarget, () => {
-                  setTextInputPos(null);
-                  setTextInputValue('');
-                });
-              }
-            }}
-          />
-
-          <div className="flex items-center justify-end gap-1 pt-0.5">
-            <button
-              onClick={() => {
-                setTextInputPos(null);
-                setTextInputValue('');
-              }}
-              className="px-2 py-0.5 rounded text-[10.5px] opacity-75 hover:opacity-100"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveTextNote}
-              className="flex items-center gap-1 px-2.5 py-0.5 rounded bg-black/80 hover:bg-black text-white text-[10.5px] font-medium shadow-xs"
-            >
-              <Check className="w-3 h-3" />
-              <span>Save</span>
-            </button>
-          </div>
         </div>
       )}
 

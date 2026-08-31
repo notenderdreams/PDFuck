@@ -55,20 +55,34 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
   useEffect(() => {
     if (isEditing) {
       setEditText(annotation.text);
+      const adjustHeight = () => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = '0px';
+          const lineH = Math.round((annotation.fontSize || 14) * 1.4);
+          textareaRef.current.style.height = `${Math.max(lineH, textareaRef.current.scrollHeight)}px`;
+        }
+      };
       setTimeout(() => {
         if (textareaRef.current) {
           focusWithoutMovingViewer(textareaRef.current);
-          textareaRef.current.style.height = 'auto';
-          textareaRef.current.style.height = `${Math.max(48, textareaRef.current.scrollHeight)}px`;
+          adjustHeight();
           if (annotation.kind === 'plain') {
-            textareaRef.current?.setSelectionRange(annotation.text.length, annotation.text.length);
+            textareaRef.current.setSelectionRange(annotation.text.length, annotation.text.length);
           } else {
-            textareaRef.current?.select();
+            textareaRef.current.select();
           }
         }
       }, 30);
     }
-  }, [isEditing, annotation.kind, annotation.text]);
+  }, [isEditing, annotation.kind, annotation.text, annotation.fontSize]);
+
+  // Adjust textarea height on text change
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditText(e.target.value);
+    e.target.style.height = '0px';
+    const lineH = Math.round((annotation.fontSize || 14) * 1.4);
+    e.target.style.height = `${Math.max(lineH, e.target.scrollHeight)}px`;
+  };
 
   // Find color config or match preset
   const currentColor = NOTE_COLORS.find(
@@ -113,7 +127,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Resizing logic for sticky notes (no visible handles, corner/edge cursor-based resize)
+  // Resizing logic for plain text & sticky notes
   const isResizingRef = useRef(false);
   const resizeStartPosRef = useRef({ startX: 0, initialWidthPx: 0 });
 
@@ -123,15 +137,17 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
     if (activeTool === 'eraser') return;
     onSelect(annotation.id);
     isResizingRef.current = true;
+    const defaultWidthPx = annotation.kind === 'plain' ? 240 : 220;
     const initialWidthPx = annotation.width
-      ? Math.max(140, Math.round(annotation.width * pageWidth))
-      : 220;
+      ? Math.max(60, Math.round(annotation.width * pageWidth))
+      : defaultWidthPx;
     resizeStartPosRef.current = { startX: e.clientX, initialWidthPx };
 
     const handlePointerMove = (moveEvt: PointerEvent) => {
       if (!isResizingRef.current) return;
       const dx = moveEvt.clientX - resizeStartPosRef.current.startX;
-      const nextWidthPx = Math.max(140, Math.min(pageWidth * 1.5, resizeStartPosRef.current.initialWidthPx + dx));
+      const minW = annotation.kind === 'plain' ? 60 : 140;
+      const nextWidthPx = Math.max(minW, Math.min(pageWidth * 1.5, resizeStartPosRef.current.initialWidthPx + dx));
       onUpdate(annotation.id, { width: nextWidthPx / pageWidth });
     };
 
@@ -198,20 +214,37 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
           ? 'text-right'
           : 'text-left';
 
+    const plainWidthStyle = annotation.width
+      ? `${Math.round(annotation.width * pageWidth)}px`
+      : 'auto';
+
     return (
       <div
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => {
+          if (!isEditing) {
+            handleMouseDownDrag(e);
+          } else {
+            e.stopPropagation();
+          }
+        }}
         style={{
           left: `${leftPx}px`,
           top: `${topPx}px`,
-          maxWidth: '420px',
+          width: plainWidthStyle,
+          minWidth: '40px',
+          maxWidth: `${Math.round(pageWidth)}px`,
         }}
-        className={`absolute z-30 group rounded-sm ${
-          isSelected ? 'ring-2 ring-blue-500/80 ring-offset-2 ring-offset-transparent' : ''
+        className={`absolute z-30 group rounded-xs transition-shadow ${
+          isSelected
+            ? 'ring-1 ring-[#0080f0] ring-offset-1 ring-offset-transparent'
+            : isEditing
+              ? 'ring-1 ring-[#0080f0]/60 ring-offset-1 ring-offset-transparent'
+              : 'hover:ring-1 hover:ring-[#0080f0]/40 hover:ring-offset-1'
         }`}
       >
+        {/* Floating Formatting Toolbar */}
         {(isSelected || isEditing) && (
           <TextFormattingToolbar
             align={annotation.align || 'left'}
@@ -228,38 +261,56 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
           />
         )}
 
+        {/* Figma-Style Corner & Edge Resize Handles */}
+        {isSelected && (
+          <>
+            <div className="absolute -top-1 -left-1 w-2 h-2 bg-white border border-[#0080f0] rounded-2xs pointer-events-none shadow-xs z-40" />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-white border border-[#0080f0] rounded-2xs pointer-events-none shadow-xs z-40" />
+            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white border border-[#0080f0] rounded-2xs pointer-events-none shadow-xs z-40" />
+            <div
+              onPointerDown={handleResizeStart}
+              className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-[#0080f0] rounded-2xs cursor-nwse-resize shadow-xs z-40 touch-none"
+              title="Drag to resize text box"
+            />
+            <div
+              onPointerDown={handleResizeStart}
+              className="absolute top-0 -right-1 bottom-0 w-2.5 cursor-ew-resize touch-none select-none z-30"
+              title="Drag to resize width"
+            />
+          </>
+        )}
+
         {isEditing ? (
           <textarea
             ref={textareaRef}
-            rows={Math.max(1, editText.split('\n').length)}
             value={editText}
-            onChange={(e) => {
-              setEditText(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
+            onChange={handleTextChange}
             onBlur={handleSaveEdit}
+            placeholder="Type text..."
             aria-label="Edit plain text"
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 handleSaveEdit();
               } else if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
-                handleCancelEdit(e.currentTarget);
+                handleSaveEdit();
               }
             }}
-            className={`min-w-[12ch] max-w-[420px] resize-none overflow-hidden border border-blue-500/40 rounded px-1.5 py-0.5 bg-black/25 leading-relaxed outline-none shadow-sm ${fontClass} ${alignClass}`}
-            style={{ color: annotation.color || '#000000', fontSize: `${annotation.fontSize || 14}px` }}
+            className={`w-full bg-transparent border-0 outline-none ring-0 p-0.5 m-0 leading-relaxed resize-none block ${fontClass} ${alignClass}`}
+            style={{
+              color: annotation.color || '#000000',
+              fontSize: `${annotation.fontSize || 14}px`,
+              minHeight: `${Math.round((annotation.fontSize || 14) * 1.4)}px`,
+            }}
           />
         ) : (
           <div
-            onMouseDown={handleMouseDownDrag}
-            className={`cursor-grab whitespace-pre-wrap break-words leading-relaxed active:cursor-grabbing ${fontClass} ${alignClass}`}
+            className={`cursor-grab whitespace-pre-wrap break-words leading-relaxed active:cursor-grabbing p-0.5 select-text ${fontClass} ${alignClass}`}
             style={{ color: annotation.color || '#000000', fontSize: `${annotation.fontSize || 14}px` }}
           >
-            {annotation.text}
+            {annotation.text || <span className="opacity-40 italic">Empty text</span>}
           </div>
         )}
       </div>
@@ -380,7 +431,7 @@ export const TextNoteOverlay: React.FC<TextNoteOverlayProps> = ({
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   e.stopPropagation();
-                  handleCancelEdit(e.currentTarget);
+                  handleSaveEdit();
                 }
               }}
               style={{

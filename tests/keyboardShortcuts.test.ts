@@ -148,9 +148,9 @@ describe('annotation keyboard shortcuts', () => {
     expect(keyboardSource).toContain("case 'escape':");
     expect(keyboardSource).toContain('options.onEscape?.()');
 
-    // Overlay, Canvas, Note components also prevent bubbling on Escape during edit
+    // Overlay and Note components also prevent bubbling on Escape during edit
     expect(overlaySource).toContain('handleClose()');
-    expect(canvasSource).toContain('setTextInputPos(null)');
+    expect(noteSource).toContain('handleCancelEdit(e.currentTarget)');
     expect(noteSource).toContain('setIsEditing(false)');
 
     // App onEscape hierarchically checks open modals, selection, zen, and finally exits fullscreen

@@ -26,23 +26,16 @@ describe('plain text and sticky note tools', () => {
       source('src/utils/pdfExporter.ts'),
     ]);
 
-    expect(canvas).toContain("kind: textInputKind");
-    expect(canvas).toContain("textInputKind === 'plain' ? textInputColor : '#fef08a'");
-    expect(canvas).toContain("const [textInputColor, setTextInputColor] = useState<string>('#000000');");
-    expect(canvas).toContain('aria-label="Add plain text"');
-    expect(canvas).toContain('onBlur={handleSaveTextNote}');
-    expect(canvas).toContain("textInputPos && textInputKind === 'sticky'");
-    expect(canvas).toContain('const t1 = setTimeout(focusTextarea, 0);');
+    expect(canvas).toContain("kind: activeTool === 'text' ? 'plain' : 'sticky'");
+    expect(canvas).toContain("color: activeTool === 'text' ? '#000000' : '#fef08a'");
     expect(canvas).toContain("activeTool === 'text' ? 'cursor-text' : 'cursor-crosshair'");
-    expect(canvas).toContain('if (textInputPos) handleSaveTextNote();');
-    expect(canvas).toContain("e.key === 'Enter' && !e.shiftKey");
-    expect(canvas).toContain("rows={Math.max(1, textInputValue.split('\\n').length)}");
     expect(overlay).toContain("if (annotation.kind === 'plain')");
     expect(overlay).toContain('aria-label="Edit plain text"');
     expect(overlay).toContain('onBlur={handleSaveEdit}');
     expect(overlay).toContain(
-      'textareaRef.current?.setSelectionRange(annotation.text.length, annotation.text.length)'
+      'textareaRef.current.setSelectionRange(annotation.text.length, annotation.text.length)'
     );
+    expect(overlay).toContain("e.key === 'Enter' && (e.metaKey || e.ctrlKey)");
     expect(overlay).not.toContain('flex min-w-[180px] flex-col gap-1.5 rounded-lg');
     expect(exporter).toContain("const isPlainText = textAnn.kind === 'plain'");
     expect(exporter).toContain('if (!isPlainText)');
@@ -83,10 +76,9 @@ describe('plain text and sticky note tools', () => {
   });
 
   test('provides icon-only text formatting toolbar for alignment, font, size, and color', async () => {
-    const [toolbar, overlay, canvas] = await Promise.all([
+    const [toolbar, overlay] = await Promise.all([
       source('src/components/TextFormattingToolbar.tsx'),
       source('src/components/TextNoteOverlay.tsx'),
-      source('src/components/AnnotationCanvas.tsx'),
     ]);
 
     // Alignment icons
@@ -102,10 +94,8 @@ describe('plain text and sticky note tools', () => {
     expect(toolbar).toContain('HIGHLIGHT_COLOR_PRESETS');
     expect(toolbar).toContain('colors.map');
 
-    // Integrated into overlays and canvas
+    // Integrated into overlays
     expect(overlay).toContain('<TextFormattingToolbar');
-    expect(canvas).toContain('<TextFormattingToolbar');
-    expect(canvas).toContain('colors={highlightColors}');
     expect(overlay).toContain('colors={highlightColors}');
   });
 });
