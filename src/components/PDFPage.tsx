@@ -11,6 +11,7 @@ import { usesInvertedColorSpace } from '../utils/readingTheme';
 import { copyTextToClipboard, copyRegionImageToClipboard } from '../utils/pageExtractor';
 import { isAnnotationHitByEraser } from '../utils/eraserUtils';
 import { getAnnotationBoundingBox, getAnnotationCoveredText } from '../utils/annotationPresentation';
+import { selectFullLineAtTarget } from '../utils/textHighlight';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import type {
   Annotation,
@@ -332,6 +333,54 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
     }
   };
 
+  // Handle triple-click text selection across fragmented PDF.js text layer spans
+  const clickTrackerRef = useRef<{ count: number; lastTime: number; lastX: number; lastY: number }>({
+    count: 0,
+    lastTime: 0,
+    lastX: 0,
+    lastY: 0,
+  });
+
+  const handleTextLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || activeTool !== 'select') return;
+
+    const now = Date.now();
+    const tracker = clickTrackerRef.current;
+    const dist = Math.hypot(e.clientX - tracker.lastX, e.clientY - tracker.lastY);
+
+    if (now - tracker.lastTime < 450 && dist < 15) {
+      tracker.count += 1;
+    } else {
+      tracker.count = 1;
+    }
+    tracker.lastTime = now;
+    tracker.lastX = e.clientX;
+    tracker.lastY = e.clientY;
+
+    if (e.detail >= 3 || tracker.count >= 3) {
+      e.preventDefault();
+      selectFullLineAtTarget(
+        e.target as HTMLElement,
+        textLayerRef.current,
+        e.clientX,
+        e.clientY
+      );
+    }
+  };
+
+  const handleTextLayerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || activeTool !== 'select') return;
+    if (e.detail >= 3 || clickTrackerRef.current.count >= 3) {
+      e.preventDefault();
+      selectFullLineAtTarget(
+        e.target as HTMLElement,
+        textLayerRef.current,
+        e.clientX,
+        e.clientY
+      );
+    }
+  };
+
   const pageImages = annotations.filter(
     (a) => a.pageNumber === pageNumber && a.type === 'image'
   ) as AttachedImageAnnotation[];
@@ -477,6 +526,8 @@ export const PDFPageComponent: React.FC<PDFPageProps> = ({
       <div
         ref={textLayerRef}
         data-pdf-text-layer
+        onMouseDown={handleTextLayerMouseDown}
+        onClick={handleTextLayerClick}
         className={`textLayer absolute inset-0 overflow-hidden leading-none z-10 ${
           activeTool === 'select'
             ? 'select-text pointer-events-auto cursor-text'

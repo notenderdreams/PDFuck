@@ -229,11 +229,13 @@ pub fn run() -> Result<()> {
         .plugin(tauri_plugin_opener::init())
         .manage(AiRunnerState::default())
         .setup(|app| {
-            let database_path = app
+            let data_dir = app
                 .path()
                 .app_data_dir()
-                .context("failed to resolve application data directory")?
-                .join("library.sqlite3");
+                .or_else(|_| app.path().app_local_data_dir())
+                .or_else(|_| app.path().data_dir().map(|d| d.join("cinnabar")))
+                .context("failed to resolve application data directory")?;
+            let database_path = data_dir.join("library.sqlite3");
             app.manage(LibraryState::open(&database_path)?);
 
             let menu = create_app_menu(app)?;

@@ -28,7 +28,7 @@ describe('plain text and sticky note tools', () => {
 
     expect(canvas).toContain("kind: activeTool === 'text' ? 'plain' : 'sticky'");
     expect(canvas).toContain("color: activeTool === 'text' ? '#000000' : '#fef08a'");
-    expect(canvas).toContain("activeTool === 'text' ? 'cursor-text' : 'cursor-crosshair'");
+    expect(canvas).toContain("activeTool === 'text' ? 'cursor-text' : 'cursor-default'");
     expect(overlay).toContain("if (annotation.kind === 'plain')");
     expect(overlay).toContain('aria-label="Edit plain text"');
     expect(overlay).toContain('onBlur={handleSaveEdit}');

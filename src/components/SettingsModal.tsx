@@ -123,6 +123,8 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Mouse & Gestures',
     items: [
+      { keys: ['Double Click'], desc: 'Highlight / Remove Word Highlight' },
+      { keys: ['Triple Click'], desc: 'Highlight / Remove Line Highlight' },
       { keys: ['Cmd / Ctrl', 'Wheel'], desc: 'Zoom In / Out Smoothly' },
       { keys: ['Pinch'], desc: 'Trackpad Pinch to Zoom' },
       { keys: ['Space', 'Drag'], desc: 'Pan / Hand Tool' },

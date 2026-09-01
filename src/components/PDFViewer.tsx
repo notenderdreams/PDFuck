@@ -1102,9 +1102,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     ? 'cursor-none'
     : activeTool === 'text'
     ? 'cursor-text'
-    : activeTool === 'sticky-note'
-    ? 'cursor-crosshair'
-    : '';
+    : 'cursor-default';
 
   return (
     <main

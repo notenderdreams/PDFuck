@@ -168,14 +168,15 @@ export function getAnnotationBoundingBox(ann: Annotation): {
 
   if (ann.type === 'highlight-line') {
     const minX = Math.min(ann.startX, ann.endX);
-    const minY = Math.min(ann.startY, ann.endY);
     const maxX = Math.max(ann.startX, ann.endX);
-    const maxY = Math.max(ann.startY, ann.endY);
+    const lineDeltaY = Math.abs(ann.endY - ann.startY);
+    const halfH = Math.max(0.015, lineDeltaY / 2);
+    const midY = (ann.startY + ann.endY) / 2;
     return {
       x: minX,
-      y: minY,
+      y: midY - halfH,
       width: Math.max(0.01, maxX - minX),
-      height: Math.max(0.02, maxY - minY),
+      height: Math.max(0.03, halfH * 2),
     };
   }
 
