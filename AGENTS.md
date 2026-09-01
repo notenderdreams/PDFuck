@@ -2,7 +2,7 @@
 
 ## Project
 
-PDFuck is a desktop PDF reader and annotation studio built with React 19, TypeScript, Vite, PDF.js, Tailwind CSS 4, and Tauri 2. It supports macOS, Windows, and Linux. The web build is a useful fallback and development target, but mobile is not supported.
+Cinnabar is a desktop PDF reader and annotation studio built with React 19, TypeScript, Vite, PDF.js, Tailwind CSS 4, and Tauri 2. It supports macOS, Windows, and Linux. The web build is a useful fallback and development target, but mobile is not supported.
 
 Use Bun for all JavaScript dependency and script commands. Keep the existing Vite and Tauri setup unless the task explicitly requires an architectural change.
 

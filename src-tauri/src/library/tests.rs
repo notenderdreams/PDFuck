@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn imported_documents_survive_missing_files_and_folder_refresh() {
-    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    let root = std::env::temp_dir().join(format!("cinnabar-library-{}", Uuid::new_v4()));
     fs::create_dir_all(&root).unwrap();
     let database = root.join("library.sqlite3");
     let folder = root.join("pdfs");
@@ -55,7 +55,7 @@ fn imported_documents_survive_missing_files_and_folder_refresh() {
 
 #[test]
 fn deleting_folder_can_remove_contained_documents() {
-    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    let root = std::env::temp_dir().join(format!("cinnabar-library-{}", Uuid::new_v4()));
     fs::create_dir_all(&root).unwrap();
     let database = root.join("library.sqlite3");
     let folder = root.join("pdfs");
@@ -86,7 +86,7 @@ fn deleting_folder_can_remove_contained_documents() {
 
 #[test]
 fn version_mismatch_database_recovers_gracefully() {
-    let root = std::env::temp_dir().join(format!("pdfuck-library-{}", Uuid::new_v4()));
+    let root = std::env::temp_dir().join(format!("cinnabar-library-{}", Uuid::new_v4()));
     fs::create_dir_all(&root).unwrap();
     let database = root.join("library.sqlite3");
 

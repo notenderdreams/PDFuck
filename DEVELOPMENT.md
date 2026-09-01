@@ -1,6 +1,6 @@
 # Development & Contributing Guide
 
-This document covers local setup, tooling, architecture, and contribution guidelines for **PDFuck**.
+This document covers local setup, tooling, architecture, and contribution guidelines for **Cinnabar**.
 
 ---
 
@@ -135,7 +135,7 @@ bun run generate:bindings
 
 Keep command failures serializable at the Tauri boundary. Use `anyhow` with context inside Rust modules, then convert unexpected failures to a frontend-safe message. Expected outcomes such as closing a dialog or cancelling an AI request should remain normal return values.
 
-PDFuck currently targets desktop platforms only. Do not add mobile-specific entry points or configuration unless mobile support becomes an explicit project goal.
+Cinnabar currently targets desktop platforms only. Do not add mobile-specific entry points or configuration unless mobile support becomes an explicit project goal.
 
 ---
 

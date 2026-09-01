@@ -69,7 +69,7 @@ export async function createSamplePDF(): Promise<Uint8Array> {
     color: rgb(0.15, 0.35, 0.8),
   });
 
-  page1.drawText('Welcome to PDFuck. You can test all features on this document:\n1. Use the Highlighter (H) to mark key phrases or draw highlight boxes over charts.\n2. Invert colors (Cmd+I) or switch between OLED, Sepia, Nord & Matrix reading themes.\n3. Attach images, stamps, or logos (I) anywhere on the page and resize/drag them.\n4. Click "Export PDF" (Cmd+S) to permanently bake all annotations into a new PDF!', {
+  page1.drawText('Welcome to Cinnabar. You can test all features on this document:\n1. Use the Highlighter (H) to mark key phrases or draw highlight boxes over charts.\n2. Invert colors (Cmd+I) or switch between OLED, Sepia, Nord & Matrix reading themes.\n3. Attach images, stamps, or logos (I) anywhere on the page and resize/drag them.\n4. Click "Export PDF" (Cmd+S) to permanently bake all annotations into a new PDF!', {
     x: 55,
     y: p1H - 195,
     size: 9.5,
@@ -164,7 +164,7 @@ Color inversion shaders calculate per-pixel luminance transformations. By preser
   const bars = [
     { label: 'Standard PDF.js', val: 70, color: rgb(0.85, 0.35, 0.35) },
     { label: 'DOM Layering', val: 120, color: rgb(0.95, 0.65, 0.25) },
-    { label: 'Virtual Worker (PDFuck)', val: 240, color: rgb(0.2, 0.75, 0.5) },
+    { label: 'Virtual Worker (Cinnabar)', val: 240, color: rgb(0.2, 0.75, 0.5) },
     { label: 'GPU Accelerated', val: 280, color: rgb(0.25, 0.55, 0.95) },
   ];
 
@@ -187,7 +187,7 @@ Color inversion shaders calculate per-pixel luminance transformations. By preser
   });
 
   // Footer
-  page1.drawText('Page 1 of 3 — PDFuck Research Edition', {
+  page1.drawText('Page 1 of 3 — Cinnabar Research Edition', {
     x: 40,
     y: 35,
     size: 8,
@@ -209,7 +209,7 @@ Color inversion shaders calculate per-pixel luminance transformations. By preser
 
   const p2Text = `Standard white PDF pages emit high levels of short-wavelength blue spectrum light, resulting in digital eye strain during prolonged sessions. Simple negative inversion often destroys image clarity and inverts photographic gradients into garish artifacts.
 
-PDFuck solves this through multi-matrix luminance mapping:
+Cinnabar solves this through multi-matrix luminance mapping:
 • OLED True Black: Remaps page white to deep pitch black #000000, eliminating power consumption on OLED displays while maximizing contrast.
 • Warm Sepia Filter: Calibrated to 5200K color temperature, mimicking natural Japanese book paper.
 • Nord Slate & Cyberpunk Matrix: Specialized dark palettes optimized for technical literature, engineering schematics, and code documentation.`;
@@ -259,7 +259,7 @@ PDFuck solves this through multi-matrix luminance mapping:
     color: rgb(0.1, 0.1, 0.15),
   });
 
-  const p2Text2 = `You can drop any PNG, JPEG, SVG or WebP file straight onto any page in PDFuck. Try clicking the "Attach Image" tool on the floating toolbar or pressing the "I" key. You can also paste an image from your clipboard (Cmd+V).
+  const p2Text2 = `You can drop any PNG, JPEG, SVG or WebP file straight onto any page in Cinnabar. Try clicking the "Attach Image" tool on the floating toolbar or pressing the "I" key. You can also paste an image from your clipboard (Cmd+V).
 
 Once attached, click the image to reveal transform handles:
 • Drag anywhere to reposition across the page
@@ -305,7 +305,7 @@ Once attached, click the image to reveal transform handles:
   });
 
   // Footer
-  page2.drawText('Page 2 of 3 — PDFuck Research Edition', {
+  page2.drawText('Page 2 of 3 — Cinnabar Research Edition', {
     x: 40,
     y: 35,
     size: 8,
@@ -325,7 +325,7 @@ Once attached, click the image to reveal transform handles:
     color: rgb(0.08, 0.08, 0.12),
   });
 
-  const p3Text = `When you choose "Save Modified PDF" in PDFuck, the application performs native PDF binary stream synthesis using pdf-lib:
+  const p3Text = `When you choose "Save Modified PDF" in Cinnabar, the application performs native PDF binary stream synthesis using pdf-lib:
 
 1. Color Matrix Conversion: Highlights are converted to translucent PDF RGB fill operations with standard blend modes (Multiply).
 2. Raster Image Embedding: Attached PNG/JPEG images are encoded into native XObject Image dictionaries and mapped into the target page's transformation matrix.
@@ -415,7 +415,7 @@ Once attached, click the image to reveal transform handles:
   });
 
   // Footer
-  page3.drawText('Page 3 of 3 — PDFuck Research Edition', {
+  page3.drawText('Page 3 of 3 — Cinnabar Research Edition', {
     x: 40,
     y: 35,
     size: 8,

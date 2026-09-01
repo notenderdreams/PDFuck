@@ -466,7 +466,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--foreground)] mb-1">AI Assistant & CLI Engine</h3>
                     <p className="text-zinc-400 text-[11px] leading-relaxed">
-                      Select which local CLI powers PDFuck's AI explanations, math analysis, and text summaries.
+                      Select which local CLI powers Cinnabar's AI explanations, math analysis, and text summaries.
                     </p>
                   </div>
                   <button
@@ -602,7 +602,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-start gap-2 text-[11px] text-zinc-400 leading-relaxed">
                   <Cpu className="w-4 h-4 shrink-0 text-blue-400 mt-0.5" />
                   <span>
-                    PDFuck executes the selected CLI locally with <code className="text-zinc-300 font-mono text-[10px]">--sandbox</code> restrictions. Your PDF documents and prompts remain on your machine and are not indexed or stored remotely.
+                    Cinnabar executes the selected CLI locally with <code className="text-zinc-300 font-mono text-[10px]">--sandbox</code> restrictions. Your PDF documents and prompts remain on your machine and are not indexed or stored remotely.
                   </span>
                 </div>
 
@@ -664,7 +664,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {/* Left: Big Title + Version Below (Vertically Centered) */}
                   <div className="flex flex-col justify-center">
                     <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-[var(--foreground)] leading-none">
-                      PDFuck
+                      Cinnabar
                     </h1>
                     <div className="mt-2.5">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono text-[10px] border border-[var(--border)] font-medium">

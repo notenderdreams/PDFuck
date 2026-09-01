@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "PDFuck",
+  "productName": "Cinnabar",
   "version": "0.1.0",
-  "identifier": "com.pdfuck.app",
+  "identifier": "com.cinnabar.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "PDFuck — Pro PDF Reader & Studio",
+        "title": "Cinnabar — Pro PDF Reader & Studio",
         "width": 1380,
         "height": 900,
         "minWidth": 900,

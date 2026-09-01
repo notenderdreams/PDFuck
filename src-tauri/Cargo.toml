@@ -1,12 +1,12 @@
 [package]
-name = "pdfuck"
+name = "cinnabar"
 version = "0.1.0"
 description = "Desktop PDF Reader & Annotation Studio"
-authors = ["PDFuck Team"]
+authors = ["Cinnabar Team"]
 edition = "2021"
 
 [lib]
-name = "pdfuck_lib"
+name = "cinnabar_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -401,7 +401,7 @@ export async function getAiProviderStatus(): Promise<AiProviderStatus> {
   if (!isTauri()) {
     return {
       status: 'native_required',
-      message: 'Local CLI explanations require the PDFuck desktop app.',
+      message: 'Local CLI explanations require the Cinnabar desktop app.',
       availableProviders: [],
     };
   }
@@ -412,7 +412,7 @@ export async function setAiProviderExecutable(executablePath: string): Promise<A
   if (!isTauri()) {
     return {
       status: 'native_required',
-      message: 'Local CLI explanations require the PDFuck desktop app.',
+      message: 'Local CLI explanations require the Cinnabar desktop app.',
       availableProviders: [],
     };
   }
@@ -426,7 +426,7 @@ export async function setAiProviderPreference(
   if (!isTauri()) {
     return {
       status: 'native_required',
-      message: 'Local CLI explanations require the PDFuck desktop app.',
+      message: 'Local CLI explanations require the Cinnabar desktop app.',
       availableProviders: [],
     };
   }
@@ -435,7 +435,7 @@ export async function setAiProviderPreference(
 
 export async function runAiExplanation(request: AiExplanationRequest): Promise<AiExplanationResult> {
   if (!isTauri()) {
-    return { ok: false, code: 'native_required', message: 'Local CLI explanations require the PDFuck desktop app.' };
+    return { ok: false, code: 'native_required', message: 'Local CLI explanations require the Cinnabar desktop app.' };
   }
   try {
     return normalizeExplanationResult(await commands.runAiExplanation(request));

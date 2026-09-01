@@ -2,7 +2,7 @@ import type { Annotation } from './types';
 import { isTauri, tauriOpenJson, tauriSaveJson } from './tauriBridge';
 
 /**
- * Validates whether an object matches the shape of a known PDFuck annotation.
+ * Validates whether an object matches the shape of a known Cinnabar annotation.
  */
 function isValidAnnotation(item: any): item is Annotation {
   if (!item || typeof item !== 'object') return false;

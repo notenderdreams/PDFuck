@@ -1,12 +1,12 @@
-# PDFuck
+# Cinnabar
 
 > Read, organize, annotate, and understand PDFs in one focused workspace.
 
 <p align="center">
-  <img src="assets/preview.png" alt="PDFuck reader and annotation workspace" width="100%" />
+  <img src="assets/preview.png" alt="Cinnabar reader and annotation workspace" width="100%" />
 </p>
 
-PDFuck is a desktop PDF reader made for focused reading, study, and review. It keeps your documents organized and gives you practical tools to work with their content without cluttering the reading experience.
+Cinnabar is a desktop PDF reader made for focused reading, study, and review. It keeps your documents organized and gives you practical tools to work with their content without cluttering the reading experience.
 
 ## What it provides
 

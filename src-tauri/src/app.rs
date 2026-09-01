@@ -35,10 +35,10 @@ fn create_app_menu(app: &tauri::App) -> Result<Menu<tauri::Wry>> {
     // macOS App Submenu
     let app_submenu = Submenu::with_items(
         handle,
-        "PDFuck",
+        "Cinnabar",
         true,
         &[
-            &PredefinedMenuItem::about(handle, Some("PDFuck"), None)?,
+            &PredefinedMenuItem::about(handle, Some("Cinnabar"), None)?,
             &PredefinedMenuItem::separator(handle)?,
             &MenuItem::with_id(
                 handle,

@@ -608,6 +608,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "cinnabar"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "base64 0.22.1",
+ "image",
+ "log",
+ "lopdf",
+ "rfd",
+ "rusqlite",
+ "rusqlite_migration",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-specta",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "cipher"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2886,32 +2912,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pdfuck"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arboard",
- "base64 0.22.1",
- "image",
- "log",
- "lopdf",
- "rfd",
- "rusqlite",
- "rusqlite_migration",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-specta",
- "tokio",
- "uuid",
-]
 
 [[package]]
 name = "percent-encoding"

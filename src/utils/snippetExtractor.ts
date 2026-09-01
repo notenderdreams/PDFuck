@@ -498,7 +498,7 @@ export async function copyStitchedSnippetsToClipboard(
  */
 export async function downloadStitchedSnippets(
   snippets: SnippetEntry[],
-  baseFileName: string = 'pdfuck_snippets',
+  baseFileName: string = 'cinnabar_snippets',
   options?: StitchOptions
 ): Promise<boolean> {
   const canvas = await stitchSnippetsToCanvas(snippets, options);

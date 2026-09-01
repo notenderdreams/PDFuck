@@ -327,7 +327,7 @@ mod tests {
 
     fn temporary_path(name: &str, extension: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "pdfuck-{name}-{}-{}.{}",
+            "cinnabar-{name}-{}-{}.{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

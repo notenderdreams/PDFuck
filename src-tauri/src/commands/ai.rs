@@ -536,7 +536,7 @@ fn create_workspace(request_id: &str) -> Result<TempAiDirectory> {
         .unwrap_or_default()
         .as_nanos();
     let directory = std::env::temp_dir().join(format!(
-        "pdfuck-ai-{}-{}-{}",
+        "cinnabar-ai-{}-{}-{}",
         std::process::id(),
         timestamp,
         suffix
@@ -854,7 +854,7 @@ mod tests {
     #[test]
     fn temporary_directory_guard_removes_files() {
         let path =
-            std::env::temp_dir().join(format!("pdfuck-ai-cleanup-test-{}", std::process::id()));
+            std::env::temp_dir().join(format!("cinnabar-ai-cleanup-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir(&path).unwrap();
         fs::write(path.join("region.png"), b"temporary").unwrap();
